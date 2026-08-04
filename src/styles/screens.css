@@ -1,0 +1,1779 @@
+/*
+ * View-specific rules: the two shells, the home grid, the event page, the
+ * checkout and wallet, and the organizer's three screens.
+ *
+ * Loaded last, so a rule here always wins a tie against components.css.
+ *
+ * EVERY positional property in this file is LOGICAL — inset-inline-start/end,
+ * padding-inline, margin-inline, border-inline-start, text-align: start/end,
+ * inline-size. There is not one `left`, `right`, `padding-left` or
+ * `text-align: right` anywhere, which is what makes `dir="rtl"` mirror the
+ * whole app with no second stylesheet. Money and counts use `text-align: end`.
+ */
+
+/* ------------------------------------------------------------ shared vars */
+
+:root {
+  --qr-bg: #ffffff;
+  --qr-fg: #191920;
+  --wallet-radius: 16px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --qr-bg: #f4f4f6;
+    --qr-fg: #0a0a0d;
+  }
+}
+:root[data-theme="dark"] {
+  --qr-bg: #f4f4f6;
+  --qr-fg: #0a0a0d;
+}
+
+.wv-narrowcol {
+  max-width: 760px;
+  margin-inline: auto;
+}
+
+/* The organizer's column gets the same dock safe area as the public site. */
+.wv-content {
+  padding-block-end: clamp(150px, 24vh, 290px);
+}
+
+.wv-honest {
+  margin-block: 18px 0;
+}
+
+/* ------------------------------------------------------- the attendee site */
+
+.wv-site {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.wv-siteheader {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--z-header);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px var(--gutter);
+  background: var(--surface-header);
+  backdrop-filter: saturate(1.4) blur(10px);
+  border-block-end: 1px solid var(--border);
+}
+
+.wv-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--fg);
+}
+
+.wv-wordmark__mark {
+  inline-size: 22px;
+  block-size: 22px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, var(--accent), var(--art-a2));
+  box-shadow: var(--accent-glow);
+}
+
+.wv-sitenav {
+  display: flex;
+  gap: 4px;
+  margin-inline-start: 6px;
+}
+
+.wv-sitenav__item {
+  border: 0;
+  background: none;
+  padding: 7px 11px;
+  border-radius: 9px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--fg-muted);
+}
+.wv-sitenav__item:hover {
+  background: var(--surface-3);
+  color: var(--fg);
+}
+.wv-sitenav__item[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.wv-siteheader__end {
+  margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+/*
+ * The block-end padding is a SAFE AREA for the fixed demo dock, not decoration
+ * (house layout rule 1): the dock owns the block-end / inline-end corner, so
+ * no primary action — "Get tickets", "Pay $56" — is ever allowed to come to
+ * rest underneath it.
+ */
+.wv-sitebody {
+  flex: 1;
+  width: 100%;
+  max-width: 1240px;
+  margin-inline: auto;
+  padding-block: clamp(20px, 3vw, 34px) clamp(150px, 24vh, 290px);
+  padding-inline: var(--gutter);
+}
+
+.wv-sitefoot {
+  border-block-start: 1px solid var(--border);
+  padding: 20px var(--gutter) 34px;
+  background: var(--surface);
+}
+
+.wv-foot {
+  max-width: 1240px;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-subtle);
+}
+
+.wv-foot__chip {
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 11px;
+}
+
+.wv-foot--sidebar {
+  padding: 16px var(--gutter);
+  border-block-start: 1px solid var(--border);
+  margin-block-start: auto;
+  font-size: 11px;
+}
+
+/* --- the live hold pill --- */
+
+.wv-holdpill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 800;
+  transition: background 0.14s ease;
+}
+.wv-holdpill:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.wv-holdpill--low {
+  border-color: color-mix(in srgb, var(--warn) 40%, transparent);
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+/* ------------------------------------------- the dock's two extra controls */
+
+.wv-dock__clock {
+  margin-inline-start: auto;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--fg);
+  white-space: nowrap;
+}
+
+.wv-dock__advance {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  inline-size: 100%;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* ------------------------------------------------------ organizer sidebar */
+
+.wv-sidebar__badge {
+  display: inline-block;
+  margin-block-start: 3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* --- show switcher --- */
+
+.wv-switcher {
+  position: relative;
+  min-width: 0;
+}
+
+.wv-switcher__btn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: 100%;
+  padding: 8px 12px;
+  border-radius: 11px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.wv-switcher__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wv-switcher__when {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--fg-subtle);
+}
+
+/* A transparent full-screen catcher so one outside click closes the popover
+   and does not also activate whatever it landed on. */
+.wv-popcatch {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-sheet) - 1);
+  border: 0;
+  background: transparent;
+}
+
+/* Six shows with a room, a date and a sold/capacity figure each need more
+   room than the shared popover's default. */
+.wv-switcher .wv-popover {
+  min-inline-size: min(340px, 78vw);
+}
+
+.wv-switcher .wv-popover__item {
+  align-items: start;
+  gap: 12px;
+}
+
+.wv-popover__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  text-align: start;
+}
+
+.wv-popover__name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.wv-popover__meta {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--fg-subtle);
+}
+
+.wv-popover__count {
+  margin-inline-start: auto;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--fg-muted);
+  text-align: end;
+}
+
+.wv-popover__item[aria-current="true"] {
+  background: var(--accent-soft);
+}
+
+/* ------------------------------------------------------------------- hero */
+
+.wv-hero {
+  margin-block-end: 22px;
+}
+
+.wv-hero__title {
+  margin: 0;
+  font-size: clamp(26px, 4vw, 38px);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.wv-hero__sub {
+  margin: 8px 0 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  max-width: 60ch;
+}
+
+/* -------------------------------------------------------------- event art */
+
+.wv-art {
+  position: relative;
+  inline-size: 100%;
+  min-block-size: 120px;
+  border-radius: 14px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  isolation: isolate;
+}
+
+.wv-art__glyph {
+  color: rgba(255, 255, 255, 0.42);
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.28));
+}
+
+/* The art's own chip sits at the block-end / inline-end corner… */
+.wv-art__chip {
+  position: absolute;
+  inset-block-end: 9px;
+  inset-inline-end: 10px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: rgba(10, 10, 20, 0.42);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+/* …so a floating badge takes the OPPOSITE corner (house layout rule 2). */
+.wv-art__badge {
+  position: absolute;
+  inset-block-start: 10px;
+  inset-inline-start: 10px;
+}
+
+.wv-datetile {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  inline-size: 46px;
+  block-size: 46px;
+  border-radius: 11px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.wv-datetile__day {
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.05;
+  color: var(--fg);
+}
+
+.wv-datetile__mon {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  color: var(--fg-subtle);
+}
+
+/* --------------------------------------------------------------- home grid */
+
+.wv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+  gap: 16px;
+}
+
+.wv-showcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  border-radius: 17px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  text-align: start;
+  color: inherit;
+}
+
+/*
+ * One stretched button per card. Its ::after covers the whole article, so the
+ * click target is the card while the accessible name stays the show's own
+ * heading — a card-sized <button> would have had to swallow that heading.
+ */
+.wv-showcard__open {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+}
+.wv-showcard__open::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.wv-showcard__open:focus-visible {
+  outline: none;
+}
+.wv-showcard__open:focus-visible::after {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.wv-showcard__body {
+  padding: 13px 6px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 1;
+}
+
+.wv-showcard__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wv-showcard__name {
+  margin: 0;
+  font-size: 16.5px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wv-showcard__sub {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg-subtle);
+}
+
+.wv-showcard__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+.wv-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
+.wv-showcard__foot {
+  margin-block-start: auto;
+  padding-block-start: 10px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.wv-price {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--fg);
+  margin-inline-end: auto;
+}
+
+/* --- festival banner --- */
+
+.wv-banner {
+  display: grid;
+  grid-template-columns: minmax(180px, 300px) 1fr;
+  gap: 0;
+  margin-block-start: 18px;
+  padding: 10px;
+  border-radius: 19px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  text-align: start;
+  color: inherit;
+  overflow: hidden;
+}
+
+.wv-banner__art {
+  block-size: 100%;
+  min-block-size: 190px;
+}
+
+.wv-banner__body {
+  padding-block: 16px 8px;
+  padding-inline: 20px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: start;
+}
+
+.wv-banner__name {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.022em;
+}
+
+.wv-banner__sub {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg-muted);
+}
+
+.wv-banner__desc {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--fg-muted);
+  max-width: 62ch;
+}
+
+.wv-banner__foot {
+  margin-block-start: auto;
+  padding-block-start: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  inline-size: 100%;
+}
+
+.wv-banner__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-inline-start: auto;
+  padding: 8px 13px;
+  border-radius: 10px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-soft);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+/* ------------------------------------------------------------- event page */
+
+.wv-eventhead {
+  display: grid;
+  grid-template-columns: minmax(240px, 380px) 1fr;
+  gap: 22px;
+  margin-block: 14px 22px;
+}
+
+.wv-eventhead__body {
+  min-width: 0;
+}
+
+.wv-eventhead__kicker {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.wv-eventhead__title {
+  margin: 6px 0 14px;
+  font-size: clamp(26px, 4vw, 40px);
+  font-weight: 800;
+  letter-spacing: -0.028em;
+}
+
+.wv-facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 18px;
+}
+
+.wv-facts__row dt {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
+.wv-facts__row dd {
+  margin: 3px 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.wv-ga {
+  margin: 16px 0 0;
+  padding: 9px 13px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
+.wv-eventgrid {
+  display: grid;
+  grid-template-columns: 1fr minmax(300px, 400px);
+  gap: 18px;
+  align-items: start;
+}
+
+.wv-eventgrid__main {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+/*
+ * Deliberately NOT sticky. A pinned buy panel parks its primary button in the
+ * exact corner the demo dock lives in, at every scroll position; letting it
+ * scroll means the block-end safe area above can do its job.
+ */
+.wv-eventgrid__side {
+  align-self: start;
+}
+
+.wv-prose {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--fg-muted);
+}
+
+.wv-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+/* --- ticket types --- */
+
+.wv-types {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wv-type {
+  padding: 13px;
+  border-radius: 13px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.wv-type--off {
+  opacity: 0.72;
+}
+
+.wv-type__head {
+  display: flex;
+  align-items: start;
+  gap: 12px;
+}
+
+.wv-type__id {
+  min-width: 0;
+}
+
+.wv-type__name {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 800;
+}
+
+.wv-type__note {
+  margin: 3px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-subtle);
+}
+
+.wv-type__price {
+  margin-inline-start: auto;
+  font-size: 16px;
+  font-weight: 800;
+  text-align: end;
+  white-space: nowrap;
+}
+
+.wv-type__foot {
+  margin-block-start: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.wv-type__left {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fg-muted);
+  margin-inline-end: auto;
+}
+
+/* --- meters --- */
+
+.wv-meter {
+  margin-block-start: 11px;
+  block-size: 5px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.wv-meter__fill {
+  display: block;
+  block-size: 100%;
+  border-radius: 999px;
+  background: var(--pos);
+  transition: inline-size 0.24s ease;
+}
+
+.wv-meter--low .wv-meter__fill {
+  background: var(--warn);
+}
+
+/* --- steppers --- */
+
+.wv-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+}
+
+.wv-stepper__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 28px;
+  block-size: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg-muted);
+}
+.wv-stepper__btn:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--fg);
+}
+.wv-stepper__btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.wv-stepper__value {
+  min-inline-size: 26px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+/* --- buy bar --- */
+
+.wv-buybar,
+.wv-holdnote {
+  margin-block-start: 16px;
+  padding-block-start: 14px;
+  border-block-start: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.wv-buybar__total {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-inline-end: auto;
+}
+
+.wv-buybar__amount {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.wv-holdnote p {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg-muted);
+  flex: 1;
+  min-width: 140px;
+}
+
+/* --------------------------------------------------------------- checkout */
+
+.wv-holdbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-block-end: 16px;
+  padding: 11px 14px;
+  border-radius: 13px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.wv-holdbar--low {
+  border-color: color-mix(in srgb, var(--warn) 40%, transparent);
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.wv-holdbar__time {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.wv-holdbar__release {
+  margin-inline-start: auto;
+  border: 0;
+  background: none;
+  padding: 4px 6px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: inherit;
+  text-decoration: underline;
+}
+
+.wv-lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.wv-lines__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
+.wv-lines__row span:last-child,
+.wv-lines__total span:last-child {
+  margin-inline-start: auto;
+  text-align: end;
+  color: var(--fg);
+  font-weight: 700;
+}
+
+.wv-lines__total {
+  margin-block-start: 12px;
+  padding-block-start: 12px;
+  border-block-start: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.wv-formgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 13px;
+}
+
+.wv-callout {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 14px;
+  padding: 11px 13px;
+  border-radius: 11px;
+  border: 1px solid color-mix(in srgb, var(--info) 26%, transparent);
+  background: var(--info-soft);
+  color: var(--info);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.wv-cardsheet {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  padding: 15px;
+  border-radius: 14px;
+  border: 1px solid var(--border-strong);
+  background: linear-gradient(150deg, var(--surface-2), var(--surface-3));
+}
+
+.wv-cardsheet__pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 13px;
+}
+
+.wv-paybar {
+  margin-block-start: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.wv-paybar__why {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--warn);
+}
+
+/* ----------------------------------------------------------- confirmation */
+
+.wv-confirmhead {
+  text-align: center;
+  margin-block: 10px 24px;
+}
+
+.wv-confirmhead__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 54px;
+  block-size: 54px;
+  border-radius: 16px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  box-shadow: var(--accent-glow);
+}
+
+.wv-confirmhead__title {
+  margin: 14px 0 0;
+  font-size: clamp(26px, 4vw, 36px);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.wv-confirmhead__sub {
+  margin: 8px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
+.wv-confirmhead__order {
+  margin: 12px 0 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--fg);
+}
+
+.wv-confirmactions {
+  margin-block-start: 20px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* --- wallet tickets --- */
+
+.wv-wallets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.wv-wallet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--wallet-radius);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  padding-inline-start: 10px;
+}
+
+.wv-wallet--used {
+  opacity: 0.82;
+}
+
+.wv-wallet__edge {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: 10px;
+}
+
+.wv-wallet__top {
+  padding: 15px 16px 13px;
+}
+
+.wv-wallet__show {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+.wv-wallet__when {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fg-subtle);
+}
+
+.wv-wallet__meta {
+  margin: 13px 0 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.wv-wallet__meta dt {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
+.wv-wallet__meta dd {
+  margin: 2px 0 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+/* The perforation is a flow element, not a background: the halves have to
+   stay attached to each other at every width. */
+.wv-wallet__perf {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  block-size: 16px;
+}
+
+.wv-wallet__notch {
+  inline-size: 16px;
+  block-size: 16px;
+  border-radius: 50%;
+  background: var(--bg);
+  flex: 0 0 16px;
+}
+.wv-wallet__notch--start {
+  margin-inline-start: -8px;
+}
+.wv-wallet__notch--end {
+  margin-inline-end: -8px;
+}
+
+.wv-wallet__dashes {
+  flex: 1;
+  block-size: 1px;
+  background: repeating-linear-gradient(
+    to right,
+    var(--border-strong) 0 6px,
+    transparent 6px 12px
+  );
+}
+
+.wv-wallet__bottom {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px 16px;
+}
+
+.wv-wallet__codebox {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.wv-wallet__code {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.wv-wallet__used {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--pos);
+}
+
+.wv-wallet__qrnote {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--fg-subtle);
+}
+
+.wv-qr {
+  flex: 0 0 auto;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--qr-bg);
+  padding: 4px;
+}
+
+/* --------------------------------------------------------------- lookup */
+
+.wv-lookup {
+  display: flex;
+  align-items: end;
+  gap: 11px;
+  flex-wrap: wrap;
+}
+
+.wv-lookup .wv-field {
+  flex: 1;
+  min-width: 200px;
+}
+
+.wv-linkbtn {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: inherit;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.wv-foundline {
+  margin: 20px 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg-muted);
+}
+
+/* ----------------------------------------------------------- sales screen */
+
+.wv-legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-block-end: 16px;
+}
+
+.wv-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fg-muted);
+}
+
+.wv-legend__swatch {
+  inline-size: 11px;
+  block-size: 11px;
+  border-radius: 3px;
+}
+.wv-legend__swatch--sold {
+  background: var(--accent);
+}
+.wv-legend__swatch--held {
+  background: var(--warn);
+}
+.wv-legend__swatch--rem {
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+}
+
+.wv-typerows {
+  display: flex;
+  flex-direction: column;
+  gap: 17px;
+}
+
+.wv-typerow__head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-block-end: 7px;
+}
+
+.wv-typerow__name {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.wv-typerow__cap {
+  margin-inline-start: auto;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--fg-muted);
+  text-align: end;
+}
+
+.wv-typerow__counts {
+  margin: 7px 0 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--fg-subtle);
+}
+
+.wv-stack {
+  display: flex;
+  block-size: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-3);
+}
+
+.wv-stack__seg {
+  display: block;
+  block-size: 100%;
+  transition: inline-size 0.24s ease;
+}
+.wv-stack__seg--sold {
+  background: var(--accent);
+}
+.wv-stack__seg--held {
+  background: var(--warn);
+}
+.wv-stack__seg--rem {
+  background: var(--surface-3);
+}
+
+.wv-pace {
+  inline-size: 100%;
+  block-size: 96px;
+  display: block;
+}
+
+.wv-pace__area {
+  fill: var(--accent-soft);
+}
+
+.wv-pace__line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+
+.wv-pace__foot {
+  margin-block-start: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--fg-subtle);
+}
+
+/* ------------------------------------------------------- attendees screen */
+
+.wv-searchrow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-block-end: 15px;
+  color: var(--fg-subtle);
+}
+
+.wv-searchrow .wv-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.wv-searchrow__count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.wv-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.wv-table__head,
+.wv-table__row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 10px 4px;
+  border-block-end: 1px solid var(--border);
+}
+
+.wv-table__head {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+  border-block-end: 1px solid var(--border-strong);
+}
+
+.wv-table__row {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+.wv-table__row:hover {
+  background: var(--surface-2);
+}
+
+.wv-table__name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-weight: 700;
+  color: var(--fg);
+  min-width: 0;
+}
+
+.wv-table__email {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ------------------------------------------------------------ door screen */
+
+.wv-doorgrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.wv-camera {
+  position: relative;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  padding: 26px 20px;
+  border-radius: 15px;
+  border: 1px dashed var(--border-strong);
+  background: linear-gradient(160deg, var(--surface-2), var(--surface-3));
+  color: var(--fg-subtle);
+  overflow: hidden;
+}
+
+.wv-camera__corner {
+  position: absolute;
+  inline-size: 22px;
+  block-size: 22px;
+  border: 2px solid var(--accent);
+  opacity: 0.85;
+}
+.wv-camera__corner--tl {
+  inset-block-start: 12px;
+  inset-inline-start: 12px;
+  border-block-end: 0;
+  border-inline-end: 0;
+  border-start-start-radius: 7px;
+}
+.wv-camera__corner--tr {
+  inset-block-start: 12px;
+  inset-inline-end: 12px;
+  border-block-end: 0;
+  border-inline-start: 0;
+  border-start-end-radius: 7px;
+}
+.wv-camera__corner--bl {
+  inset-block-end: 12px;
+  inset-inline-start: 12px;
+  border-block-start: 0;
+  border-inline-end: 0;
+  border-end-start-radius: 7px;
+}
+.wv-camera__corner--br {
+  inset-block-end: 12px;
+  inset-inline-end: 12px;
+  border-block-start: 0;
+  border-inline-start: 0;
+  border-end-end-radius: 7px;
+}
+
+.wv-camera__sweep {
+  position: absolute;
+  inset-inline: 14px;
+  block-size: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: wv-sweep 2.6s ease-in-out infinite;
+}
+
+@keyframes wv-sweep {
+  0%,
+  100% {
+    inset-block-start: 18%;
+    opacity: 0.15;
+  }
+  50% {
+    inset-block-start: 78%;
+    opacity: 0.9;
+  }
+}
+
+.wv-camera__text {
+  margin: 0;
+  max-width: 42ch;
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.wv-scanrow {
+  margin-block-start: 15px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.wv-scanrow .wv-input {
+  flex: 1;
+  min-width: 160px;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+}
+
+.wv-samples {
+  margin-block-start: 16px;
+}
+
+.wv-samples__row {
+  margin-block-start: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.wv-sample {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 11px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  text-align: start;
+  color: var(--fg);
+}
+.wv-sample:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+.wv-sample__what {
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.wv-sample__code {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--fg-subtle);
+}
+
+/* --- verdict panels --- */
+
+.wv-verdict {
+  margin-block-start: 16px;
+  display: flex;
+  align-items: start;
+  gap: 12px;
+  padding: 14px 15px;
+  border-radius: 13px;
+  border: 1px solid;
+  animation: wv-pop 0.22s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.wv-verdict--pos {
+  border-color: color-mix(in srgb, var(--pos) 32%, transparent);
+  background: var(--pos-soft);
+  color: var(--pos);
+}
+.wv-verdict--warn {
+  border-color: color-mix(in srgb, var(--warn) 32%, transparent);
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.wv-verdict--danger {
+  border-color: color-mix(in srgb, var(--danger) 32%, transparent);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.wv-verdict__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.wv-verdict__title {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 800;
+}
+
+.wv-verdict__sub {
+  margin: 5px 0 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  line-height: 1.5;
+}
+
+.wv-verdict__code {
+  margin: 7px 0 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--fg-subtle);
+}
+
+.wv-verdict__clear {
+  border: 0;
+  background: none;
+  padding: 3px 6px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: inherit;
+  text-decoration: underline;
+}
+
+/* --- door counter + recent list --- */
+
+.wv-counter {
+  margin: 0;
+  font-size: clamp(26px, 5vw, 38px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+}
+
+.wv-counter__bar {
+  margin-block-start: 10px;
+  block-size: 9px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.wv-counter__fill {
+  display: block;
+  block-size: 100%;
+  border-radius: 999px;
+  background: var(--pos);
+  transition: inline-size 0.3s ease;
+}
+
+.wv-recent__title {
+  margin: 22px 0 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
+.wv-recent__empty {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-subtle);
+}
+
+.wv-recent {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+/*
+ * House layout rule 4: the marker gets its OWN grid track. Absolutely
+ * positioning a dot over the text works until a name is long, the viewport is
+ * 375px, or the language is Arabic — and then it sits on somebody's surname.
+ */
+.wv-recent__row {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-block-end: 1px solid var(--border);
+}
+
+.wv-recent__marker {
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  background: var(--pos);
+  margin-inline: 3px;
+}
+
+.wv-recent__who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.wv-recent__type {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--fg-subtle);
+}
+
+.wv-recent__at {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg-muted);
+  text-align: end;
+}
+
+/* ---------------------------------------------------------------- the 404 */
+
+.wv-404 {
+  margin: 30px 0 0;
+  text-align: center;
+  font-size: 56px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--border-strong);
+}
+
+/* ------------------------------------------------------------- responsive */
+
+@media (max-width: 1080px) {
+  .wv-eventgrid {
+    grid-template-columns: 1fr;
+  }
+  .wv-eventgrid__side {
+    position: static;
+  }
+  .wv-doorgrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 899.98px) {
+  .wv-eventhead {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .wv-banner {
+    grid-template-columns: 1fr;
+  }
+  .wv-banner__body {
+    padding-inline: 8px;
+    padding-block-start: 16px;
+  }
+  .wv-banner__art {
+    min-block-size: 150px;
+  }
+  /* The ticket-type column folds away rather than the table scrolling
+     sideways — the name, the code and the status are what somebody at the
+     desk actually needs. The code keeps its own line: a ticket code broken
+     across two rows is a code somebody reads back wrong. */
+  .wv-table__head,
+  .wv-table__row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 9px;
+  }
+  .wv-table__head span:nth-child(3),
+  .wv-table__row span:nth-child(3) {
+    display: none;
+  }
+  .wv-table__row span:nth-child(2) {
+    font-size: 11.5px;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 560px) {
+  .wv-sitenav {
+    order: 3;
+    inline-size: 100%;
+    margin-inline-start: 0;
+  }
+  .wv-siteheader__end {
+    margin-inline-start: auto;
+  }
+  .wv-wallet__bottom {
+    flex-direction: column;
+    align-items: start;
+  }
+  .wv-wallet__meta {
+    grid-template-columns: 1fr;
+  }
+  .wv-cardsheet__pair {
+    grid-template-columns: 1fr;
+  }
+  .wv-confirmactions .wv-button {
+    flex: 1;
+  }
+}
