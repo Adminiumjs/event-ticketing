@@ -1,0 +1,413 @@
+{
+  "manifestVersion": 1,
+  "key": "events",
+  "name": "Event Ticketing",
+  "version": "1.0.0",
+  "publisher": {
+    "id": "adminium",
+    "name": "Adminium",
+    "url": "https://adminium.dev"
+  },
+  "license": "AGPL-3.0-only",
+  "description": {
+    "key": "mft.events.desc",
+    "fallback": "A box office for a venue: shows and their ticket types, orders, issued tickets and a door that checks people in — backed by your own database."
+  },
+  "categories": ["hospitality"],
+
+  "compatibility": {
+    "minAdminiumVersion": "1.0.0",
+    "engines": ["postgres", "mysql", "sqlite"],
+    "requires": ["realtime"]
+  },
+
+  "requiredSchema": {
+    "tables": [
+      {
+        "ref": "venues",
+        "table": "venues",
+        "label": { "key": "mft.events.tbl.venues", "fallback": "Rooms" },
+        "primaryKey": ["id"],
+        "columns": [
+          { "name": "id", "type": "int", "role": "pk" },
+          { "name": "name", "type": "text", "required": true, "display": "title" },
+          { "name": "address", "type": "text" },
+          { "name": "capacity", "type": "int", "default": 0 }
+        ]
+      },
+      {
+        "ref": "events",
+        "table": "events",
+        "label": { "key": "mft.events.tbl.events", "fallback": "Events" },
+        "primaryKey": ["id"],
+        "columns": [
+          { "name": "id", "type": "int", "role": "pk" },
+          { "name": "slug", "type": "text", "required": true, "unique": true },
+          { "name": "venue_id", "type": "fk", "references": "venues", "required": true },
+          { "name": "name", "type": "text", "required": true, "display": "title" },
+          { "name": "description", "type": "text" },
+          { "name": "starts_at", "type": "timestamp", "required": true },
+          { "name": "doors_at", "type": "timestamp", "required": true },
+          { "name": "image", "type": "image" },
+          {
+            "name": "status",
+            "type": "enum",
+            "required": true,
+            "values": ["draft", "on_sale", "sold_out", "closed"],
+            "default": "draft"
+          }
+        ]
+      },
+      {
+        "ref": "ticket_types",
+        "table": "ticket_types",
+        "label": { "key": "mft.events.tbl.ticket_types", "fallback": "Ticket types" },
+        "primaryKey": ["id"],
+        "columns": [
+          { "name": "id", "type": "int", "role": "pk" },
+          { "name": "event_id", "type": "fk", "references": "events", "required": true },
+          { "name": "name", "type": "text", "required": true, "display": "title" },
+          { "name": "price", "type": "money", "required": true, "default": 0 },
+          { "name": "capacity", "type": "int", "required": true },
+          { "name": "sales_start", "type": "timestamp" },
+          { "name": "sales_end", "type": "timestamp" },
+          { "name": "position", "type": "int", "default": 0 }
+        ]
+      },
+      {
+        "ref": "orders",
+        "table": "orders",
+        "label": { "key": "mft.events.tbl.orders", "fallback": "Orders" },
+        "primaryKey": ["id"],
+        "columns": [
+          { "name": "id", "type": "int", "role": "pk" },
+          { "name": "number", "type": "text", "required": true, "unique": true, "display": "title" },
+          { "name": "buyer_name", "type": "text", "required": true },
+          { "name": "email", "type": "email", "required": true },
+          { "name": "total", "type": "money", "required": true, "default": 0 },
+          {
+            "name": "status",
+            "type": "enum",
+            "required": true,
+            "values": ["pending", "paid", "cancelled"],
+            "default": "pending"
+          },
+          { "name": "placed_at", "type": "timestamp", "default": "now", "role": "created" }
+        ]
+      },
+      {
+        "ref": "order_items",
+        "table": "order_items",
+        "label": { "key": "mft.events.tbl.order_items", "fallback": "Order lines" },
+        "primaryKey": ["id"],
+        "columns": [
+          { "name": "id", "type": "int", "role": "pk" },
+          { "name": "order_id", "type": "fk", "references": "orders", "required": true },
+          { "name": "ticket_type_id", "type": "fk", "references": "ticket_types", "required": true },
+          { "name": "qty", "type": "int", "required": true, "default": 1 },
+          { "name": "unit_price", "type": "money", "required": true }
+        ]
+      },
+      {
+        "ref": "tickets",
+        "table": "tickets",
+        "label": { "key": "mft.events.tbl.tickets", "fallback": "Tickets" },
+        "primaryKey": ["id"],
+        "columns": [
+          { "name": "id", "type": "int", "role": "pk" },
+          { "name": "code", "type": "text", "required": true, "unique": true, "display": "title" },
+          { "name": "order_id", "type": "fk", "references": "orders", "required": true },
+          { "name": "ticket_type_id", "type": "fk", "references": "ticket_types", "required": true },
+          { "name": "attendee_name", "type": "text" },
+          {
+            "name": "status",
+            "type": "enum",
+            "required": true,
+            "values": ["valid", "checked_in", "void"],
+            "default": "valid"
+          },
+          { "name": "checked_in_at", "type": "timestamp" }
+        ]
+      },
+      {
+        "ref": "promo_codes",
+        "table": "promo_codes",
+        "label": { "key": "mft.events.tbl.promo_codes", "fallback": "Promo codes" },
+        "primaryKey": ["id"],
+        "columns": [
+          { "name": "id", "type": "int", "role": "pk" },
+          { "name": "code", "type": "text", "required": true, "unique": true, "display": "title" },
+          { "name": "pct_off", "type": "int", "required": true },
+          { "name": "active", "type": "boolean", "default": true }
+        ]
+      }
+    ]
+  },
+
+  "pages": [
+    {
+      "key": "events-dashboard",
+      "title": { "key": "mft.events.page.dashboard", "fallback": "Dashboard" },
+      "path": "/",
+      "type": "page-dashboard",
+      "icon": "layout-dashboard",
+      "nav": { "group": "manifest:events", "order": 1 },
+      "blocks": [
+        {
+          "kind": "kpi-stat-card",
+          "key": "tickets-issued",
+          "label": { "key": "mft.events.kpi.issued", "fallback": "Tickets issued" },
+          "source": "tickets",
+          "metric": "count",
+          "format": "number",
+          "filter": { "status": ["valid", "checked_in"] }
+        },
+        {
+          "kind": "kpi-stat-card",
+          "key": "door-count",
+          "label": { "key": "mft.events.kpi.door", "fallback": "Checked in at the door" },
+          "source": "tickets",
+          "metric": "count",
+          "format": "number",
+          "filter": { "status": ["checked_in"] }
+        },
+        {
+          "kind": "kpi-stat-card",
+          "key": "taken",
+          "label": { "key": "mft.events.kpi.taken", "fallback": "Taken on the door and online" },
+          "source": "orders",
+          "metric": "sum",
+          "field": "total",
+          "format": "money",
+          "filter": { "status": ["paid"] }
+        },
+        {
+          "kind": "chart-line-area",
+          "key": "sales-pace",
+          "label": { "key": "mft.events.chart.pace", "fallback": "Sales pace" },
+          "source": "orders",
+          "chart": "line-area",
+          "x": { "field": "placed_at", "bucket": "day" },
+          "y": { "agg": "count" },
+          "format": "number",
+          "filter": { "status": ["paid"] }
+        },
+        {
+          "kind": "mini-table",
+          "key": "recent-orders",
+          "label": { "key": "mft.events.block.orders", "fallback": "Recent orders" },
+          "source": "orders",
+          "limit": 8,
+          "orderBy": { "field": "placed_at", "dir": "desc" },
+          "columns": ["number", "buyer_name", "total", "status", "placed_at"]
+        },
+        {
+          "kind": "activity-feed",
+          "key": "door-activity",
+          "label": { "key": "mft.events.block.activity", "fallback": "Coming through the door" },
+          "source": "tickets",
+          "timestamp": "checked_in_at",
+          "limit": 10
+        }
+      ]
+    },
+    {
+      "key": "events-manage",
+      "title": { "key": "mft.events.page.manage", "fallback": "Events" },
+      "path": "/events",
+      "type": "page-crud",
+      "icon": "calendar-days",
+      "source": "events",
+      "nav": { "group": "manifest:events", "order": 2 },
+      "view": "card-gallery",
+      "gallery": { "title": "name", "subtitle": "description", "image": "image", "badge": "status" },
+      "columns": ["name", "venue_id", "doors_at", "starts_at", "status"],
+      "search": ["name", "slug"],
+      "filters": ["status", "venue_id"],
+      "orderBy": { "field": "starts_at", "dir": "asc" },
+      "children": [
+        {
+          "key": "ticket_types",
+          "label": { "key": "mft.events.tab.ticket_types", "fallback": "Ticket types" },
+          "source": "ticket_types",
+          "foreignKey": "event_id",
+          "columns": ["position", "name", "price", "capacity", "sales_start", "sales_end"],
+          "orderBy": { "field": "position", "dir": "asc" }
+        },
+        {
+          "key": "tickets",
+          "label": { "key": "mft.events.tab.tickets", "fallback": "Issued tickets" },
+          "source": "tickets",
+          "through": { "table": "ticket_types", "foreignKey": "event_id", "localKey": "ticket_type_id" },
+          "columns": ["code", "attendee_name", "ticket_type_id", "status", "checked_in_at"]
+        }
+      ]
+    },
+    {
+      "key": "events-orders",
+      "title": { "key": "mft.events.page.orders", "fallback": "Orders" },
+      "path": "/orders",
+      "type": "page-master-detail",
+      "icon": "receipt",
+      "source": "orders",
+      "nav": { "group": "manifest:events", "order": 3 },
+      "search": ["number", "buyer_name", "email"],
+      "filters": ["status"],
+      "filterControl": "filter-chip-bar",
+      "orderBy": { "field": "placed_at", "dir": "desc" },
+      "list": {
+        "view": "master-list",
+        "title": "number",
+        "subtitle": "buyer_name",
+        "timestamp": "placed_at",
+        "badge": "status"
+      },
+      "detail": {
+        "title": "number",
+        "fields": ["buyer_name", "email", "total", "status", "placed_at"],
+        "edit": ["buyer_name", "email", "status"]
+      },
+      "children": [
+        {
+          "key": "order_items",
+          "label": { "key": "mft.events.tab.order_items", "fallback": "What was bought" },
+          "source": "order_items",
+          "foreignKey": "order_id",
+          "columns": ["ticket_type_id", "qty", "unit_price"]
+        },
+        {
+          "key": "tickets",
+          "label": { "key": "mft.events.tab.issued", "fallback": "Tickets issued" },
+          "source": "tickets",
+          "foreignKey": "order_id",
+          "columns": ["code", "attendee_name", "ticket_type_id", "status", "checked_in_at"]
+        }
+      ]
+    },
+    {
+      "key": "events-door",
+      "title": { "key": "mft.events.page.door", "fallback": "Door" },
+      "path": "/door",
+      "type": "page-queue-inbox",
+      "icon": "scan-line",
+      "source": "tickets",
+      "nav": { "group": "manifest:events", "order": 4 },
+      "tabs": {
+        "field": "status",
+        "values": ["valid", "checked_in", "void"],
+        "default": "valid",
+        "control": "segmented-control"
+      },
+      "search": ["code", "attendee_name"],
+      "list": {
+        "title": "attendee_name",
+        "subtitle": "code",
+        "timestamp": "checked_in_at",
+        "badge": "status"
+      },
+      "detail": {
+        "title": "code",
+        "fields": ["attendee_name", "ticket_type_id", "order_id", "status", "checked_in_at"],
+        "edit": ["attendee_name"],
+        "actions": [
+          {
+            "key": "check-in",
+            "label": "Check in",
+            "set": { "status": "checked_in", "checked_in_at": "now" },
+            "undo": true
+          }
+        ],
+        "undo": { "view": "toast-stack" }
+      }
+    }
+  ],
+
+  "roles": [
+    {
+      "key": "organizer",
+      "name": { "key": "mft.events.role.organizer", "fallback": "Organizer" },
+      "description": {
+        "key": "mft.events.role.organizer.desc",
+        "fallback": "Puts shows on sale and runs them: events, ticket types, orders, issued tickets and promo codes. No access to settings or roles."
+      },
+      "permissions": [
+        { "resource": "venues", "actions": ["read", "create", "update"] },
+        { "resource": "events", "actions": ["read", "create", "update", "delete"] },
+        { "resource": "ticket_types", "actions": ["read", "create", "update", "delete"] },
+        { "resource": "orders", "actions": ["read", "create", "update"] },
+        { "resource": "order_items", "actions": ["read", "create", "update"] },
+        { "resource": "tickets", "actions": ["read", "create", "update"] },
+        { "resource": "promo_codes", "actions": ["read", "create", "update", "delete"] }
+      ]
+    },
+    {
+      "key": "door-staff",
+      "name": { "key": "mft.events.role.door", "fallback": "Door staff" },
+      "description": {
+        "key": "mft.events.role.door.desc",
+        "fallback": "Checks people in on the night. Reads tonight's tickets and marks them checked in — nothing else, and never a price."
+      },
+      "permissions": [
+        { "resource": "tickets", "actions": ["read", "update"] },
+        { "resource": "events", "actions": ["read"] },
+        { "resource": "ticket_types", "actions": ["read"] }
+      ]
+    }
+  ],
+
+  "settings": [
+    {
+      "key": "org_name",
+      "type": "text",
+      "label": { "key": "mft.events.set.org_name", "fallback": "Venue name" },
+      "required": true
+    },
+    {
+      "key": "time_zone",
+      "type": "text",
+      "label": { "key": "mft.events.set.time_zone", "fallback": "Time zone" },
+      "default": "Europe/Amsterdam",
+      "required": true,
+      "help": {
+        "key": "mft.events.set.time_zone.help",
+        "fallback": "Doors, stage times and on-sale moments resolve against this zone. A night that ends after midnight still belongs to the day it started."
+      }
+    },
+    {
+      "key": "ticket_prefix",
+      "type": "text",
+      "label": { "key": "mft.events.set.ticket_prefix", "fallback": "Order code prefix" },
+      "default": "WV",
+      "required": true,
+      "help": {
+        "key": "mft.events.set.ticket_prefix.help",
+        "fallback": "Order numbers are minted as PREFIX-0000 and each ticket hangs off its order — WV-8815-01, -02, and so on."
+      }
+    },
+    {
+      "key": "hold_minutes",
+      "type": "int",
+      "label": { "key": "mft.events.set.hold_minutes", "fallback": "Cart hold minutes" },
+      "default": 10,
+      "help": {
+        "key": "mft.events.set.hold_minutes.help",
+        "fallback": "How long a cart keeps its tickets out of stock while somebody checks out. Ten minutes is what the box office states on the event page."
+      }
+    }
+  ],
+
+  "capabilities": ["payments", "email-delivery", "realtime"],
+
+  "frontend": {
+    "kind": "spa",
+    "root": ".",
+    "buildCommand": "npm run build",
+    "buildOutput": "dist",
+    "entry": "index.html",
+    "routes": {
+      "tickets": "/",
+      "wallet": "/",
+      "door": "/"
+    }
+  }
+}

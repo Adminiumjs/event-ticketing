@@ -142,6 +142,42 @@ original time.
 | `npm run preview` | Preview a production build locally. |
 | `npm test` | Run the ticket engine suite. |
 
+## Full implementation (self-host)
+
+There are two ways to run this box office.
+
+**The frontend on its own, one click.** The Vercel / DigitalOcean options above
+deploy the site by itself, running on the bundled demo data. No database, no
+dashboard — a fully static preview.
+
+**The whole stack, one command.**
+[`docker-compose.yml`](docker-compose.yml) stands up Postgres (seeded with the
+*same* six shows, the same 684 orders and the same 1,011 issued tickets), an
+auto-generated Adminium dashboard that runs that real database, and the box
+office:
+
+```bash
+cp .env.example .env      # then set ADMINIUM_SECRET — e.g. openssl rand -hex 32
+docker compose up
+```
+
+- **Box office** → http://localhost:8080
+- **Adminium dashboard** → http://localhost:4600
+
+On first boot, `events-db` applies [`db/schema.sql`](db/schema.sql) then
+[`db/seed.sql`](db/seed.sql), and Adminium imports the venue database as its
+first source connection, introspects the schema, and generates the back office.
+Finish the ~1-minute first-run wizard at `:4600` — it's pre-pointed at the
+seeded `waveform` DB. The install spec Adminium reads to configure itself is
+[`manifest.json`](manifest.json), which scaffolds 7 tables, 4 dashboard pages,
+2 access presets (`organizer`, `door-staff`) and 4 settings into your connected
+database.
+
+The seed is the app's fiction, transcribed: Mia Okada's two tickets are order
+**WV-8641** in both places, the last seeded order is **WV-8814** in both, and
+the ten scans on the early-entry line carry the same times the door shows once
+you advance the demo clock past 19:30.
+
 ## The split: the box office and the back office
 
 The app you deploy is **the venue's box office**. The dashboard Adminium
@@ -196,7 +232,9 @@ src/
   components/  two shells, demo dock, overlays, primitives
   styles/      tokens.css (canonical design tokens), base.css, components.css,
                screens.css
+db/            schema.sql + seed.sql for the full self-host stack
 public/fonts/  self-hosted Manrope + JetBrains Mono (woff2)
+manifest.json  the Adminium install spec (7 tables, 4 pages, 2 roles)
 ```
 
 ## License
