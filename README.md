@@ -151,10 +151,10 @@ deploy the site by itself, running on the bundled demo data. No database, no
 dashboard — a fully static preview.
 
 **The whole stack, one command.**
-[`docker-compose.yml`](docker-compose.yml) stands up Postgres (seeded with the
-*same* six shows, the same 684 orders and the same 1,011 issued tickets), an
-auto-generated Adminium dashboard that runs that real database, and the box
-office:
+[`docker-compose.yml`](docker-compose.yml) stands up Postgres (seeded by
+default with the *same* six shows, the same 684 orders and the same 1,011
+issued tickets), an auto-generated Adminium dashboard that runs that real
+database, and the box office:
 
 ```bash
 cp .env.example .env      # then set ADMINIUM_SECRET — e.g. openssl rand -hex 32
@@ -164,11 +164,13 @@ docker compose up
 - **Box office** → http://localhost:8080
 - **Adminium dashboard** → http://localhost:4600
 
-On first boot, `events-db` applies [`db/schema.sql`](db/schema.sql) then
-[`db/seed.sql`](db/seed.sql), and Adminium imports the venue database as its
-first source connection, introspects the schema, and generates the back office.
+On first boot, `events-db` applies [`db/schema.sql`](db/schema.sql), installs
+the demo bookkeeping, then runs a hook that loads [`db/seed.sql`](db/seed.sql)
+unless you asked it not to with `DEMO_DATA=0` (see [Demo data](#demo-data)
+below). Adminium imports the venue database as its first source connection,
+introspects the schema, and generates the back office.
 Finish the ~1-minute first-run wizard at `:4600` — it's pre-pointed at the
-seeded `waveform` DB. The install spec Adminium reads to configure itself is
+`waveform` DB. The install spec Adminium reads to configure itself is
 [`manifest.json`](manifest.json), which scaffolds 7 tables, 4 dashboard pages,
 2 access presets (`organizer`, `door-staff`) and 4 settings into your connected
 database.
@@ -177,6 +179,32 @@ The seed is the app's fiction, transcribed: Mia Okada's two tickets are order
 **WV-8641** in both places, the last seeded order is **WV-8814** in both, and
 the ten scans on the early-entry line carry the same times the door shows once
 you advance the demo clock past 19:30.
+
+### Demo data
+
+The box office comes up seeded — the same six shows, 684 orders and 1,011
+issued tickets the static demo runs on. For an empty `waveform` with the same
+full schema and none of the fiction, set `DEMO_DATA=0` in `.env` before the
+first `docker compose up`. Neither choice is permanent: the demo rows can go
+back in, and come back out, whenever you like.
+
+| Command | What it does |
+| --- | --- |
+| `npm run demo:status` | What is loaded right now, table by table. |
+| `npm run demo:import` | Load [`db/seed.sql`](db/seed.sql). |
+| `npm run demo:wipe` | Remove the demo rows. |
+| `npm run demo:reset` | Wipe, then import a fresh copy. |
+
+A wipe removes only what the seed put in — the schema stays, and so do the
+shows and orders you added yourself. A demo row your own data depends on is
+kept rather than force-deleted, and reported under `kept`. `ON DELETE CASCADE`
+still applies, though: a demo order that is removed takes its tickets and line
+items with it, including any you added to it yourself, and those are counted
+separately as `cascaded`. `wipe` and `reset` ask first;
+`npm run demo:wipe -- --yes` skips the question — without it, a run with no
+terminal to ask at fails outright. Set `DATABASE_URL` and the four commands run
+against a Postgres somewhere else instead of the compose container.
+[`db/README.md`](db/README.md) covers the rest.
 
 ## The split: the box office and the back office
 
@@ -232,7 +260,8 @@ src/
   components/  two shells, demo dock, overlays, primitives
   styles/      tokens.css (canonical design tokens), base.css, components.css,
                screens.css
-db/            schema.sql + seed.sql for the full self-host stack
+db/            schema.sql + seed.sql for the full self-host stack, and the
+               demo-data toolkit behind `npm run demo:*` (see db/README.md)
 public/fonts/  self-hosted Manrope + JetBrains Mono (woff2)
 manifest.json  the Adminium install spec (7 tables, 4 pages, 2 roles)
 ```
