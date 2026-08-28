@@ -15,6 +15,7 @@ import { useEffect } from "react";
 import type { ComponentType } from "react";
 
 import DemoDock from "../components/DemoDock.tsx";
+import { DEMO, SURFACE_SIDE } from "../surface.ts";
 import { ToastLayer } from "../components/Overlays.tsx";
 import Shell from "../components/Shell.tsx";
 import type { View } from "../data/types.ts";
@@ -32,17 +33,33 @@ import MyTickets from "../screens/MyTickets.tsx";
 import NotFound from "../screens/NotFound.tsx";
 import Sales from "../screens/Sales.tsx";
 
-const SCREENS: Record<View, ComponentType> = {
+const ORGANIZER_SCREENS = {
+  sales: Sales,
+  attendees: Attendees,
+  door: Door,
+} satisfies Partial<Record<View, ComponentType>>;
+
+const ATTENDEE_SCREENS = {
   home: Home,
   event: EventPage,
   checkout: Checkout,
   confirm: Confirm,
   mytickets: MyTickets,
-  sales: Sales,
-  attendees: Attendees,
-  door: Door,
-  notfound: NotFound,
-};
+} satisfies Partial<Record<View, ComponentType>>;
+
+/*
+ * A surface build ships ONE side's screens. `SURFACE_SIDE` folds to a literal,
+ * so the branch not taken is eliminated and every screen only it referenced
+ * goes with it — which is what stops the PUBLIC bundle from carrying the sales ledger, the attendee list and the door scanner.
+ *
+ * `notfound` is in every build: an unknown view has to land somewhere.
+ */
+const SCREENS: Partial<Record<View, ComponentType>> =
+  SURFACE_SIDE === "staff"
+    ? { ...ORGANIZER_SCREENS, notfound: NotFound }
+    : SURFACE_SIDE === "customer"
+      ? { ...ATTENDEE_SCREENS, notfound: NotFound }
+      : { ...ORGANIZER_SCREENS, ...ATTENDEE_SCREENS, notfound: NotFound };
 
 function CurrentScreen() {
   const view = useStore((s) => s.view);
@@ -101,7 +118,11 @@ export default function App() {
       <Shell>
         <CurrentScreen />
       </Shell>
-      <DemoDock />
+      {/*
+        Build-time, not runtime. `DEMO` folds to a literal, so a hosted or
+        connected build does not CONTAIN the dock — it is not merely hidden.
+      */}
+      {DEMO && <DemoDock />}
       <ToastLayer />
     </>
   );
