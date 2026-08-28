@@ -12,6 +12,7 @@
  * drawer.
  */
 
+import { isEmbedded } from "../embed.ts";
 import {
   BarChart3,
   DoorOpen,
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 
 import type { View } from "../data/types.ts";
+import { timezoneNotice } from "../i18n/ambient.ts";
 import { useI18n } from "../i18n/index.tsx";
 import { countdown } from "../lib/format.ts";
 import { holdSecondsLeft } from "../lib/tickets.ts";
@@ -205,6 +207,33 @@ function Brand() {
   );
 }
 
+/**
+ * The one VISIBLE trace of a zone nobody confirmed (data/sessionSource.ts).
+ *
+ * Two states, one chip. `fallback` — no zone on the connection at all, so every
+ * date renders in UTC. `host` — a real zone, but the one Adminium took from the
+ * machine it runs on, which is plausible and unverified and therefore the more
+ * dangerous of the two: UTC announces itself, a wrong city does not.
+ *
+ * A chip and not a banner because the state is degraded, not broken; the fix
+ * lives in the tooltip. Renders nothing for an operator-set zone, which is what
+ * nearly every boot should be.
+ */
+function ZoneNotice() {
+  const { t } = useI18n();
+  const notice = timezoneNotice();
+  if (notice === null) return null;
+  return notice.source === "fallback" ? (
+    <span className="wv-chip" title={t("chrome.utc.why")}>
+      {t("chrome.utc.notice")}
+    </span>
+  ) : (
+    <span className="wv-chip" title={t("chrome.zone.why", { zone: notice.zone })}>
+      {t("chrome.zone.notice", { zone: notice.zone })}
+    </span>
+  );
+}
+
 function BoxOfficeShell({ children }: { children: React.ReactNode }) {
   const { t } = useI18n();
   const navOpen = useStore((s) => s.navOpen);
@@ -258,6 +287,7 @@ function BoxOfficeShell({ children }: { children: React.ReactNode }) {
 
           <ShowSwitcher />
           <div className="wv-topbar__spacer" />
+          <ZoneNotice />
           <ThemeToggle />
         </header>
 
@@ -269,8 +299,37 @@ function BoxOfficeShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * NO CHROME AT ALL — the internal placement (29-app-surfaces.md D6).
+ *
+ * Blended into the Adminium dashboard, this app's screens render inside the
+ * dashboard's own shell: Adminium's sidebar carries this app's sections and its
+ * topbar carries the account menu, the theme control and the language control.
+ * Rendering our own alongside would be two sidebars, two theme toggles and two
+ * brands in one window.
+ *
+ * `#main` is kept, because the skip link targets it and a skip link pointing at
+ * nothing is worse than no skip link.
+ */
+function EmbeddedShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="wv-embedded">
+      <main className="wv-content" id="main">
+        {children}
+      </main>
+    </div>
+  );
+}
+
 export default function Shell({ children }: { children: React.ReactNode }) {
   const persona = useStore((s) => s.persona);
+  /*
+   * A runtime check, not a build flag, and that is the point: ONE hosted-staff
+   * bundle serves both placements. Opened directly at `/apps/events/staff/` it
+   * renders the full box-office chrome; framed by the dashboard it renders
+   * none. Switching placement is a setting in Studio, not a rebuild.
+   */
+  if (isEmbedded()) return <EmbeddedShell>{children}</EmbeddedShell>;
   return persona === "organizer" ? (
     <BoxOfficeShell>{children}</BoxOfficeShell>
   ) : (
