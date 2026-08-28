@@ -66,6 +66,14 @@ const EN = {
   "chrome.dock.theme.dark": "Switch to the dark theme",
   "chrome.dock.reset": "Reset the demo",
 
+  /* --- the UTC fallback notice --- */
+  "chrome.utc.notice": "Dates shown in UTC",
+  "chrome.utc.why":
+    "This connection has no timezone set in Adminium, so dates render in UTC instead of the business's zone.",
+  "chrome.zone.notice": "Dates shown in {zone}",
+  "chrome.zone.why":
+    "This zone came from the server running Adminium, not from anyone here. Confirm it on the connection (Connections → this database) if it is the business's zone.",
+
   /* --- footer --- */
   "chrome.footer.copy":
     "© 2026 Waveform. A demo ticketing site shipped with Adminium.",
@@ -174,6 +182,14 @@ export const chrome = {
     "chrome.dock.theme.dark": "Zum dunklen Design wechseln",
     "chrome.dock.reset": "Demo zurücksetzen",
 
+    /* --- the UTC fallback notice --- */
+    "chrome.utc.notice": "Datumsangaben in UTC",
+    "chrome.utc.why":
+      "Für diese Verbindung ist in Adminium keine Zeitzone hinterlegt; Datumsangaben erscheinen daher in UTC statt in der Zeitzone des Unternehmens.",
+    "chrome.zone.notice": "Datumsangaben in {zone}",
+    "chrome.zone.why":
+      "Diese Zeitzone stammt vom Server, auf dem Adminium läuft, und wurde hier von niemandem gewählt. Bestätigen Sie sie an der Verbindung (Verbindungen → diese Datenbank), wenn es die Zeitzone des Unternehmens ist.",
+
     /* --- footer --- */
     "chrome.footer.copy":
       "© 2026 Waveform. Eine Demo-Ticketseite, die mit Adminium ausgeliefert wird.",
@@ -273,6 +289,14 @@ export const chrome = {
     "chrome.dock.theme.light": "Passer au thème clair",
     "chrome.dock.theme.dark": "Passer au thème sombre",
     "chrome.dock.reset": "Réinitialiser la démo",
+
+    /* --- the UTC fallback notice --- */
+    "chrome.utc.notice": "Dates affichées en UTC",
+    "chrome.utc.why":
+      "Aucun fuseau horaire n'est défini pour cette connexion dans Adminium ; les dates s'affichent donc en UTC plutôt que dans le fuseau de l'entreprise.",
+    "chrome.zone.notice": "Dates affichées en {zone}",
+    "chrome.zone.why":
+      "Ce fuseau vient du serveur qui exécute Adminium ; personne ne l'a choisi ici. Confirmez-le sur la connexion (Connexions → cette base de données) s'il s'agit du fuseau de l'entreprise.",
 
     /* --- footer --- */
     "chrome.footer.copy":
@@ -374,6 +398,14 @@ export const chrome = {
     "chrome.dock.theme.dark": "Přepnout na tmavý motiv",
     "chrome.dock.reset": "Resetovat demo",
 
+    /* --- the UTC fallback notice --- */
+    "chrome.utc.notice": "Data se zobrazují v UTC",
+    "chrome.utc.why":
+      "Toto připojení nemá v Adminiu nastavené časové pásmo, data se proto zobrazují v UTC místo v pásmu firmy.",
+    "chrome.zone.notice": "Data se zobrazují v {zone}",
+    "chrome.zone.why":
+      "Toto pásmo pochází ze serveru, na kterém běží Adminium, nikdo je zde nezvolil. Pokud jde o pásmo firmy, potvrďte je u připojení (Připojení → tato databáze).",
+
     /* --- footer --- */
     "chrome.footer.copy":
       "© 2026 Waveform. Ukázkový web s prodejem vstupenek dodávaný s Adminium.",
@@ -474,6 +506,14 @@ export const chrome = {
     "chrome.dock.theme.dark": "Skift til mørkt tema",
     "chrome.dock.reset": "Nulstil demoen",
 
+    /* --- the UTC fallback notice --- */
+    "chrome.utc.notice": "Datoer vises i UTC",
+    "chrome.utc.why":
+      "Denne forbindelse har ingen tidszone angivet i Adminium, så datoer vises i UTC i stedet for virksomhedens tidszone.",
+    "chrome.zone.notice": "Datoer vises i {zone}",
+    "chrome.zone.why":
+      "Denne tidszone kom fra serveren, der kører Adminium — ingen her har valgt den. Bekræft den på forbindelsen (Forbindelser → denne database), hvis det er virksomhedens tidszone.",
+
     /* --- footer --- */
     "chrome.footer.copy":
       "© 2026 Waveform. Et demo-billetsite, der følger med Adminium.",
@@ -572,6 +612,13 @@ export const chrome = {
     "chrome.dock.theme.dark": "切换到深色主题",
     "chrome.dock.reset": "重置演示",
 
+    /* --- the UTC fallback notice --- */
+    "chrome.utc.notice": "日期以 UTC 显示",
+    "chrome.utc.why": "此连接在 Adminium 中未设置时区，日期因此以 UTC 显示，而非商家所在时区。",
+    "chrome.zone.notice": "日期以 {zone} 显示",
+    "chrome.zone.why":
+      "此时区来自运行 Adminium 的服务器，并非有人在此选择。若它确实是该商家的时区，请在连接上确认（连接 → 此数据库）。",
+
     /* --- footer --- */
     "chrome.footer.copy":
       "© 2026 Waveform。随 Adminium 一同发布的演示售票网站。",
@@ -668,6 +715,13 @@ export const chrome = {
     "chrome.dock.theme.dark": "切換到深色佈景主題",
     "chrome.dock.reset": "重設示範",
 
+    /* --- the UTC fallback notice --- */
+    "chrome.utc.notice": "日期以 UTC 顯示",
+    "chrome.utc.why": "此連線在 Adminium 中未設定時區，日期因此以 UTC 顯示，而非商家所在時區。",
+    "chrome.zone.notice": "日期以 {zone} 顯示",
+    "chrome.zone.why":
+      "此時區來自執行 Adminium 的伺服器，並非有人在此選擇。若它確實是該商家的時區，請在連線上確認（連線 → 此資料庫）。",
+
     /* --- footer --- */
     "chrome.footer.copy":
       "© 2026 Waveform。隨 Adminium 一起發布的示範售票網站。",
@@ -763,6 +817,14 @@ export const chrome = {
     "chrome.dock.theme.light": "بدّل للمظهر الفاتح",
     "chrome.dock.theme.dark": "بدّل للمظهر الداكن",
     "chrome.dock.reset": "إعادة ضبط العرض التجريبي",
+
+    /* --- the UTC fallback notice --- */
+    "chrome.utc.notice": "التواريخ معروضة بتوقيت UTC",
+    "chrome.utc.why":
+      "لا توجد منطقة زمنية محدّدة لهذا الاتصال في Adminium، لذا تُعرض التواريخ بتوقيت UTC بدلاً من المنطقة الزمنية للنشاط التجاري.",
+    "chrome.zone.notice": "التواريخ معروضة بتوقيت {zone}",
+    "chrome.zone.why":
+      "جاءت هذه المنطقة الزمنية من الخادم الذي يشغّل Adminium ، ولم يخترها أحد هنا. أكّدها على الاتصال (الاتصالات → هذه قاعدة البيانات) إذا كانت منطقة النشاط التجاري.",
 
     /* --- footer --- */
     "chrome.footer.copy":
