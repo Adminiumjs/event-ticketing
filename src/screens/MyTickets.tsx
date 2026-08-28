@@ -4,12 +4,14 @@
  * There is no account and no password: tickets belong to the address that
  * bought them, which is how a small venue actually works and which means the
  * demo has nothing to sign into. The hint offers a seeded address, because a
- * lookup screen with nothing to look up is a dead end.
+ * lookup screen with nothing to look up is a dead end — and it comes from the
+ * seam, which returns null on a connected build. Pre-filling a real buyer's
+ * address on a public screen would hand their tickets to whoever loaded it.
  */
 
 import { Mail, Search } from "lucide-react";
 
-import { DEMO_BUYER } from "../data/demo.ts";
+import { source } from "../data/source.ts";
 import { useI18n } from "../i18n/index.tsx";
 import { showById, ticketsForEmail } from "../lib/tickets.ts";
 import { useStore } from "../state/store.ts";
@@ -17,6 +19,7 @@ import { Button, Empty, Field, Panel, WalletTicket } from "../components/Primiti
 
 export default function MyTickets() {
   const { t } = useI18n();
+  const example = source.exampleBuyer();
   const shows = useStore((s) => s.shows);
   const tickets = useStore((s) => s.tickets);
   const now = useStore((s) => s.clock);
@@ -57,18 +60,20 @@ export default function MyTickets() {
             {t("mytickets.lookup")}
           </Button>
         </form>
-        <p className="wv-honest">
-          {t("mytickets.hint")}{" "}
-          {/* A tap fills the field rather than making anyone retype a seeded
-              address they cannot be expected to remember. */}
-          <button
-            type="button"
-            className="wv-linkbtn wv-mono"
-            onClick={() => setLookupEmail(DEMO_BUYER.email)}
-          >
-            {DEMO_BUYER.email}
-          </button>
-        </p>
+        {example !== null && (
+          <p className="wv-honest">
+            {t("mytickets.hint")}{" "}
+            {/* A tap fills the field rather than making anyone retype a seeded
+                address they cannot be expected to remember. */}
+            <button
+              type="button"
+              className="wv-linkbtn wv-mono"
+              onClick={() => setLookupEmail(example.email)}
+            >
+              {example.email}
+            </button>
+          </p>
+        )}
       </Panel>
 
       {lookedUp === null ? (

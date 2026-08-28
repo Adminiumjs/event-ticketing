@@ -21,7 +21,6 @@
 
 import { create } from "zustand";
 
-import { FEATURED, NOW } from "../data/demo.ts";
 import { source } from "../data/source.ts";
 import type {
   Hold,
@@ -63,6 +62,8 @@ interface State {
 
   /* --- chrome --- */
   theme: Theme;
+  /** Theme pushed by the Adminium host frame; never persisted (29 D8). */
+  setHostTheme: (theme: Theme) => void;
   navOpen: boolean;
   switcherOpen: boolean;
   dockOpen: boolean;
@@ -147,12 +148,22 @@ let holdSeq = 0;
 
 /** Fresh copies of everything the seam hands out — the shape `reset` restores. */
 function seeded() {
+  /* The clock and the opening show come through the seam too, and that is not
+   * tidying: a connected build reads the real minute and the next night with
+   * doors still ahead of it, while the demo keeps its pinned Tuesday and its
+   * featured slug. Importing either from `demo.ts` — which is what this file
+   * did — pointed a connected box office at a show no tenant has, two months
+   * in the past, with every row around it real. */
+  const featured = source.featured() ?? "";
   return {
     shows: source.shows(),
     tickets: source.tickets(),
     orders: source.orders(),
     holds: source.holds(),
     nextSeq: source.nextOrderSeq(),
+    showId: featured,
+    orgShowId: featured,
+    clock: source.now(),
   };
 }
 
@@ -161,16 +172,12 @@ const SEED = seeded();
 export const useStore = create<State>((set, get) => ({
   view: "home",
   persona: "attendee",
-  showId: FEATURED,
-  orgShowId: FEATURED,
-
   theme: "light",
   navOpen: false,
   switcherOpen: false,
   dockOpen: true,
   overlayOpen: false,
 
-  clock: NOW,
   tickSeconds: 0,
 
   ...SEED,
@@ -243,6 +250,17 @@ export const useStore = create<State>((set, get) => ({
       window.matchMedia("(prefers-color-scheme: dark)").matches;
     const theme: Theme =
       stored === "dark" || stored === "light" ? stored : prefersDark ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", theme);
+    set({ theme });
+  },
+
+  /*
+   * The HOST owns the theme while blended: it is the dashboard's setting, not
+   * this app's, so this does not write the app's own storage key. Persisting it
+   * would leave the app stuck in the host's theme once opened standalone.
+   */
+  setHostTheme: (theme) => {
+    if (get().theme === theme) return;
     document.documentElement.setAttribute("data-theme", theme);
     set({ theme });
   },
@@ -535,11 +553,8 @@ export const useStore = create<State>((set, get) => ({
   reset: () => {
     set({
       ...seeded(),
-      clock: NOW,
       tickSeconds: 0,
       view: get().persona === "organizer" ? "sales" : "home",
-      showId: FEATURED,
-      orgShowId: FEATURED,
       quantities: {},
       holdExpired: false,
       buyerName: "",
