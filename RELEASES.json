@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "releases": [
+    {
+      "name": "@adminiumjs/app-events",
+      "version": "0.1.0",
+      "integrity": "sha512-Zw10QRxNfTW1mntrYEPCEIYff/pGXDxHC7w4yTdMWeiy7qJNE4RA8C6RMP+lr/qVwgOAQBNBQkGiFwNTYpT6oA==",
+      "publishedAt": "2026-09-13T09:58:03.613Z"
+    }
+  ]
+}
