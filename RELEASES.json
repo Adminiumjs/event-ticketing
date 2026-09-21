@@ -18,6 +18,12 @@
       "version": "0.1.2",
       "integrity": "sha512-azRjFxjzdYMHGfT0Iwn8yxtNggq4h1UOEg2kgGKJUZFG1Fplmh9Shj6a0QBuFvPQ1R1SapY/zCEjkNy15G1Nsg==",
       "publishedAt": "2026-09-20T17:41:59.000Z"
+    },
+    {
+      "name": "@adminiumjs/app-events",
+      "version": "0.1.3",
+      "integrity": "sha512-W4yRCVU+5dXAY+SRgxzHJXtG01rEQ6d0zfpA6/eE4rgTvlUf2t9v+6q4cXEk12gXwqEsJAFwKdewRgG49Yt4Kg==",
+      "publishedAt": "2026-09-21T17:00:08.000Z"
     }
   ]
 }
