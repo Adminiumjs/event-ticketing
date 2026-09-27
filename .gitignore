@@ -13,3 +13,4 @@ dist-surface
 .env
 .env.*
 !.env.example
+e2e-results
