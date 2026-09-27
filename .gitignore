@@ -4,6 +4,12 @@ dist-surface
 *.tsbuildinfo
 .DS_Store
 *.local
-.env
 .vercel
-.claude
+# Local Claude settings stay out; the shared skills are tracked.
+.claude/*
+!.claude/skills/
+
+# .env holds a real ADMINIUM_SECRET, so it must never be committable by a stray `git add`.
+.env
+.env.*
+!.env.example
