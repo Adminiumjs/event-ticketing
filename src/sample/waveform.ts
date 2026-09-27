@@ -248,6 +248,8 @@ export function sampleBundle(ledger: Ledger = LEDGER): SampleBundle {
       channel: o.channel,
       language: "en-US",
       code_text: o.code ?? null,
+      // The code Adminium found for what was typed, spelled so a load that skips the lookup keeps it.
+      code_id: o.code === undefined ? null : ref(`code:${o.code}`),
       created_at: wall(o.placed),
       held_until: o.held_until === undefined ? null : o.status === "held" ? after(o.held_until, now) : wall(o.held_until),
       offer_until: o.offer_until === undefined ? null : o.status === "offered" ? after(o.offer_until, now) : wall(o.offer_until),
