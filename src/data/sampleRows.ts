@@ -79,10 +79,10 @@ export interface ResolveOptions {
 }
 
 /** A column the database fills with the adding moment. */
-const NOW = Symbol("now");
+export const NOW = Symbol("now");
 /** A column every row must name: it has no default and may not be empty. */
-const REQUIRED = Symbol("required");
-type Fill = string | number | boolean | null | typeof NOW | typeof REQUIRED;
+export const REQUIRED = Symbol("required");
+export type Fill = string | number | boolean | null | typeof NOW | typeof REQUIRED;
 
 /** A decimal column's places: a number, or the row's currency's own. */
 type Scale = number | "currency";
@@ -797,6 +797,16 @@ export function resolveSample(bundle: SampleBundleRows, options: ResolveOptions)
  */
 export function settle(out: ResolvedSample, options: Pick<ResolveOptions, "currency">): void {
   const order = [...Object.keys(COLUMNS)];
+  /** Each table's rows by id: a copy finds its source without scanning. */
+  const ids = new Map<string, Map<unknown, ResolvedRow>>();
+  const byId = (table: string) => {
+    let found = ids.get(table);
+    if (found === undefined) {
+      found = new Map((out[table] ?? []).map((row) => [row["id"], row]));
+      ids.set(table, found);
+    }
+    return found;
+  };
   for (let pass = 0; pass < 12; pass += 1) {
     let moved = false;
     const put = (row: ResolvedRow, column: string, value: unknown) => {
@@ -809,7 +819,7 @@ export function settle(out: ResolvedSample, options: Pick<ResolveOptions, "curre
       for (const row of rows) {
         for (const copy of RULES.copies) {
           if (copy.table !== table || !copy.always || row[copy.via] === null || row[copy.via] === undefined) continue;
-          const source = out[copy.parent]?.find((candidate) => candidate["id"] === row[copy.via]);
+          const source = byId(copy.parent).get(row[copy.via]);
           if (source !== undefined) put(row, copy.column, source[copy.from]);
         }
         for (const rule of RULES.perNights) {
@@ -824,10 +834,16 @@ export function settle(out: ResolvedSample, options: Pick<ResolveOptions, "curre
       }
       for (const rollup of RULES.rollups) {
         if (rollup.table !== table) continue;
+        // The child rows by the parent they link to, once a pass: a total reads only its own.
+        const byParent = new Map<unknown, ResolvedRow[]>();
+        for (const child of out[rollup.child] ?? []) {
+          const list = byParent.get(child[rollup.via]);
+          if (list === undefined) byParent.set(child[rollup.via], [child]);
+          else list.push(child);
+        }
         for (const row of rows) {
           let total: Ratio = { n: 0n, d: 1n };
-          for (const child of out[rollup.child] ?? []) {
-            if (child[rollup.via] !== row["id"]) continue;
+          for (const child of byParent.get(row["id"]) ?? []) {
             if (rollup.where !== undefined && !sameValue(child[rollup.where.column], rollup.where.eq as string | number | boolean)) continue;
             const amount = rollup.sum === null ? { n: 1n, d: 1n } : toRatio(child[rollup.sum]);
             if (amount !== null) total = add(total, amount);
