@@ -20,6 +20,7 @@
  * its buyer, the confirm link only in "Confirm your order", a ticket's own
  * link only to the friend it is sent to or held by.
  */
+import { EMAIL_AR, EMAIL_CS, EMAIL_DA, EMAIL_DE, EMAIL_FR, EMAIL_ZH_CN, EMAIL_ZH_TW } from "./email-words.ts";
 import type { Tag } from "./labels.ts";
 import type { Kind } from "./outbox.ts";
 
@@ -383,9 +384,18 @@ function layout(kind: Kind, all: EmailWords) {
   return { subject: w.subject, preheader: w.preheader, blocks, footer: `${w.foot} ${all.address}` };
 }
 
-/** Every language's words: English here; the other seven are added in the translation pass (drafts until reviewed). */
-export function emailWords(): Partial<Record<Tag, EmailWords>> & { "en-US": EmailWords } {
-  return { "en-US": EMAIL_EN };
+/** Every language's words: English here, the other seven (drafts until reviewed) in `email-words.ts`. */
+export function emailWords(): Record<Tag, EmailWords> {
+  return {
+    "en-US": EMAIL_EN,
+    "de-DE": EMAIL_DE,
+    "fr-FR": EMAIL_FR,
+    "da-DK": EMAIL_DA,
+    "cs-CZ": EMAIL_CS,
+    "ar-EG": EMAIL_AR,
+    "zh-CN": EMAIL_ZH_CN,
+    "zh-TW": EMAIL_ZH_TW,
+  };
 }
 
 /** The variables each template reads, for the template editor's list. */

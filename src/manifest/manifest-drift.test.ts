@@ -17,10 +17,10 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { buildManifest, manifestText } from "./build.ts";
-import { untranslated } from "./labels.ts";
+import { emailWords } from "./emails.ts";
+import { LOCALES, untranslated } from "./labels.ts";
 
 const FILE = join(__dirname, "..", "..", "manifest.json");
-const UNTRANSLATED = join(__dirname, "untranslated-labels.json");
 
 type Json = Record<string, unknown>;
 type Entry = Json & {
@@ -47,10 +47,19 @@ describe("manifest.json is what src/manifest/ writes", () => {
     expect(readFileSync(FILE, "utf8") === manifestText()).toBe(true);
   });
 
-  it("has no label in English only beyond the ones recorded (the translation pass empties the list)", () => {
+  it("has every label in every language (drafts until the native review)", () => {
     buildManifest();
-    const recorded = JSON.parse(readFileSync(UNTRANSLATED, "utf8")) as string[];
-    expect(untranslated().filter((label) => !recorded.includes(label))).toEqual([]);
+    expect(untranslated()).toEqual([]);
+  });
+
+  it("has every email in every language, with the same variables as the English", () => {
+    const words = emailWords();
+    const vars = (value: unknown) => [...JSON.stringify(value).matchAll(/\{\{([A-Za-z_.]+)\}\}/g)].map((m) => m[1]).sort();
+    for (const tag of LOCALES) {
+      for (const kind of Object.keys(words["en-US"]) as (keyof (typeof words)["en-US"])[]) {
+        expect(vars(words[tag][kind]), `${tag} ${String(kind)}`).toEqual(vars(words["en-US"][kind]));
+      }
+    }
   });
 });
 
