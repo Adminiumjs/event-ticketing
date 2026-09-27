@@ -185,6 +185,22 @@ describe("the clock, a day on (Wednesday 16:30)", () => {
   });
 });
 
+describe("claiming part of a waitlist offer", () => {
+  it("confirms Mia's WV-S8814 with one ticket at the door and gives the other place back to the waitlist", async () => {
+    const demo = new DemoAdminium();
+    const mia = order(demo, "WV-S8814");
+    await demo.audience.openOrder(String(mia["link_token"]));
+    const claimed = await demo.audience.choose("door", 1);
+    expect([claimed["status"], claimed["total"]]).toEqual(["door", 20]);
+    expect(demo.world.all("waitlist").find((w) => w["email"] === "mia.okada@example.com")!["status"]).toBe("claimed");
+    const velvet = byName(demo, "Velvet Hour").id;
+    const returned = demo.world.where("tickets", (t) => t["event_id"] === velvet && t["status"] === "returned").length;
+    // Two places were owed to the waitlist; the claim sold one of them and handed its second ticket back.
+    expect(returned).toBe(2);
+    expect(demo.world.where("messages", (m) => m["kind"] === "tickets-cancelled" && m["order_id"] === mia.id).length).toBe(0);
+  });
+});
+
 describe("the box office", () => {
   it("cannot give a fifth comp on Neon Circuit", async () => {
     const demo = new DemoAdminium();

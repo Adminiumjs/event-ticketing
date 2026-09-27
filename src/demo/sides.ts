@@ -144,14 +144,23 @@ export class DemoAudience implements AudiencePort {
     return { order: copy(order), tickets: this.engine.world.where("tickets", (t) => t["order_id"] === order.id).map((t) => this.asBuyer(t)) };
   }
 
-  async choose(status: "door" | "confirming" | "no_charge" | "let_go"): Promise<Row> {
+  async choose(status: "door" | "confirming" | "no_charge" | "let_go", keep?: number): Promise<Row> {
     const order = this.opened();
     if (!["held", "confirming", "offered"].includes(String(order["status"]))) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
     const engine = this.engine;
     return engine.transaction(() => {
+      // Claiming part of an offer: the tickets not kept go back to the waitlist's places.
+      if (order["waitlist_id"] !== null && keep !== undefined) {
+        const tickets = engine.world.where("tickets", (t) => t["order_id"] === order.id);
+        if (keep < 1 || keep > tickets.length) throw new ApiError(400, "PUBLIC_WRITE_REFUSED", { column: "keep", reason: "out-of-range" });
+        for (const t of tickets.slice(keep)) engine.update("tickets", t.id, { status: "returned", cancel_cause: "claim" }, { origin: "staff", name: null, roles: [] });
+      }
       const moved = engine.update("orders", order.id, { status }, this.writer);
       // A claimed offer takes its places from the waitlist's: the places it was owed go back on sale as it is sold.
-      if (order["waitlist_id"] !== null && status !== "let_go") releaseReturned(engine, order["event_id"] as Id, engine.world.where("tickets", (t) => t["order_id"] === order.id).length);
+      if (order["waitlist_id"] !== null && status !== "let_go") {
+        const kept = engine.world.where("tickets", (t) => t["order_id"] === order.id && t["status"] === "valid").length;
+        releaseReturned(engine, order["event_id"] as Id, kept, order.id);
+      }
       return moved;
     });
   }
@@ -241,8 +250,8 @@ export class DemoAudience implements AudiencePort {
 class DryRun extends Error {}
 
 /** `n` of a show's places owed to its waitlist put back on sale (as an offer of them is claimed). */
-function releaseReturned(engine: Engine, eventId: Id, n: number): void {
-  const returned = engine.world.where("tickets", (t) => t["event_id"] === eventId && t["status"] === "returned").slice(0, n);
+function releaseReturned(engine: Engine, eventId: Id, n: number, claimedBy: Id): void {
+  const returned = engine.world.where("tickets", (t) => t["event_id"] === eventId && t["status"] === "returned" && t["order_id"] !== claimedBy).slice(0, n);
   for (const t of returned) engine.update("tickets", t.id, { status: "released" }, { origin: "staff", name: "Box office", roles: [] });
 }
 

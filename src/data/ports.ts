@@ -52,8 +52,12 @@ export interface AudiencePort {
   openOrder(token: string): Promise<ClaimReply>;
   /** The order the link opened. */
   order(): Promise<OrderWithTickets>;
-  /** How the buyer pays (at the door, by transfer — then confirmed by email —, at no charge), or letting it go. */
-  choose(status: "door" | "confirming" | "no_charge" | "let_go"): Promise<Row>;
+  /**
+   * How the buyer pays (at the door, by transfer — then confirmed by email —,
+   * at no charge), or letting it go. On a waitlist offer, `keep` claims fewer
+   * than offered: the rest go back to the waitlist.
+   */
+  choose(status: "door" | "confirming" | "no_charge" | "let_go", keep?: number): Promise<Row>;
   /** The emailed confirm link: the transfer checkout goes on to waiting for the transfer. */
   confirmTransfer(token: string): Promise<Row>;
 

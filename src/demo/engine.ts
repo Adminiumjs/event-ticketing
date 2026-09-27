@@ -200,6 +200,7 @@ export class Engine {
   /** A new row, with the rows it carries (an order's tickets). */
   create(table: Table, values: Record<string, unknown>, writer: Writer, children: { table: Table; via: string; rows: Record<string, unknown>[] } | null = null): { row: Row; children: Row[] } {
     return this.transaction(() => {
+      const usage = this.usage(writer, table === "orders" || table === "tickets" ? [values["event_id"] as Id | undefined] : []);
       const row = this.insertOne(table, values, writer);
       const made = (children?.rows ?? []).map((child) => this.insertOne(children!.table, { ...child, [children!.via]: row.id }, writer));
       this.settleAll();
@@ -207,7 +208,7 @@ export class Engine {
         const t = r === row ? table : children!.table;
         this.judgeCreate(t, this.world.get(t, r.id)!, writer);
       }
-      this.judgeLimits([{ table, row }, ...made.map((r) => ({ table: children!.table, row: r }))], writer, true);
+      this.judgeLimits([{ table, row }, ...made.map((r) => ({ table: children!.table, row: r }))], writer, true, usage);
       this.judgeUniques(table);
       if (children !== null) this.judgeUniques(children.table);
       this.produce(table, null, this.world.get(table, row.id)!);
@@ -295,6 +296,7 @@ export class Engine {
         throw new ApiError(409, "STATE_MOVE_REFUSED", { from, to, requires: "role" });
       }
     }
+    const usage = this.usage(writer, [stored["event_id"] as Id | undefined]);
     Object.assign(stored, values);
     // A code drawn again when what it belongs to changes (a new holder, a new friend it is sent to).
     for (const [column, on] of Object.entries(RULE_SET.renewals[table] ?? {})) {
@@ -305,7 +307,7 @@ export class Engine {
     this.settleAll();
     const after = this.world.get(table, id)!;
     if (move !== null && move.requires !== undefined) this.judgeRequires(table, after, move.requires, writer, { from: String(before[states!.column]), to: move.to });
-    this.judgeLimits([{ table, row: after }], writer, false);
+    this.judgeLimits([{ table, row: after }], writer, false, usage);
     this.judgeUniques(table);
     if (moving) this.effects(table, before, after);
     this.produce(table, before, after);
@@ -456,7 +458,17 @@ export class Engine {
   }
 
   /** The limits a write touched: over is refused only when this write made it so. */
-  private judgeLimits(written: { table: Table; row: Row }[], writer: Writer, creating: boolean): void {
+  /** What each pool of the shows a write may touch uses before it: a limit is judged only where a write adds to it. */
+  private usage(writer: Writer, events: (Id | undefined)[]): Map<string, number> {
+    const out = new Map<string, number>();
+    for (const eventId of events) {
+      if (eventId === undefined || eventId === null) continue;
+      for (const pool of this.counts(eventId, writer.origin === "public")) out.set(`${String(eventId)}:${String(pool.ticket_type_id)}`, pool.size - pool.left);
+    }
+    return out;
+  }
+
+  private judgeLimits(written: { table: Table; row: Row }[], writer: Writer, creating: boolean, before: Map<string, number>): void {
     const forPublic = writer.origin === "public";
     const tickets = written.filter((w) => w.table === "tickets").map((w) => this.world.get("tickets", w.row.id)!);
     const orders = written.filter((w) => w.table === "orders").map((w) => this.world.get("orders", w.row.id)!);
@@ -482,6 +494,9 @@ export class Engine {
     for (const eventId of touchedEvents) {
       for (const pool of this.counts(eventId, forPublic)) {
         if (pool.left >= 0) continue;
+        // Over already, and this write adds nothing to it: an offer claimed, an order moved on.
+        const was = before.get(`${String(eventId)}:${String(pool.ticket_type_id)}`);
+        if (was !== undefined && pool.size - pool.left <= was) continue;
         const mine = tickets.find((t) => pool.ticket_type_id === null || t["ticket_type_id"] === pool.ticket_type_id);
         const byOrder = orders.length > 0;
         if (mine === undefined && !byOrder) continue;
