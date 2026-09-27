@@ -14,7 +14,8 @@
     "build:surface": "npm run build:surface:staff && npm run build:surface:customer",
     "preview": "vite preview",
     "test": "vitest run",
-    "dev:hosted": "VITE_ADMINIUM_SURFACE_SIDE=staff vite"
+    "dev:hosted": "VITE_ADMINIUM_SURFACE_SIDE=staff vite",
+    "manifest": "vite-node scripts/write-manifest.ts"
   },
   "dependencies": {
     "@adminiumjs/public-client": "^0.2.2",
