@@ -50,7 +50,7 @@ const CASED = new RegExp(
     String.raw`\bT-Q\d{1,2}\b`,
     String.raw`\b(?:TE|TW|TU|TF)-\d{1,3}\b`,
     String.raw`\b[DQEM]\d{1,2}\b(?![ ,]-?\d)`,
-    String.raw`\bS[1-8]\d{2}(?:\.\d{2})?\b`,
+    String.raw`(?<![\w-])S[1-8]\d{2}(?:\.\d{2})?\b`,
     String.raw`\bR6\d{2}\b`,
     String.raw`\bQ-(?:\d{3}|M\d-\d)\b`,
     String.raw`\b(?:WT|EM|OV) \d{2,4}(?:[-\u2013]\d{2,4})?\b`,
@@ -96,7 +96,7 @@ describe("the citation forms", () => {
   });
 
   it("leave order numbers, email kinds, paths and style tokens alone", () => {
-    const plain = ["WV-8816", "WV-S8017", "e2c", "M10 10 Q12 5 20 0", "#E1E1E1", "bg-slate-800", "d1", "q1", "h-10", "grid-cols-2", "K7QX-M2PD"];
+    const plain = ["WV-8816", "WV-S8017", "e2c", "M10 10 Q12 5 20 0", "#E1E1E1", "bg-slate-800", "d1", "q1", "h-10", "grid-cols-2", "K7QX-M2PD", "4QJK-S429"];
     expect(plain.filter((text) => hits(text) > 0)).toEqual([]);
   });
 });
