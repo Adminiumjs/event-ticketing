@@ -10,9 +10,7 @@
  * the shipped bundle's import graph may reach it, which sources.test.ts gates.
  *
  * The only edits are import specifiers: `.js` becomes `.ts`, and the
- * `@adminium/add-on-contracts` package import becomes relative ones — and a
- * constructor's parameter properties are written as plain fields, so the copy
- * passes an app's `erasableSyntaxOnly`.
+ * `@adminium/add-on-contracts` package import becomes relative ones.
  */
 /**
  * `publicAccess` — what the app's public screens may do with one table, and
