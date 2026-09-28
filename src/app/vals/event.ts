@@ -10,6 +10,7 @@ import type { WaveApp } from "../wave.ts";
 import type { Show, Type, World } from "../world.ts";
 import { ageWords, evCard, paceOf, posterOf, reading, status, supportTxt, type Reading } from "./audience.ts";
 import { S, type V } from "./base.ts";
+import { focusLater } from "../focus.ts";
 
 const DAY = 86_400_000;
 
@@ -220,7 +221,7 @@ function panelVals(app: WaveApp, w: World, r: Reading): V {
     codePrompt: ev.codeTypes > 0 ? tr("Got a presale code?") : tr("Have a code?"),
     openCode: () => {
       app.setState({ codeOpen: true });
-      setTimeout(() => document.getElementById("code-in")?.focus(), 40);
+      focusLater("code-in", 40);
     },
     codeIn: s.codeIn,
     onCode: (e: { target: { value: string } }) => app.setState({ codeIn: e.target.value, codeErr: null }),
@@ -355,6 +356,7 @@ function timetableVals(app: WaveApp, w: World, fest: Show): V {
     annex: columns[1]?.acts ?? [],
     mainName: columns[0]?.name ?? "",
     annexName: columns[1]?.name ?? "",
+    curTab: `tt-day-${String(cur)}`,
     nowOn,
     nowTop: `${String(30 + ((nowMins - from) / 60) * px)}px`,
     nowTxt: fT(n),

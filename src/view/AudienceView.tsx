@@ -3,7 +3,7 @@
 import { Fragment } from "react";
 
 import { tr } from "../i18n/tr.ts";
-import { Icon, st, trx } from "./dom.tsx";
+import { Icon, roving, st, trx } from "./dom.tsx";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function AudienceView({ v }: { v: any }) {
@@ -512,40 +512,45 @@ export function AudienceView({ v }: { v: any }) {
                       </button>
                     </div>
                     {" "}
-                    <div role="group" aria-labelledby="cal-h" style={st("display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px;")}>
-                      {(v.cal.heads ?? []).map((h: any, i_h: number) => (
-                        <Fragment key={h ?? i_h}>
-                          <span aria-hidden="true" style={st("padding:6px 4px; font-family:var(--mono); font-size:11.5px; font-weight:700; color:var(--fg-subtle); text-transform:uppercase; text-align:center;")}>
+                    <div role="grid" aria-labelledby="cal-h" onKeyDown={(e) => roving(e, "[data-cal-day]", { row: 7 })} style={st("display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px;")}>
+                      <div role="row" style={st("display:contents;")}>
+                        {(v.cal.heads ?? []).map((h: any, i_h: number) => (
+                          <span key={i_h} role="columnheader" style={st("padding:6px 4px; font-family:var(--mono); font-size:11.5px; font-weight:700; color:var(--fg-subtle); text-transform:uppercase; text-align:center;")}>
                             {h}
                           </span>
-                        </Fragment>
-                      ))}
-                      {" "}
-                      {(v.cal.cells ?? []).map((c: any, i_c: number) => (
-                        <Fragment key={c.k ?? i_c}>
-                          <button onClick={c.open ?? undefined} disabled={c.off} aria-hidden={c.blank ? true : undefined} aria-label={c.blank ? undefined : c.label} style={st(c.style)}>
-                            <span style={st("font-family:var(--mono); font-size:13px; font-weight:700;")}>
-                              {c.num}
-                            </span>
-                            {" "}
-                            <span style={st("display:flex; flex-direction:column; gap:3px; width:100%;")}>
-                              {(c.evs ?? []).map((d: any, i_d: number) => (
-                                <Fragment key={d.id ?? i_d}>
-                                  <span style={st("display:flex; align-items:center; gap:5px; min-width:0;")}>
-                                    <span style={st(`width:8px; height:8px; flex-shrink:0; border-radius:50%; background:${d.dot};`)}></span>
-                                    {v.wide ? (
-                                      <>
-                                        <span style={st("font-size:11.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;")}>
-                                          {d.name}
-                                        </span>
-                                      </>
-                                    ) : null}
+                        ))}
+                      </div>
+                      {(v.cal.weeks ?? []).map((wk: any) => (
+                        <div key={wk.k} role="row" style={st("display:contents;")}>
+                          {(wk.cells ?? []).map((c: any, i_c: number) => (
+                            <div key={c.k ?? i_c} role="gridcell" style={st("display:contents;")}>
+                              {c.blank ? (
+                                <span style={st(c.style)}></span>
+                              ) : (
+                                <button data-cal-day="1" tabIndex={c.tab} onClick={c.open ?? undefined} aria-disabled={c.off ? true : undefined} aria-label={c.label} style={st(c.style)}>
+                                  <span style={st("font-family:var(--mono); font-size:13px; font-weight:700;")}>
+                                    {c.num}
                                   </span>
-                                </Fragment>
-                              ))}
-                            </span>
-                          </button>
-                        </Fragment>
+                                  {" "}
+                                  <span style={st("display:flex; flex-direction:column; gap:3px; width:100%;")}>
+                                    {(c.evs ?? []).map((d: any, i_d: number) => (
+                                      <Fragment key={d.id ?? i_d}>
+                                        <span style={st("display:flex; align-items:center; gap:5px; min-width:0;")}>
+                                          <span style={st(`width:8px; height:8px; flex-shrink:0; border-radius:50%; background:${d.dot};`)}></span>
+                                          {v.wide ? (
+                                            <span style={st("font-size:11.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;")}>
+                                              {d.name}
+                                            </span>
+                                          ) : null}
+                                        </span>
+                                      </Fragment>
+                                    ))}
+                                  </span>
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       ))}
                     </div>
                   </section>
@@ -666,10 +671,10 @@ export function AudienceView({ v }: { v: any }) {
                               {tr("Timetable")}
                             </h2>
                             {" "}
-                            <div role="group" aria-label={tr("Day")} style={st("display:flex; gap:3px; padding:3px; border-radius:12px; background:var(--surface-2); border:1px solid var(--border);")}>
+                            <div role="tablist" aria-label={tr("Day")} onKeyDown={(e) => roving(e, "[role=tab]", { pick: (el) => el.click() })} style={st("display:flex; gap:3px; padding:3px; border-radius:12px; background:var(--surface-2); border:1px solid var(--border);")}>
                               {(v.tt.days ?? []).map((d: any, i_d: number) => (
                                 <Fragment key={d.id ?? i_d}>
-                                  <button aria-pressed={d.pressed} onClick={d.go} style={st(d.style)}>
+                                  <button role="tab" id={`tt-day-${String(d.id)}`} aria-selected={d.on} aria-controls="tt-panel" tabIndex={d.on ? 0 : -1} onClick={d.go} style={st(d.style)}>
                                     {d.label}
                                   </button>
                                 </Fragment>
@@ -681,7 +686,7 @@ export function AudienceView({ v }: { v: any }) {
                             {v.tt.hint}
                           </p>
                           {" "}
-                          <div style={st("position:relative;")}>
+                          <div id="tt-panel" role="tabpanel" aria-labelledby={v.tt.curTab} style={st("position:relative;")}>
                             <div style={st("display:grid; grid-template-columns:52px 40px minmax(0,1fr) minmax(0,1fr); gap:0 8px;")}>
                               <span></span>
                               <span></span>

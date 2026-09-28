@@ -119,3 +119,29 @@ export function trx(en: string, parts: Record<string, ReactNode>, n?: number): R
     return <Fragment key={i}>{name !== undefined && name in parts ? parts[name] : piece}</Fragment>;
   });
 }
+
+/**
+ * Arrow keys over a set of controls with one tab stop (a calendar's days, a
+ * row of tabs): Left/Right step by one (mirrored right-to-left), Up/Down by
+ * `row` when the set is a grid, Home/End to the ends. The control reached
+ * takes focus and the tab stop; `pick` runs for it when given (a tab is
+ * chosen as it is reached).
+ */
+export function roving(e: { key: string; currentTarget: HTMLElement; preventDefault: () => void }, selector: string, opts: { row?: number; pick?: (el: HTMLElement) => void } = {}): void {
+  const items = [...e.currentTarget.querySelectorAll<HTMLElement>(selector)];
+  const at = items.indexOf(document.activeElement as HTMLElement);
+  if (at < 0) return;
+  const rtl = getComputedStyle(e.currentTarget).direction === "rtl";
+  const step: Record<string, number> = { ArrowRight: rtl ? -1 : 1, ArrowLeft: rtl ? 1 : -1, Home: -at, End: items.length - 1 - at };
+  if (opts.row !== undefined) {
+    step["ArrowDown"] = opts.row;
+    step["ArrowUp"] = -opts.row;
+  }
+  const d = step[e.key];
+  if (d === undefined) return;
+  e.preventDefault();
+  const next = items[Math.max(0, Math.min(items.length - 1, at + d))]!;
+  for (const el of items) el.tabIndex = el === next ? 0 : -1;
+  next.focus();
+  opts.pick?.(next);
+}

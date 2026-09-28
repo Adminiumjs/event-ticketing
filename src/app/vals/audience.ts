@@ -288,6 +288,7 @@ function homeVals(app: WaveApp, w: World): V {
       num: d,
       off: evs.length === 0,
       blank: false,
+      today: isToday,
       label: `${fD(at)}${evs.length > 0 ? `: ${evs.map((e) => e.name).join(", ")}` : ""}`,
       evs: evs.map((e) => ({ id: e.id, name: e.short, dot: posterOf(app, e).dot })),
       open: evs.length > 1 ? () => app.openSheet("dayPick", { day: at, evs: evs.map((e) => e.id) }) : evs.length === 1 ? () => app.openShow(evs[0]!.id) : null,
@@ -295,7 +296,14 @@ function homeVals(app: WaveApp, w: World): V {
     });
   }
   const heads = [1, 2, 3, 4, 5, 6, 0].map((wd) => fWd(Date.UTC(2026, 5, 7 + wd, 12)));
+  // One tab stop in the grid: today, else the first day with a show, else the first day.
+  const days1 = cells.filter((c) => c["blank"] !== true);
+  const stop = days1.find((c) => c["today"] === true) ?? days1.find((c) => c["off"] !== true) ?? days1[0];
+  for (const c of days1) c["tab"] = c === stop ? 0 : -1;
+  const weeks: V[] = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push({ k: `w${String(i / 7)}`, cells: cells.slice(i, i + 7) });
   const cal = {
+    weeks,
     title: fMonth(Date.UTC(yy, mm - 1, 15, 12)),
     heads,
     cells,

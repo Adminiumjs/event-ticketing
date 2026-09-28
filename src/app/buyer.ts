@@ -17,6 +17,7 @@ import { ms } from "./fmt.ts";
 import { pays } from "./vals/event.ts";
 import type { WaveApp } from "./wave.ts";
 import type { Show } from "./world.ts";
+import { focusLater } from "./focus.ts";
 
 export type PayWay = "door" | "transfer";
 
@@ -169,7 +170,7 @@ export class Buyer {
     }
     if (Object.keys(errs).length > 0) {
       this.setCo({ errs });
-      setTimeout(() => document.getElementById(errs["name"] !== undefined ? "f-name" : "f-email")?.focus(), 40);
+      focusLater(errs["name"] !== undefined ? "f-name" : "f-email", 40);
       return;
     }
     if (me === null && co.check !== "ok") return;
@@ -220,7 +221,7 @@ export class Buyer {
         },
       });
       this.app.refresh("aud:left:");
-      setTimeout(() => document.getElementById("f-t0")?.focus(), 80);
+      focusLater("f-t0", 80);
     } catch (error) {
       await this.holdRefused(show, error, body.tickets, lines);
     }
@@ -309,7 +310,7 @@ export class Buyer {
     if (Object.keys(errs).length > 0) {
       this.setCo({ errs });
       const first = Object.keys(errs).find((k) => k.startsWith("t"));
-      setTimeout(() => document.getElementById(first === undefined ? "co-err" : `f-t${first.slice(1)}`)?.focus(), 40);
+      focusLater(first === undefined ? "co-err" : `f-t${first.slice(1)}`, 40);
       return;
     }
     this.setCo({ busy: true, errs: {} });
@@ -349,7 +350,7 @@ export class Buyer {
     this.app.refresh("aud:");
     if (moved["status"] === "confirming") {
       this.app.setState({ co: { ...co, busy: false, phase: "mail", order: moved, heldUntil: ms(moved["held_until"]) ?? co.heldUntil } });
-      setTimeout(() => document.getElementById("co-mail")?.focus(), 60);
+      focusLater("co-mail", 60);
       return;
     }
     const sel = { ...this.s.sel };
@@ -435,7 +436,7 @@ export class Buyer {
     ] as const) {
       if (left <= at && !co.said.includes(at)) {
         this.setCo({ said: [...co.said, at] });
-        const said = document.getElementById("wv-said");
+        const said = typeof document === "undefined" ? null : document.getElementById("wv-said");
         if (said !== null) said.textContent = words;
       }
     }
@@ -479,7 +480,7 @@ export class Buyer {
     const email = si.email.trim();
     if (!okEmail(email)) {
       this.setSi({ fieldErr: tr("Enter an email address like name@example.com") });
-      setTimeout(() => document.getElementById("si-email")?.focus(), 30);
+      focusLater("si-email", 30);
       return;
     }
     this.setSi({ fieldErr: null, check: "run", err: null, mailErr: "" });
@@ -488,7 +489,7 @@ export class Buyer {
     try {
       await this.port.signIn(email);
       this.setSi({ check: "idle", step: "code", digits: ["", "", "", "", "", ""], tries: null, err: null, resendAt: this.app.now + 30_000, notice: null });
-      setTimeout(() => document.getElementById("si-d0")?.focus(), 60);
+      focusLater("si-d0", 60);
     } catch (error) {
       const c = isApiError(error) ? error.code : null;
       this.setSi({ check: "ok", mailErr: c === "PUBLIC_RATE_LIMITED" || c === "RATE_LIMITED" ? "limit" : "down" });
@@ -508,7 +509,7 @@ export class Buyer {
   setDigits(d: string[], focusAt: number | null): void {
     const si = this.s.si;
     this.setSi({ digits: d, err: si.err === "locked" || si.err === "expired" || si.err === "many" ? si.err : null });
-    if (focusAt !== null) setTimeout(() => document.getElementById(`si-d${String(Math.min(5, focusAt))}`)?.focus(), 0);
+    if (focusAt !== null) focusLater(`si-d${String(Math.min(5, focusAt))}`, 0);
   }
   async verify(e?: { preventDefault: () => void }): Promise<void> {
     e?.preventDefault();
@@ -524,7 +525,7 @@ export class Buyer {
       const tries = isApiError(error) && typeof error.params["tries"] === "number" ? error.params["tries"] : null;
       const err: Si["err"] = c === "PUBLIC_CODE_EXPIRED" ? "expired" : c === "PUBLIC_CODE_LOCKED" ? (tries === 0 ? "many" : "locked") : tries === 0 ? "many" : "wrong";
       this.setSi({ busy: false, err, tries });
-      setTimeout(() => document.getElementById("si-d0")?.focus(), 30);
+      focusLater("si-d0", 30);
     }
   }
   async openSignInLink(token: string): Promise<void> {
@@ -621,7 +622,7 @@ export class Buyer {
     if (fr.token === null) return;
     if (fr.name.trim() === "") {
       this.app.setState({ fr: { ...fr, err: tr("Add the name for the ticket") } });
-      setTimeout(() => document.getElementById("fr-name")?.focus(), 30);
+      focusLater("fr-name", 30);
       return;
     }
     this.app.setState({ fr: { ...fr, busy: true, err: null } });

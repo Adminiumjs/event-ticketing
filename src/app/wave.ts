@@ -15,6 +15,7 @@ import { money } from "./fmt.ts";
 import { setCurrency, setZone } from "./fmt.ts";
 import { Buyer, blankSi, type Co } from "./buyer.ts";
 import { worldOf, type Show, type World } from "./world.ts";
+import { focusLater } from "./focus.ts";
 
 /** What a code takes off, as the chip says it: a share of every ticket, or an amount off each of one kind. */
 function discountLabel(show: Show, code: string, data: Record<string, unknown>): string {
@@ -124,6 +125,7 @@ export class WaveApp {
   private listeners = new Set<() => void>();
   private cache = new Map<string, Cached>();
   private stale = new Map<string, unknown>();
+  private pending = 0;
   private worldMemo: { venue: Venue; unlocked: unknown; w: World } | null = null;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private opener: HTMLElement | null = null;
@@ -178,7 +180,12 @@ export class WaveApp {
       c = { loading: true };
       this.cache.set(key, c);
       const entry = c;
-      fn().then(
+      this.pending += 1;
+      fn()
+        .finally(() => {
+          this.pending -= 1;
+        })
+        .then(
         (value) => {
           if (this.cache.get(key) !== entry) return;
           entry.value = value;
@@ -201,6 +208,13 @@ export class WaveApp {
     const a = this.ask(key, fn);
     return a.value !== undefined ? a.value : (this.stale.get(key) as T | undefined);
   }
+  /** Resolves once every question asked of Adminium has its answer (tests; a screen reads again after). */
+  async idle(): Promise<void> {
+    for (let i = 0; i < 200; i += 1) {
+      await new Promise((r) => setTimeout(r, 0));
+      if (this.pending === 0) return;
+    }
+  }
   /** Whether an answer failed (and nothing older is on screen). */
   failed(key: string): boolean {
     const c = this.cache.get(key);
@@ -218,7 +232,7 @@ export class WaveApp {
 
   // ── the clock ───────────────────────────────────────────────────────────
 
-  async start(): Promise<void> {
+  async start(opts: { timers?: boolean } = {}): Promise<void> {
     try {
       const port = this.persona === "box" ? (this.ports.boxOffice ?? this.ports.door)! : this.ports.audience!;
       const config = await port.config();
@@ -231,10 +245,11 @@ export class WaveApp {
     } catch {
       this.setState({ loading: false, loadError: true });
     }
+    if (this.demo?.onClock) this.demo.onClock((now) => this.setClock(now));
+    if (opts.timers === false) return;
     // A transfer checkout waiting on its email: the tab asks after the order every few seconds.
     setInterval(() => void this.buyer.pollMail(), 3000);
-    if (this.demo?.onClock) this.demo.onClock((now) => this.setClock(now));
-    else {
+    if (this.demo?.onClock === undefined) {
       setInterval(() => this.setClock(Date.now() + this.skew), 30_000);
       // A running hold counts down each second on the server's clock.
       setInterval(() => {
@@ -457,7 +472,7 @@ export class WaveApp {
       if (c === null) throw error;
       const reason = isApiError(error) ? String(error.params["reason"] ?? "") : "";
       this.setState({ codeErr: c === "PUBLIC_RATE_LIMITED" || c === "RATE_LIMITED" ? "busy" : reason === "used-up" ? "used" : "bad" });
-      setTimeout(() => document.getElementById("code-in")?.focus(), 30);
+      focusLater("code-in", 30);
     }
   }
 
