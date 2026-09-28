@@ -8,7 +8,7 @@
  *
  * DEMO BUILD ONLY — nothing in a real build imports it.
  */
-import type { AudiencePort, BoxOfficePort, DoorPort, OrderWithTickets, StaffPerson, Venue } from "../data/ports.ts";
+import type { AudiencePort, BoxOfficePort, DoorPort, OrderWithTickets, Person, StaffPerson, Venue } from "../data/ports.ts";
 import { ApiError, type ClaimReply, type Config, type Id, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type TypeLeft } from "../data/wire.ts";
 import { venueDay, wallTime, toMs } from "../lib/venueTime.ts";
 import { normalizeCode } from "./codes.ts";
@@ -24,6 +24,16 @@ const TICKET_LINK = ENTRIES.find((e) => e.table === "tickets" && e.key === "tick
 
 const copy = (row: Row): Row => ({ ...row });
 const LIVE_ORDER = ["door", "awaiting_transfer", "overdue", "no_charge", "paid"];
+/** An order's states in which its tickets can be named. */
+const NAMED = ["held", "confirming", "offered", "door", "no_charge", "paid", "awaiting_transfer", "overdue"];
+/** The orders a signed-in person sees: every one that was ever confirmed, and an offer made to them. */
+const LIVE_OR_PAST = [...LIVE_ORDER, "offered", "released", "cancelled", "not_collected"];
+/** A small stable hash (the demo's emailed codes). */
+const hashOf = (s: string): number => {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i += 1) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+};
 
 /** A buyer found by the address typed, or made (and never told which). */
 function identity(engine: Engine, email: string, name: string | null): Id {
@@ -38,6 +48,10 @@ export class DemoAudience implements AudiencePort {
   /** The order this browser's link opened. */
   private openedOrder: Id | null = null;
   private clientKeys = new Map<string, Id>();
+  /** Who this browser is signed in as, and since when. */
+  private signed: { customer: Id; at: number } | null = null;
+  /** The sign-in links and codes the demo "emailed", by address. */
+  readonly mail = new Map<string, { code: string; token: string; until: number; tries: number }>();
 
   constructor(engine: Engine) {
     this.engine = engine;
@@ -82,6 +96,11 @@ export class DemoAudience implements AudiencePort {
     // The room the page sends is the show's own.
     if (body.values["room_id"] !== undefined && body.values["room_id"] !== event["room_id"]) throw new ApiError(400, "PUBLIC_WRITE_REFUSED", { column: "room_id", reason: "disagrees" });
     return { ...body.values, room_id: event["room_id"], channel: "online" };
+  }
+
+  async prove(): Promise<boolean> {
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    return true;
   }
 
   async quote(body: OrderBody): Promise<QuoteReply> {
@@ -182,10 +201,14 @@ export class DemoAudience implements AudiencePort {
     return this.engine.update("orders", order.id, { status: "awaiting_transfer" }, this.writer);
   }
 
+  /** A ticket of the order this browser's link opened, or of one of the signed-in person's orders. */
   private mine(ticketId: Id): Row {
-    const order = this.opened();
     const ticket = this.engine.world.get("tickets", ticketId);
-    if (ticket === undefined || ticket["order_id"] !== order.id) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
+    if (ticket === undefined) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
+    const order = this.engine.world.get("orders", ticket["order_id"] as Id);
+    const byLink = this.openedOrder !== null && ticket["order_id"] === this.openedOrder;
+    const bySignIn = this.signed !== null && order?.["customer_id"] === this.signed.customer;
+    if (!byLink && !bySignIn) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
     return ticket;
   }
 
@@ -244,6 +267,132 @@ export class DemoAudience implements AudiencePort {
       const customer = identity(engine, email, null);
       return engine.create("waitlist", { event_id: eventId, email: email.trim().toLowerCase(), qty, customer_id: customer }, this.writer).row;
     });
+  }
+
+  async nameTicket(ticketId: Id, name: string, answers?: Record<string, string> | null): Promise<Row> {
+    const ticket = this.engine.world.get("tickets", ticketId);
+    const holds = ticket !== undefined && this.signed !== null && ticket["holder_customer_id"] === this.signed.customer;
+    if (!holds) this.mine(ticketId);
+    if (!NAMED.includes(String(ticket!["order_status"]))) throw new ApiError(400, "PUBLIC_WRITE_REFUSED");
+    if (name.trim() === "") throw new ApiError(400, "PUBLIC_WRITE_REFUSED", { column: "holder_name", reason: "required" });
+    const values: Record<string, unknown> = { holder_name: name.trim() };
+    if (answers !== undefined) values["answers"] = answers;
+    return this.asBuyer(this.engine.update("tickets", ticketId, values, this.writer));
+  }
+
+  async updateOrder(values: { answers?: Record<string, string> | null; access_note?: string | null; opt_in?: boolean }): Promise<Row> {
+    const order = this.opened();
+    return copy(this.engine.update("orders", order.id, { ...values }, this.writer));
+  }
+
+  async keep(orderId: Id): Promise<Row> {
+    const order = this.engine.world.get("orders", orderId);
+    const own = order !== undefined && (order.id === this.openedOrder || (this.signed !== null && order["customer_id"] === this.signed.customer));
+    if (!own) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
+    return copy(this.engine.update("orders", orderId, { kept_at: new Date(this.engine.now).toISOString() }, this.writer));
+  }
+
+  async openConfirm(token: string): Promise<Row> {
+    const order = this.engine.world.all("orders").find((o) => o["confirm_token"] === token);
+    if (order === undefined) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
+    const out: Row = { id: order.id };
+    for (const c of ["number", "status", "event_id", "total", "ticket_count", "held_until", "offer_until", "pay_by"]) out[c] = order[c] ?? null;
+    return out;
+  }
+
+  // ── signing in by email ──────────────────────────────────────────────────
+
+  async signIn(email: string): Promise<void> {
+    const address = email.trim().toLowerCase();
+    // A new link and code each time (the demo's own: 6 digits from the address and the clock).
+    const code = String(100000 + ((hashOf(`${address}:${String(this.engine.now)}`) % 900000))).slice(0, 6);
+    this.mail.set(address, { code, token: `si-${code}-${String(this.engine.now)}`, until: this.engine.now + 20 * 60_000, tries: 5 });
+  }
+
+  private signInAs(address: string): Person {
+    const customer = identity(this.engine, address, null);
+    this.signed = { customer, at: this.engine.now };
+    const row = this.engine.world.get("customers", customer)!;
+    return { email: String(row["email"]), name: (row["name"] as string | null) ?? null };
+  }
+
+  async verify(email: string, code: string): Promise<Person> {
+    const address = email.trim().toLowerCase();
+    const sent = this.mail.get(address);
+    if (sent === undefined || this.engine.now >= sent.until) throw new ApiError(410, "PUBLIC_CODE_EXPIRED");
+    if (sent.tries <= 0) throw new ApiError(429, "PUBLIC_CODE_LOCKED", { tries: 0 });
+    if (code !== sent.code) {
+      sent.tries -= 1;
+      throw new ApiError(401, "PUBLIC_CODE_WRONG", { tries: sent.tries });
+    }
+    this.mail.delete(address);
+    return this.signInAs(address);
+  }
+
+  async openSignIn(token: string): Promise<Person> {
+    const found = [...this.mail].find(([, m]) => m.token === token);
+    if (found === undefined || this.engine.now >= found[1].until) throw new ApiError(410, "PUBLIC_CODE_EXPIRED");
+    this.mail.delete(found[0]);
+    return this.signInAs(found[0]);
+  }
+
+  async me(): Promise<Person | null> {
+    if (this.signed === null) return null;
+    const row = this.engine.world.get("customers", this.signed.customer);
+    if (row === undefined || row["email"] === null) return null;
+    return { email: String(row["email"]), name: (row["name"] as string | null) ?? null };
+  }
+
+  async signOut(): Promise<void> {
+    this.signed = null;
+  }
+
+  async signOutEverywhere(): Promise<void> {
+    this.signed = null;
+  }
+
+  async forget(): Promise<void> {
+    if (this.signed === null) throw new ApiError(401, "PUBLIC_CLAIM_REQUIRED");
+    // Deleting details asks for a fresh sign-in: within the last ten minutes.
+    if (this.engine.now - this.signed.at > 10 * 60_000) throw new ApiError(403, "PUBLIC_CODE_STEP_UP");
+    const id = this.signed.customer;
+    this.engine.world.get("customers", id);
+    this.engine.update("customers", id, { email: null, name: null, opt_in: false, forgotten_at: new Date(this.engine.now).toISOString() }, { origin: "staff", name: null, roles: [] });
+    this.signed = null;
+  }
+
+  private signedIn(): Id {
+    if (this.signed === null) throw new ApiError(401, "PUBLIC_CLAIM_REQUIRED");
+    return this.signed.customer;
+  }
+
+  async myOrders(): Promise<{ orders: OrderWithTickets[]; held: Row[] }> {
+    const me = this.signedIn();
+    const w = this.engine.world;
+    const orders = w.where("orders", (o) => o["customer_id"] === me && LIVE_OR_PAST.includes(String(o["status"])));
+    return {
+      orders: orders.map((o) => ({ order: copy(o), tickets: w.where("tickets", (t) => t["order_id"] === o.id).map((t) => this.asBuyer(t)) })),
+      held: w.where("tickets", (t) => t["holder_customer_id"] === me && w.get("orders", t["order_id"] as Id)?.["customer_id"] !== me).map(copy),
+    };
+  }
+
+  async myOrder(orderId: Id): Promise<OrderWithTickets> {
+    const me = this.signedIn();
+    const order = this.engine.world.get("orders", orderId);
+    if (order === undefined || order["customer_id"] !== me) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
+    return { order: copy(order), tickets: this.engine.world.where("tickets", (t) => t["order_id"] === order.id).map((t) => this.asBuyer(t)) };
+  }
+
+  async myWaitlist(): Promise<Row[]> {
+    const me = this.signedIn();
+    return this.engine.world.where("waitlist", (x) => x["customer_id"] === me).map(copy);
+  }
+
+  async leaveWaitlist(waitlistId: Id): Promise<Row> {
+    const me = this.signedIn();
+    const row = this.engine.world.get("waitlist", waitlistId);
+    if (row === undefined || row["customer_id"] !== me) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
+    return copy(this.engine.update("waitlist", waitlistId, { status: "left" }, this.writer));
   }
 
   async remindMe(eventId: Id, email: string, ticketTypeId: Id | null): Promise<Row> {

@@ -43,6 +43,11 @@ export interface AudiencePort {
   /** The types a code unlocks on a show. */
   unlock(eventId: Id, code: string): Promise<Row[]>;
 
+  /**
+   * The quiet person check: proves this browser to the server ahead of a write that asks for it (a checkout,
+   * a sign-in, a reminder). False when it could not be proved.
+   */
+  prove(): Promise<boolean>;
   /** The order priced by Adminium, written nowhere. */
   quote(body: OrderBody): Promise<QuoteReply>;
   /** The order made, its places held. `clientKey` makes a retry land on the same order. */
@@ -74,6 +79,42 @@ export interface AudiencePort {
 
   joinWaitlist(eventId: Id, email: string, qty: number): Promise<Row>;
   remindMe(eventId: Id, email: string, ticketTypeId: Id | null): Promise<Row>;
+
+  /** A ticket's name (and its answers) written: the ticket keeps its code. */
+  nameTicket(ticketId: Id, name: string, answers?: Record<string, string> | null): Promise<Row>;
+  /** The opened order's own details: the answers, the access note, the opt-in. */
+  updateOrder(values: { answers?: Record<string, string> | null; access_note?: string | null; opt_in?: boolean }): Promise<Row>;
+  /** A moved show: the buyer keeps their tickets for the new date. */
+  keep(orderId: Id): Promise<Row>;
+  /** A transfer checkout's confirm link: the order it confirms, read before the press. */
+  openConfirm(token: string): Promise<Row>;
+
+  /** Sign in by email: a link and a 6-digit code go to the address. */
+  signIn(email: string): Promise<void>;
+  /** The code typed from that email. */
+  verify(email: string, code: string): Promise<Person>;
+  /** The link from that email. */
+  openSignIn(token: string): Promise<Person>;
+  /** The person this browser is signed in as, or null. */
+  me(): Promise<Person | null>;
+  signOut(): Promise<void>;
+  /** Signs out here and on every device this person signed in on. */
+  signOutEverywhere(): Promise<void>;
+  /** "Delete my details": refused with `PUBLIC_CODE_STEP_UP` when the sign-in is not fresh. */
+  forget(): Promise<void>;
+  /** The signed-in person's orders, each with its tickets, and the tickets they hold from someone else's order. */
+  myOrders(): Promise<{ orders: OrderWithTickets[]; held: Row[] }>;
+  /** One of the signed-in person's orders (its own page). */
+  myOrder(orderId: Id): Promise<OrderWithTickets>;
+  /** The signed-in person's places on waitlists (with any live offer's order). */
+  myWaitlist(): Promise<Row[]>;
+  leaveWaitlist(waitlistId: Id): Promise<Row>;
+}
+
+/** Who a sign-in names. */
+export interface Person {
+  email: string;
+  name: string | null;
 }
 
 /** Who is signed in to the box office or the door, and what they may do. */

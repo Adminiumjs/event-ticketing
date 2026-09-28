@@ -396,7 +396,7 @@ export function audienceVals(app: WaveApp, v: V): V {
   const scr: Record<string, boolean> = {};
   for (const k of ["home", "event", "festival", "checkout", "going", "signin", "tickets", "friend", "offer", "confirm", "404"]) scr[k] = false;
   const fest = w === null ? null : nextFestival(app, w);
-  const show = w === null || s.evId === null ? null : (w.byId.get(s.evId) ?? null);
+  const show = w === null ? null : s.evId !== null ? (w.byId.get(s.evId) ?? null) : s.pendingSlug !== null ? (w.bySlug.get(s.pendingSlug) ?? null) : null;
   if (w !== null && !(v["loading"] as boolean)) {
     if (s.scr === "event") {
       if (show === null) scr["404"] = true;

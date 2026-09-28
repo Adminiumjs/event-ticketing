@@ -319,6 +319,7 @@ export const WORDS: Record<string, Translation> = {
   "Tickets sold": {"de-DE": "Verkaufte Tickets", "fr-FR": "Billets vendus", "da-DK": "Solgte billetter", "cs-CZ": "Prodané vstupenky", "ar-EG": "التذاكر المبيعة", "zh-CN": "已售门票", "zh-TW": "已售票數"},
   "Tickets that can't be paid at the door": {"de-DE": "Tickets ohne Zahlung am Einlass", "fr-FR": "Billets non payables à l'entrée", "da-DK": "Billetter der ikke kan betales ved døren", "cs-CZ": "Vstupenky, které nelze zaplatit u vchodu", "ar-EG": "تذاكر لا تُدفع عند الباب", "zh-CN": "不可门口付款的门票", "zh-TW": "不可現場付款的票"},
   "Tickets that can't be paid by transfer": {"de-DE": "Tickets ohne Zahlung per Überweisung", "fr-FR": "Billets non payables par virement", "da-DK": "Billetter der ikke kan betales via overførsel", "cs-CZ": "Vstupenky, které nelze zaplatit převodem", "ar-EG": "تذاكر لا تُدفع بالتحويل", "zh-CN": "不可转账付款的门票", "zh-TW": "不可轉帳付款的票"},
+  "Times in": {"de-DE": "Einlässe", "fr-FR": "Entrées", "da-DK": "Gange inde", "cs-CZ": "Počet vstupů", "ar-EG": "مرات الدخول", "zh-CN": "入场次数", "zh-TW": "入場次數"},
   "To": {"de-DE": "An", "fr-FR": "À", "da-DK": "Til", "cs-CZ": "Komu", "ar-EG": "إلى", "zh-CN": "收件人", "zh-TW": "至"},
   "Total": {"de-DE": "Gesamt", "fr-FR": "Total", "da-DK": "I alt", "cs-CZ": "Celkem", "ar-EG": "الإجمالي", "zh-CN": "总计", "zh-TW": "總計"},
   "Transfer overdue": {"de-DE": "Überweisung überfällig", "fr-FR": "Virement en retard", "da-DK": "Overførsel forsinket", "cs-CZ": "Převod po splatnosti", "ar-EG": "تأخر التحويل", "zh-CN": "转账逾期", "zh-TW": "轉帳逾期"},

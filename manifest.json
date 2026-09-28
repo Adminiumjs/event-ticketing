@@ -7542,6 +7542,53 @@
             }
           },
           {
+            "ref": "sender_name",
+            "type": "text",
+            "maxLength": 120,
+            "label": {
+              "en-US": "Sent by",
+              "de-DE": "Gesendet von",
+              "fr-FR": "Envoyé par",
+              "da-DK": "Sendt af",
+              "cs-CZ": "Odeslal",
+              "ar-EG": "أرسلها",
+              "zh-CN": "发送人",
+              "zh-TW": "寄件人"
+            },
+            "nullable": true,
+            "semantic": "name",
+            "rules": {
+              "copy": {
+                "via": "order_id",
+                "from": "buyer_name",
+                "mode": "always"
+              },
+              "personal": true
+            }
+          },
+          {
+            "ref": "times_in",
+            "type": "int",
+            "nullable": true,
+            "label": {
+              "en-US": "Times in",
+              "de-DE": "Einlässe",
+              "fr-FR": "Entrées",
+              "da-DK": "Gange inde",
+              "cs-CZ": "Počet vstupů",
+              "ar-EG": "مرات الدخول",
+              "zh-CN": "入场次数",
+              "zh-TW": "入場次數"
+            },
+            "rules": {
+              "rollup": {
+                "from": "check_ins",
+                "via": "ticket_id",
+                "count": true
+              }
+            }
+          },
+          {
             "ref": "code",
             "type": "text",
             "maxLength": 12,
@@ -13976,6 +14023,7 @@
         "pay_by",
         "created_at",
         "paid_at",
+        "paid_method",
         "cancelled_at",
         "answers",
         "access_note",
@@ -14051,12 +14099,11 @@
         "sent_at",
         "accepted_at",
         "refund_asked_at",
+        "times_in",
         "answers"
       ],
       "writable": [
         "status",
-        "holder_name",
-        "answers",
         "pending_email",
         "pending_name"
       ],
@@ -14090,7 +14137,6 @@
           "n": 5
         },
         "plainText": [
-          "holder_name",
           "pending_name"
         ]
       },
@@ -14151,6 +14197,96 @@
         "sent_at",
         "accepted_at",
         "refund_asked_at",
+        "times_in",
+        "answers"
+      ],
+      "writable": [
+        "holder_name",
+        "answers"
+      ],
+      "writableWhen": {
+        "status": [
+          "valid",
+          "offered",
+          "refund_asked"
+        ],
+        "holder_customer_id": [
+          null
+        ],
+        "order_status": [
+          "held",
+          "confirming",
+          "offered",
+          "door",
+          "no_charge",
+          "paid",
+          "awaiting_transfer",
+          "overdue"
+        ]
+      },
+      "limits": {
+        "plainText": [
+          "holder_name"
+        ]
+      },
+      "withhold": {
+        "columns": [
+          "code",
+          "holder_email"
+        ],
+        "unlessHolder": "holder_customer_id",
+        "when": {
+          "where": [
+            {
+              "column": "order_status",
+              "in": [
+                "held",
+                "confirming",
+                "offered",
+                "awaiting_transfer",
+                "overdue",
+                "released"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "table": "tickets",
+      "methods": [
+        "PATCH"
+      ],
+      "level": "verified",
+      "visibleWith": {
+        "table": "orders",
+        "via": "order_id"
+      },
+      "select": [
+        "id",
+        "order_id",
+        "ticket_type_id",
+        "event_id",
+        "status",
+        "name",
+        "price",
+        "discount",
+        "due",
+        "collected",
+        "position",
+        "admits_day1",
+        "admits_day2",
+        "admits_day3",
+        "code",
+        "holder_name",
+        "holder_email",
+        "pending_name",
+        "pending_email",
+        "offer_until",
+        "sent_at",
+        "accepted_at",
+        "refund_asked_at",
+        "times_in",
         "answers"
       ],
       "writable": [
@@ -14572,6 +14708,7 @@
         "pay_by",
         "created_at",
         "paid_at",
+        "paid_method",
         "cancelled_at",
         "opt_in",
         "kept_at"
@@ -14791,6 +14928,7 @@
         "pay_by",
         "created_at",
         "paid_at",
+        "paid_method",
         "cancelled_at",
         "answers",
         "access_note",
@@ -14867,12 +15005,11 @@
         "sent_at",
         "accepted_at",
         "refund_asked_at",
+        "times_in",
         "answers"
       ],
       "writable": [
         "status",
-        "holder_name",
-        "answers",
         "pending_email",
         "pending_name"
       ],
@@ -14906,7 +15043,6 @@
           "n": 5
         },
         "plainText": [
-          "holder_name",
           "pending_name"
         ]
       },
@@ -14968,6 +15104,97 @@
         "sent_at",
         "accepted_at",
         "refund_asked_at",
+        "times_in",
+        "answers"
+      ],
+      "writable": [
+        "holder_name",
+        "answers"
+      ],
+      "writableWhen": {
+        "status": [
+          "valid",
+          "offered",
+          "refund_asked"
+        ],
+        "holder_customer_id": [
+          null
+        ],
+        "order_status": [
+          "held",
+          "confirming",
+          "offered",
+          "door",
+          "no_charge",
+          "paid",
+          "awaiting_transfer",
+          "overdue"
+        ]
+      },
+      "limits": {
+        "plainText": [
+          "holder_name"
+        ]
+      },
+      "withhold": {
+        "columns": [
+          "code",
+          "holder_email"
+        ],
+        "unlessHolder": "holder_customer_id",
+        "when": {
+          "where": [
+            {
+              "column": "order_status",
+              "in": [
+                "held",
+                "confirming",
+                "offered",
+                "awaiting_transfer",
+                "overdue",
+                "released"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "table": "tickets",
+      "key": "link",
+      "methods": [
+        "PATCH"
+      ],
+      "level": "verified",
+      "visibleWith": {
+        "table": "orders",
+        "via": "order_id"
+      },
+      "select": [
+        "id",
+        "order_id",
+        "ticket_type_id",
+        "event_id",
+        "status",
+        "name",
+        "price",
+        "discount",
+        "due",
+        "collected",
+        "position",
+        "admits_day1",
+        "admits_day2",
+        "admits_day3",
+        "code",
+        "holder_name",
+        "holder_email",
+        "pending_name",
+        "pending_email",
+        "offer_until",
+        "sent_at",
+        "accepted_at",
+        "refund_asked_at",
+        "times_in",
         "answers"
       ],
       "writable": [
@@ -15110,6 +15337,7 @@
         "code",
         "pending_name",
         "holder_name",
+        "sender_name",
         "offer_until",
         "accepted_at"
       ],

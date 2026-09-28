@@ -892,6 +892,10 @@ export const TABLES: Table[] = [
       worked("live_one", "Live", { formula: { if: [{ or: LIVE_TICKET.map((s) => eq("status", s)) }, 1, 0] } }),
       money("collected", "Taken at the door", { rollup: { from: "door_collections", via: "ticket_id", sum: "amount", where: { column: "state", eq: "taken" } } }),
       worked("settled", "Paid for", { formula: SETTLED }),
+      // How many times the door let it in: a past ticket reads "Used" or "Not used" to its buyer.
+      // The buyer who sent it, for the friend's page: "Mia sent you a ticket".
+      text("sender_name", 120, "Sent by", { ...opt, semantic: "name", rules: { ...copyOf("order_id", "buyer_name"), personal: true } }),
+      worked("times_in", "Times in", { rollup: { from: "check_ins", via: "ticket_id", count: true } }),
       // The ticket's code: the door scans it. A new holder gets a new one.
       text("code", 12, "Ticket code", { ...opt, rules: { code: { length: 8, renew: { on: { column: "holder_customer_id", changed: true } } } } }),
       text("holder_name", 120, "Name on the ticket", { ...opt, semantic: "name" }),

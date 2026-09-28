@@ -1595,6 +1595,7 @@ export const MANIFEST_RULES = {
         "pay_by",
         "created_at",
         "paid_at",
+        "paid_method",
         "cancelled_at",
         "answers",
         "access_note",
@@ -1670,12 +1671,11 @@ export const MANIFEST_RULES = {
         "sent_at",
         "accepted_at",
         "refund_asked_at",
+        "times_in",
         "answers"
       ],
       "writable": [
         "status",
-        "holder_name",
-        "answers",
         "pending_email",
         "pending_name"
       ],
@@ -1709,7 +1709,6 @@ export const MANIFEST_RULES = {
           "n": 5
         },
         "plainText": [
-          "holder_name",
           "pending_name"
         ]
       },
@@ -1770,6 +1769,96 @@ export const MANIFEST_RULES = {
         "sent_at",
         "accepted_at",
         "refund_asked_at",
+        "times_in",
+        "answers"
+      ],
+      "writable": [
+        "holder_name",
+        "answers"
+      ],
+      "writableWhen": {
+        "status": [
+          "valid",
+          "offered",
+          "refund_asked"
+        ],
+        "holder_customer_id": [
+          null
+        ],
+        "order_status": [
+          "held",
+          "confirming",
+          "offered",
+          "door",
+          "no_charge",
+          "paid",
+          "awaiting_transfer",
+          "overdue"
+        ]
+      },
+      "limits": {
+        "plainText": [
+          "holder_name"
+        ]
+      },
+      "withhold": {
+        "columns": [
+          "code",
+          "holder_email"
+        ],
+        "unlessHolder": "holder_customer_id",
+        "when": {
+          "where": [
+            {
+              "column": "order_status",
+              "in": [
+                "held",
+                "confirming",
+                "offered",
+                "awaiting_transfer",
+                "overdue",
+                "released"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "table": "tickets",
+      "methods": [
+        "PATCH"
+      ],
+      "level": "verified",
+      "visibleWith": {
+        "table": "orders",
+        "via": "order_id"
+      },
+      "select": [
+        "id",
+        "order_id",
+        "ticket_type_id",
+        "event_id",
+        "status",
+        "name",
+        "price",
+        "discount",
+        "due",
+        "collected",
+        "position",
+        "admits_day1",
+        "admits_day2",
+        "admits_day3",
+        "code",
+        "holder_name",
+        "holder_email",
+        "pending_name",
+        "pending_email",
+        "offer_until",
+        "sent_at",
+        "accepted_at",
+        "refund_asked_at",
+        "times_in",
         "answers"
       ],
       "writable": [
@@ -2191,6 +2280,7 @@ export const MANIFEST_RULES = {
         "pay_by",
         "created_at",
         "paid_at",
+        "paid_method",
         "cancelled_at",
         "opt_in",
         "kept_at"
@@ -2410,6 +2500,7 @@ export const MANIFEST_RULES = {
         "pay_by",
         "created_at",
         "paid_at",
+        "paid_method",
         "cancelled_at",
         "answers",
         "access_note",
@@ -2486,12 +2577,11 @@ export const MANIFEST_RULES = {
         "sent_at",
         "accepted_at",
         "refund_asked_at",
+        "times_in",
         "answers"
       ],
       "writable": [
         "status",
-        "holder_name",
-        "answers",
         "pending_email",
         "pending_name"
       ],
@@ -2525,7 +2615,6 @@ export const MANIFEST_RULES = {
           "n": 5
         },
         "plainText": [
-          "holder_name",
           "pending_name"
         ]
       },
@@ -2587,6 +2676,97 @@ export const MANIFEST_RULES = {
         "sent_at",
         "accepted_at",
         "refund_asked_at",
+        "times_in",
+        "answers"
+      ],
+      "writable": [
+        "holder_name",
+        "answers"
+      ],
+      "writableWhen": {
+        "status": [
+          "valid",
+          "offered",
+          "refund_asked"
+        ],
+        "holder_customer_id": [
+          null
+        ],
+        "order_status": [
+          "held",
+          "confirming",
+          "offered",
+          "door",
+          "no_charge",
+          "paid",
+          "awaiting_transfer",
+          "overdue"
+        ]
+      },
+      "limits": {
+        "plainText": [
+          "holder_name"
+        ]
+      },
+      "withhold": {
+        "columns": [
+          "code",
+          "holder_email"
+        ],
+        "unlessHolder": "holder_customer_id",
+        "when": {
+          "where": [
+            {
+              "column": "order_status",
+              "in": [
+                "held",
+                "confirming",
+                "offered",
+                "awaiting_transfer",
+                "overdue",
+                "released"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "table": "tickets",
+      "key": "link",
+      "methods": [
+        "PATCH"
+      ],
+      "level": "verified",
+      "visibleWith": {
+        "table": "orders",
+        "via": "order_id"
+      },
+      "select": [
+        "id",
+        "order_id",
+        "ticket_type_id",
+        "event_id",
+        "status",
+        "name",
+        "price",
+        "discount",
+        "due",
+        "collected",
+        "position",
+        "admits_day1",
+        "admits_day2",
+        "admits_day3",
+        "code",
+        "holder_name",
+        "holder_email",
+        "pending_name",
+        "pending_email",
+        "offer_until",
+        "sent_at",
+        "accepted_at",
+        "refund_asked_at",
+        "times_in",
         "answers"
       ],
       "writable": [
@@ -2729,6 +2909,7 @@ export const MANIFEST_RULES = {
         "code",
         "pending_name",
         "holder_name",
+        "sender_name",
         "offer_until",
         "accepted_at"
       ],

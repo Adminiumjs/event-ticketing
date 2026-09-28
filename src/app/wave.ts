@@ -13,6 +13,7 @@ import { isApiError, type Id, type OrderBody, type Row, type TypeLeft } from "..
 import { setLocale, tr } from "../i18n/tr.ts";
 import { money } from "./fmt.ts";
 import { setCurrency, setZone } from "./fmt.ts";
+import { Buyer, blankSi, type Co } from "./buyer.ts";
 import { worldOf, type Show, type World } from "./world.ts";
 
 /** What a code takes off, as the chip says it: a share of every ticket, or an amount off each of one kind. */
@@ -44,7 +45,8 @@ export function fresh() {
     scr: "home" as Screen,
     /** The show on screen (its id). */
     evId: null as Id | null,
-    /** A slug nobody knows: the 404. */
+    /** A show's address opened before the venue answered: its slug, found once the shows are read. */
+    pendingSlug: null as string | null,
     loading: true,
     loadError: false,
     filter: "all",
@@ -66,6 +68,19 @@ export function fresh() {
     sheet: null as Sheet | null,
     acctOpen: false,
     toast: null as Toast | null,
+    /** The checkout on screen. */
+    co: null as Co | null,
+    /** The order on the order page (or the offer page): by its own link, or one of the signed-in person's. */
+    going: null as null | { orderId: Id; via: "link" | "me" },
+    si: blankSi(),
+    mtTab: "up" as "up" | "past",
+    /** The ticket on the phone: which order, which ticket. */
+    dm: null as null | { orderId: Id; i: number; via: "link" | "me" },
+    /** A ticket from a friend, opened by its own link. */
+    fr: { token: null as string | null, name: "", err: null as string | null, busy: false },
+    offerQ: 1,
+    /** A transfer's confirm link. */
+    confirm: { token: null as string | null, busy: false, done: false },
   };
 }
 
@@ -114,6 +129,8 @@ export class WaveApp {
   private opener: HTMLElement | null = null;
   /** Set by the demo build: a clock the demo card moves. */
   demo: { onClock?: (fn: (now: number) => void) => () => void } | null = null;
+  /** The buyer's side: checkout, their orders, signing in. */
+  readonly buyer: Buyer = new Buyer(this);
 
   constructor(ports: Ports, persona: "audience" | "box", opts: { lang?: string; theme?: "light" | "dark"; frame?: State["frame"] } = {}) {
     this.ports = ports;
@@ -215,11 +232,21 @@ export class WaveApp {
       this.setState({ loading: false, loadError: true });
     }
     if (this.demo?.onClock) this.demo.onClock((now) => this.setClock(now));
-    else setInterval(() => this.setClock(Date.now() + this.skew), 30_000);
+    else {
+      setInterval(() => this.setClock(Date.now() + this.skew), 30_000);
+      // A running hold counts down each second on the server's clock.
+      setInterval(() => {
+        if (this.state.co === null && this.state.si.resendAt <= this.now) return;
+        this.now = Date.now() + this.skew;
+        this.buyer.tick();
+        this.bump();
+      }, 1000);
+    }
   }
   setClock(now: number): void {
     this.now = now;
     this.refresh();
+    this.buyer.tick();
   }
 
   // ── the venue, as the audience reads it ─────────────────────────────────
@@ -259,6 +286,27 @@ export class WaveApp {
   }
   retryVenue(): void {
     this.refresh("aud:");
+  }
+
+  // ── arriving from a link ────────────────────────────────────────────────
+
+  /**
+   * The page a link opens: an order's own link (`…/o#code`), a ticket sent to a friend (`…/t#code`), a
+   * transfer's confirm link (`…/confirm#code`), a sign-in link (`…/c#code`), a show (`…/events/{slug}`);
+   * anything else under the site is What's on, an unknown show the page nobody found.
+   */
+  async arrive(path: string, hash: string): Promise<void> {
+    const code = hash.replace(/^#/, "");
+    const tail = path.replace(/\/+$/, "").split("/").pop() ?? "";
+    const show = /\/events\/([^/]+)\/?$/.exec(path)?.[1];
+    if (tail === "o" && code !== "") return this.buyer.openByLink(code);
+    if (tail === "t" && code !== "") return this.go("friend", { fr: { token: code, name: "", err: null, busy: false } });
+    if (tail === "confirm" && code !== "") return this.go("confirm", { confirm: { token: code, busy: false, done: false } });
+    if (tail === "c" && code !== "") return this.buyer.openSignInLink(code);
+    if (show !== undefined) {
+      this.go("event", { evId: null, pendingSlug: decodeURIComponent(show) });
+      return;
+    }
   }
 
   // ── going places ────────────────────────────────────────────────────────
@@ -306,6 +354,10 @@ export class WaveApp {
   escape(): void {
     const s = this.state;
     if (s.sheet !== null) return this.closeSheet();
+    if (s.dm !== null) {
+      this.setState({ dm: null });
+      return this.refocus();
+    }
     if (s.panelOpen) {
       this.setState({ panelOpen: false });
       return this.refocus();
@@ -500,27 +552,33 @@ export class WaveApp {
 
   /** The person signed in on this browser, or null. */
   signedIn(): { email: string; name: string | null } | null {
-    return null;
+    return this.persona === "audience" ? this.buyer.signedIn() : null;
   }
   goSignIn(): void {
-    this.go("signin");
+    this.go("signin", { si: { ...this.state.si, step: "email", err: null, check: "idle" } });
   }
   goTickets(): void {
-    this.go(this.signedIn() === null ? "signin" : "tickets");
+    this.go("tickets");
   }
-  /** The signed-in person's own place on a show's waitlist, or null. */
-  myWaitlist(_eventId: Id): { qty: number } | null {
-    return null;
+  /** The signed-in person's own place on a show's waitlist (still waiting), or null. */
+  myWaitlist(eventId: Id): { qty: number; id: Id } | null {
+    const rows = this.buyer.myWaitlist() ?? [];
+    const row = rows.find((w) => w["event_id"] === eventId && w["status"] === "waiting");
+    return row === undefined ? null : { qty: Number(row["qty"] ?? 1), id: row.id };
   }
   /** A live waitlist offer to the signed-in person on a show, or null. */
-  liveOffer(_eventId: Id): { qty: number; until: number; orderId: Id } | null {
-    return null;
+  liveOffer(eventId: Id): { qty: number; until: number; orderId: Id } | null {
+    const rows = this.buyer.myWaitlist() ?? [];
+    const row = rows.find((w) => w["event_id"] === eventId && w["status"] === "offered" && w["order_id"] !== null);
+    const until = row === undefined ? null : Date.parse(String(row["offer_until"] ?? ""));
+    if (row === undefined || until === null || Number.isNaN(until) || until <= this.now) return null;
+    return { qty: Number(row["qty"] ?? 1), until, orderId: row["order_id"] as Id };
   }
-  openOffer(_orderId: Id): void {
-    this.go("offer");
+  openOffer(orderId: Id): void {
+    this.go("offer", { going: { orderId, via: "me" } });
   }
   startCheckout(show: Show): void {
-    this.go("checkout", { evId: show.id });
+    this.buyer.startCheckout(show);
   }
 
   /** A refusal's code, or null for anything else (a network failure is thrown on). */

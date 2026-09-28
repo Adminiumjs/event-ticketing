@@ -3,7 +3,7 @@
 import { Fragment } from "react";
 
 import { tr } from "../i18n/tr.ts";
-import { Icon, st } from "./dom.tsx";
+import { Icon, st, trx } from "./dom.tsx";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function AudienceView({ v }: { v: any }) {
@@ -1322,12 +1322,12 @@ export function AudienceView({ v }: { v: any }) {
             </h1>
             {" "}
             <ol aria-label={tr("Progress")} style={st("display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; list-style:none; margin:0; padding:0;")}>
-              {(v.co.steps ?? []).map((st: any, i_st: number) => (
-                <Fragment key={st.label ?? i_st}>
-                  <li aria-current={st.cur} style={st("display:flex; flex-direction:column; gap:6px;")}>
-                    <span style={st(st.bar)}></span>
-                    <span style={st(st.lbl)}>
-                      {st.label}
+              {(v.co.steps ?? []).map((step: any, i_step: number) => (
+                <Fragment key={step.label ?? i_step}>
+                  <li aria-current={step.cur} style={st("display:flex; flex-direction:column; gap:6px;")}>
+                    <span style={st(step.bar)}></span>
+                    <span style={st(step.lbl)}>
+                      {step.label}
                     </span>
                   </li>
                 </Fragment>
@@ -1470,9 +1470,15 @@ export function AudienceView({ v }: { v: any }) {
                         </>
                       ) : null}
                       {" "}
-                      <button type="button" className="wv-btn" onClick={v.co.hold} disabled={v.co.holdOff} style={st(`${v.s.btnP}width:100%; min-height:52px; font-size:15.5px;`)}>
+                      {v.co.failOn ? (
+                        <div role="alert" style={st(v.s.aDanger)}>
+                          <Icon name={"circle-alert"} style={st("width:17px;height:17px;flex-shrink:0;margin-block-start:2px;color:var(--danger);")} />
+                          <span>{v.co.failTxt}</span>
+                        </div>
+                      ) : null}
+                      <button type="button" className="wv-btn" onClick={v.co.hold} disabled={v.co.holdOff} aria-busy={v.co.busy} style={st(`${v.s.btnP}width:100%; min-height:52px; font-size:15.5px;`)}>
                         <Icon name={"timer"} style={st("width:17px;height:17px;")} />
-                        {tr("Hold my tickets —")}{" "}{v.co.holdWhat}
+                        {v.co.holdLabelTxt}
                       </button>
                     </>
                   ) : null}
@@ -1496,7 +1502,7 @@ export function AudienceView({ v }: { v: any }) {
                               <label style={st("display:flex; flex-direction:column; gap:6px;")}>
                                 <span style={st("display:flex; align-items:center; gap:8px;")}>
                                   <span style={st(`${v.s.lbl}flex:1;`)}>
-                                    {tr("Ticket")}{" "}{t.n}{" · "}{t.type}
+                                    {t.label}
                                   </span>
                                   {t.mineOn ? (
                                     <>
@@ -1519,50 +1525,37 @@ export function AudienceView({ v }: { v: any }) {
                                 ) : null}
                               </label>
                               {" "}
-                              {v.co.qOn ? (
-                                <>
-                                  <div role="radiogroup" aria-labelledby={t.qid} aria-describedby={t.sid} style={st("display:flex; flex-direction:column; gap:6px;")}>
-                                    <span id={t.qid} style={st(v.s.lbl)}>
-                                      {tr("Which recording software do you use?")}
-                                    </span>
-                                    {" "}
-                                    <div style={st("display:flex; flex-wrap:wrap; gap:6px;")}>
-                                      {(t.softs ?? []).map((o: any, i_o: number) => (
-                                        <Fragment key={o.id ?? i_o}>
-                                          <button type="button" role="radio" aria-checked={o.on} onClick={o.go} style={st(o.style)}>
-                                            {o.id}
-                                          </button>
-                                        </Fragment>
-                                      ))}
+                              {(t.qs ?? []).map((q: any) => (
+                                <Fragment key={q.id}>
+                                  {q.kind === "text" ? (
+                                    <label style={st("display:flex; flex-direction:column; gap:6px;")}>
+                                      <span style={st(v.s.lbl)}>{q.text}</span>
+                                      <input id={q.gid} className="wv-fld" value={q.value ?? ""} onChange={q.onText} aria-invalid={q.errOn} aria-describedby={q.eid} style={st(q.fld)} />
+                                    </label>
+                                  ) : (
+                                    <div role="radiogroup" aria-labelledby={q.gid} aria-describedby={q.errOn ? q.eid : undefined} style={st(q.kind === "yes_no" ? "display:flex; align-items:center; gap:10px; flex-wrap:wrap;" : "display:flex; flex-direction:column; gap:6px;")}>
+                                      <span id={q.gid} style={st(v.s.lbl)}>
+                                        {q.text}
+                                      </span>
+                                      <div style={st(q.kind === "yes_no" ? "display:flex; gap:3px; padding:3px; border-radius:11px; background:var(--surface-2); border:1px solid var(--border);" : "display:flex; flex-wrap:wrap; gap:6px;")}>
+                                        {(q.options ?? []).map((o: any, i_o: number) => (
+                                          <Fragment key={o.id ?? i_o}>
+                                            <button type="button" role="radio" aria-checked={o.on} onClick={o.go} style={st(o.style)}>
+                                              {o.label}
+                                            </button>
+                                          </Fragment>
+                                        ))}
+                                      </div>
                                     </div>
-                                    {" "}
-                                    {t.sErrOn ? (
-                                      <>
-                                        <span id={t.sid} style={st(v.s.err)}>
-                                          <Icon name={"circle-alert"} style={st("width:14px;height:14px;flex-shrink:0;")} />
-                                          {tr("Pick one — or \"Something else\"")}
-                                        </span>
-                                      </>
-                                    ) : null}
-                                  </div>
-                                  {" "}
-                                  <div role="radiogroup" aria-label={tr("Bringing a laptop?")} style={st("display:flex; align-items:center; gap:10px; flex-wrap:wrap;")}>
-                                    <span style={st(v.s.lbl)}>
-                                      {tr("Bringing a laptop?")}
+                                  )}
+                                  {q.errOn ? (
+                                    <span id={q.eid} style={st(v.s.err)}>
+                                      <Icon name={"circle-alert"} style={st("width:14px;height:14px;flex-shrink:0;")} />
+                                      {q.err}
                                     </span>
-                                    {" "}
-                                    <div style={st("display:flex; gap:3px; padding:3px; border-radius:11px; background:var(--surface-2); border:1px solid var(--border);")}>
-                                      {(t.laps ?? []).map((o: any, i_o: number) => (
-                                        <Fragment key={o.id ?? i_o}>
-                                          <button type="button" role="radio" aria-checked={o.on} onClick={o.go} style={st(o.style)}>
-                                            {o.id}
-                                          </button>
-                                        </Fragment>
-                                      ))}
-                                    </div>
-                                  </div>
-                                </>
-                              ) : null}
+                                  ) : null}
+                                </Fragment>
+                              ))}
                             </div>
                           </Fragment>
                         ))}
@@ -1586,6 +1579,35 @@ export function AudienceView({ v }: { v: any }) {
                           <textarea className="wv-fld" rows={2} value={v.co.access} onChange={v.co.onAccess} placeholder={tr("Optional")} style={st(`${v.s.fld}padding-block:12px; min-height:72px; resize:vertical; font-weight:500;`)}></textarea>
                         </label>
                         {" "}
+                        {(v.co.orderQs ?? []).map((q: any) => (
+                          <Fragment key={q.id}>
+                            {q.kind === "text" ? (
+                              <label style={st("display:flex; flex-direction:column; gap:6px;")}>
+                                <span style={st(v.s.lbl)}>{q.text}</span>
+                                <input id={q.gid} className="wv-fld" value={q.value ?? ""} onChange={q.onText} aria-invalid={q.errOn} aria-describedby={q.eid} style={st(q.fld)} />
+                              </label>
+                            ) : (
+                              <div role="radiogroup" aria-labelledby={q.gid} style={st("display:flex; flex-direction:column; gap:6px;")}>
+                                <span id={q.gid} style={st(v.s.lbl)}>{q.text}</span>
+                                <div style={st(q.kind === "yes_no" ? "display:flex; gap:3px; padding:3px; border-radius:11px; background:var(--surface-2); border:1px solid var(--border); align-self:flex-start;" : "display:flex; flex-wrap:wrap; gap:6px;")}>
+                                  {(q.options ?? []).map((o: any, i_o: number) => (
+                                    <Fragment key={o.id ?? i_o}>
+                                      <button type="button" role="radio" aria-checked={o.on} onClick={o.go} style={st(o.style)}>
+                                        {o.label}
+                                      </button>
+                                    </Fragment>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {q.errOn ? (
+                              <span id={q.eid} style={st(v.s.err)}>
+                                <Icon name={"circle-alert"} style={st("width:14px;height:14px;flex-shrink:0;")} />
+                                {q.err}
+                              </span>
+                            ) : null}
+                          </Fragment>
+                        ))}
                         <button type="button" role="checkbox" aria-checked={v.co.optIn} onClick={v.co.toggleOpt} className="wv-gi" style={st("display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:transparent; font-size:14px; font-weight:700; text-align:start;")}>
                           <span style={st(v.co.boxStyle)}>
                             {v.co.optIn ? (
@@ -1594,7 +1616,7 @@ export function AudienceView({ v }: { v: any }) {
                               </>
                             ) : null}
                           </span>
-                          {tr("Email me about new shows at Waveform")}
+                          {v.co.optLabel}
                         </button>
                       </fieldset>
                       {" "}
@@ -1648,8 +1670,14 @@ export function AudienceView({ v }: { v: any }) {
                         </>
                       ) : null}
                       {" "}
+                      {v.co.failOn ? (
+                        <div role="alert" style={st(v.s.aDanger)}>
+                          <Icon name={"circle-alert"} style={st("width:17px;height:17px;flex-shrink:0;margin-block-start:2px;color:var(--danger);")} />
+                          <span>{v.co.failTxt}</span>
+                        </div>
+                      ) : null}
                       <div style={st("display:flex; flex-direction:column; gap:10px; padding-block-end:24px;")}>
-                        <button type="submit" className="wv-btn" style={st(`${v.s.btnP}width:100%; min-height:54px; font-size:16px;`)}>
+                        <button type="submit" className="wv-btn" disabled={v.co.busy} aria-busy={v.co.busy} style={st(`${v.s.btnP}width:100%; min-height:54px; font-size:16px;`)}>
                           {v.co.cta}
                         </button>
                         {" "}
@@ -1670,7 +1698,7 @@ export function AudienceView({ v }: { v: any }) {
                           <strong style={st("font-weight:800;")}>
                             {tr("We let those tickets go.")}
                           </strong>
-                          {" "}{tr("Your 10 minutes ran out, so they went back on sale for everyone.")}
+                          {" "}{v.co.goneTxt}
                         </span>
                       </span>
                       {" "}
@@ -1693,19 +1721,13 @@ export function AudienceView({ v }: { v: any }) {
                       </div>
                       {" "}
                       <p style={st(`${v.s.p}font-size:15px; color:var(--fg);`)}>
-                        {tr("We've sent a link to")}{" "}
-                        <span style={st("font-family:var(--mono);")}>
-                          {v.co.masked}
-                        </span>
-                        {tr(". Open it to confirm your order and see our bank details.")}
+                        {trx("We've sent a link to {email}. Open it to confirm your order and see our bank details.", { email: <span style={st("font-family:var(--mono);")}>{v.co.masked}</span> })}
+                      </p>
+                      <p style={st(`${v.s.hint}margin:0;`)}>
+                        {trx("Press the button in that email by {time} — until then your tickets are held for you.", { time: <span style={st("font-family:var(--mono);")}>{v.co.confirmBy}</span> })}
                       </p>
                       {" "}
                       <div style={st("display:flex; gap:8px; flex-wrap:wrap; align-items:center;")}>
-                        <button type="button" className="wv-gi" onClick={v.co.resendMail} style={st(v.s.btnS)}>
-                          <Icon name={"rotate-cw"} style={st("width:14px;height:14px;")} />
-                          {tr("Send it again")}
-                        </button>
-                        {" "}
                         {v.co.otherPayOn ? (
                           <>
                             <button type="button" className="wv-gi" onClick={v.co.otherPay} style={st(v.s.btnT)}>
@@ -1853,7 +1875,7 @@ export function AudienceView({ v }: { v: any }) {
           <div className="wv-screen" style={st(`max-width:880px; width:100%; margin-inline:auto; padding:${v.gw.pad}; display:flex; flex-direction:column; gap:24px;`)}>
             <div style={st("display:flex; flex-direction:column; gap:10px;")}>
               <span style={st("font-family:var(--mono); font-size:13px; font-weight:700; color:var(--accent);")}>
-                {tr("Order")}{" "}{v.gw.no}
+                {v.gw.eyebrow}
               </span>
               {" "}
               <h1 style={st(`margin:0; font-size:${v.L.h1}; font-weight:800; letter-spacing:-.055em; line-height:.95; text-wrap:balance;`)}>
@@ -1873,15 +1895,14 @@ export function AudienceView({ v }: { v: any }) {
                   <div style={st("display:flex; align-items:center; gap:10px; flex-wrap:wrap;")}>
                     <span style={st("display:inline-flex; align-items:center; gap:6px; min-height:28px; padding:0 11px; border-radius:999px; background:var(--pos-soft); color:var(--pos); font-size:12.5px; font-weight:800;")}>
                       <Icon name={"badge-check"} style={st("width:14px;height:14px;")} />
-                      {tr("Paid ·")}{" "}{v.gw.paidHow}{" · "}
-                      <span style={st("font-family:var(--mono);")}>
-                        {v.gw.paidDate}
-                      </span>
+                      {trx("{paid} · {date}", { paid: v.gw.paidHow, date: <span style={st("font-family:var(--mono);")}>{v.gw.paidDate}</span> })}
                     </span>
-                    <button className="wv-gi" onClick={v.gw.receipt} style={st(`${v.s.btnT}min-height:28px;`)}>
-                      <Icon name={"receipt-text"} style={st("width:14px;height:14px;")} />
-                      {tr("Receipt")}
-                    </button>
+                    {v.gw.receiptOn ? (
+                      <button className="wv-gi" onClick={v.gw.receipt} style={st(`${v.s.btnT}min-height:28px;`)}>
+                        <Icon name={"receipt-text"} style={st("width:14px;height:14px;")} />
+                        {tr("Receipt")}
+                      </button>
+                    ) : null}
                   </div>
                 </>
               ) : null}
@@ -1912,14 +1933,9 @@ export function AudienceView({ v }: { v: any }) {
                 <div role="status" style={st(`${v.s.aInfo}font-size:15px;`)}>
                   <Icon name={"banknote"} style={st("width:18px;height:18px;flex-shrink:0;margin-block-start:2px;color:var(--info);")} />
                   <span>
-                    <strong style={st("font-weight:800;")}>
-                      {tr("Pay")}{" "}
-                      <span style={st("font-family:var(--mono);")}>
-                        {v.gw.total}
-                      </span>
-                      {" "}{tr("at the door")}
-                    </strong>
-                    {" "}{tr("— your tickets work now. Card or cash.")}
+                    {trx("{pay} — your tickets work now. Card or cash.", {
+                      pay: <strong style={st("font-weight:800;")}>{trx("Pay {amount} at the door", { amount: <span style={st("font-family:var(--mono);")}>{v.gw.total}</span> })}</strong>,
+                    })}
                   </span>
                 </div>
               </>
@@ -1945,16 +1961,12 @@ export function AudienceView({ v }: { v: any }) {
                       {tr("Pay by bank transfer")}
                     </h2>
                     <span style={st(v.gw.dueChip)}>
-                      {tr("Pay by")}{" "}{v.gw.due}
+                      {v.gw.dueTxt}
                     </span>
                   </div>
                   {" "}
                   <p style={st(`${v.s.p}font-size:14px;`)}>
-                    {tr("Send")}{" "}
-                    <strong style={st("font-family:var(--mono); color:var(--fg);")}>
-                      {v.gw.total}
-                    </strong>
-                    {" "}{tr("by bank transfer with the reference below. Your tickets appear here once we've seen the payment. If it hasn't arrived by the deadline, the tickets go back on sale.")}
+                    {v.gw.xferTxt}
                   </p>
                   {" "}
                   <dl style={st(`margin:0; display:grid; grid-template-columns:${v.gw.dlCols}; gap:1px; border-radius:14px; overflow:hidden; border:1px solid var(--border); background:var(--border);`)}>
@@ -1987,7 +1999,7 @@ export function AudienceView({ v }: { v: any }) {
                   {" "}
                   <div style={st("display:flex; flex-direction:column; gap:14px; padding-inline:12px; margin-block-start:-7px;")}>
                     {(v.gw.tickets ?? []).map((t: any, i_t: number) => (
-                      <Fragment key={t.code ?? i_t}>
+                      <Fragment key={i_t}>
                         <div style={st("overflow:hidden; border-radius:0 0 20px 20px; padding-block-start:7px;")}>
                           <article className="wv-print" aria-label={t.aria} style={st(`animation-delay:${t.delay}; display:grid; grid-template-columns:${v.gw.tkCols}; border-radius:20px; overflow:hidden; background:var(--surface); border:1px solid var(--border-strong); box-shadow:0 20px 40px -26px rgba(0,0,0,.6); ${t.dim}`)}>
                             <div style={st(`position:relative; min-height:${v.gw.edgeMin}; container-type:inline-size; ${t.p.bg}`)}>
@@ -1995,7 +2007,7 @@ export function AudienceView({ v }: { v: any }) {
                                 {t.p.letter}
                               </span>
                               <span style={st(`position:absolute; inset-inline-start:12px; inset-block-end:10px; font-family:var(--mono); font-size:10.5px; font-weight:700; letter-spacing:.08em; color:${t.p.ink};`)}>
-                                {tr("WAVEFORM")}
+                                {t.venue}
                               </span>
                             </div>
                             {" "}
@@ -2569,21 +2581,19 @@ export function AudienceView({ v }: { v: any }) {
                   {" "}
                   <div style={st("padding:16px; display:flex; flex-direction:column; gap:6px;")}>
                     <span style={st("font-family:var(--mono); font-size:12.5px; font-weight:700; color:var(--accent);")}>
-                      {tr("Tue 28 Jul · Doors 20:00")}
+                      {v.fr.card.when}
                     </span>
                     <span style={st("font-size:20px; font-weight:800; letter-spacing:-.04em;")}>
-                      {tr("Neon Circuit")}
+                      {v.fr.card.show}
                     </span>
                     <span style={st("font-size:13px; font-weight:600; color:var(--fg-muted);")}>
-                      {tr("Standard · Main Hall · 18+ — bring photo ID")}
+                      {v.fr.card.line}
                     </span>
-                    <span style={st(`${v.s.chip}align-self:flex-start; color:var(--info); border-color:var(--info);`)}>
-                      {tr("Pay")}{" "}
-                      <span style={st("font-family:var(--mono);")}>
-                        {"$28.00"}
+                    {v.fr.card.payOn ? (
+                      <span style={st(`${v.s.chip}align-self:flex-start; color:var(--info); border-color:var(--info);`)}>
+                        {v.fr.card.pay}
                       </span>
-                      {" "}{tr("at the door")}
-                    </span>
+                    ) : null}
                   </div>
                 </div>
                 {" "}
@@ -2623,8 +2633,13 @@ export function AudienceView({ v }: { v: any }) {
                     {v.fr.newCode}
                   </span>
                   <span style={st("font-size:13px; font-weight:700; color:#4a4a54;")}>
-                    {v.fr.holder}{" "}{tr("· Standard")}
+                    {v.fr.holder}
                   </span>
+                  {v.fr.payOn ? (
+                    <span style={st("display:inline-flex; align-items:center; gap:6px; min-height:26px; padding:0 10px; border-radius:999px; background:#e7edfd; color:#1c59e0; font-size:12.5px; font-weight:800;")}>
+                      {v.fr.payTxt}
+                    </span>
+                  ) : null}
                 </div>
                 {" "}
                 <p style={st(`${v.s.p}font-size:14.5px;`)}>
@@ -2664,15 +2679,15 @@ export function AudienceView({ v }: { v: any }) {
                   {" "}
                   <div style={st("padding:16px; display:flex; flex-direction:column; gap:6px;")}>
                     <span style={st("font-family:var(--mono); font-size:12.5px; font-weight:700; color:var(--accent);")}>
-                      {tr("Fri 31 Jul · Doors 19:30")}
+                      {v.of.card.when}
                     </span>
                     <span style={st("font-size:20px; font-weight:800; letter-spacing:-.04em;")}>
-                      {tr("Velvet Hour")}
+                      {v.of.card.show}
                     </span>
                     <span style={st("font-size:13px; font-weight:600; color:var(--fg-muted);")}>
-                      {tr("The Annex · 14+ with an adult · Standard")}{" "}
+                      {v.of.card.line}{" "}
                       <span style={st("font-family:var(--mono);")}>
-                        {"$20.00"}
+                        {v.of.card.price}
                       </span>
                     </span>
                   </div>
@@ -2685,7 +2700,7 @@ export function AudienceView({ v }: { v: any }) {
                   <div role="radiogroup" aria-labelledby="of-q" style={st("display:flex; gap:3px; padding:3px; border-radius:11px; background:var(--surface-2); border:1px solid var(--border);")}>
                     {(v.of.qs ?? []).map((q: any, i_q: number) => (
                       <Fragment key={q.id ?? i_q}>
-                        <button role="radio" aria-checked={q.on} onClick={q.go} style={st(q.style)}>
+                        <button role="radio" aria-checked={q.checked} onClick={q.go} style={st(q.style)}>
                           {q.id}
                         </button>
                       </Fragment>
@@ -2694,7 +2709,7 @@ export function AudienceView({ v }: { v: any }) {
                 </div>
                 {" "}
                 <button className="wv-btn" onClick={v.of.go} style={st(v.s.btnP)}>
-                  {tr("Continue —")}{" "}{v.of.label}
+                  {v.of.label}
                   <Icon name={"arrow-right"} style={st("width:16px;height:16px;")} />
                 </button>
                 {" "}
@@ -2711,11 +2726,7 @@ export function AudienceView({ v }: { v: any }) {
                 </h1>
                 {" "}
                 <p style={st(v.s.p)}>
-                  {tr("The 12 hours ended at")}{" "}
-                  <span style={st("font-family:var(--mono); color:var(--fg);")}>
-                    {v.of.endTxt}
-                  </span>
-                  {tr(", so they went to the next person on the list. You're still on the waitlist if more come back.")}
+                  {trx("The {n} hours ended at {time}, so they went to the next person on the list. You're still on the waitlist if more come back.", { time: <span style={st("font-family:var(--mono); color:var(--fg);")}>{v.of.endTxt}</span> }, v.of.hours)}
                 </p>
                 {" "}
                 <button className="wv-btn" onClick={v.goHome} style={st(`${v.s.btnP}align-self:flex-start;`)}>
@@ -2747,6 +2758,50 @@ export function AudienceView({ v }: { v: any }) {
             </button>
           </div>
         </>
+      ) : null}
+      {v.scr.confirm ? (
+        <div className="wv-screen" style={st(`max-width:880px; width:100%; margin-inline:auto; padding:${v.gw.pad || "40px 32px 72px"}; display:flex; flex-direction:column; gap:24px;`)}>
+          <div style={st("display:flex; flex-direction:column; gap:10px;")}>
+            <span style={st("font-family:var(--mono); font-size:13px; font-weight:700; color:var(--accent);")}>{v.cf.eyebrow}</span>
+            <h1 style={st(`margin:0; font-size:${v.L.h2}; font-weight:800; letter-spacing:-.05em; line-height:1; text-wrap:balance;`)}>{v.cf.head}</h1>
+          </div>
+          {v.cf.askOn ? (
+            <>
+              <p style={st(`${v.s.p}font-size:16px;`)}>{v.cf.askTxt}</p>
+              <button className="wv-btn" onClick={v.cf.press} disabled={v.cf.busy} aria-busy={v.cf.busy} style={st(`${v.s.btnP}align-self:flex-start;`)}>
+                <Icon name={"badge-check"} style={st("width:16px;height:16px;")} />
+                {tr("Confirm my order")}
+              </button>
+            </>
+          ) : null}
+          {v.cf.ranOutOn ? (
+            <div role="status" style={st(`${v.s.aDanger}font-size:15px; flex-direction:column; gap:12px;`)}>
+              <span style={st("display:flex; gap:10px; align-items:flex-start;")}>
+                <Icon name={"timer-off"} style={st("width:18px;height:18px;flex-shrink:0;margin-block-start:2px;color:var(--danger);")} />
+                <span>{v.cf.ranOutTxt}</span>
+              </span>
+              <button className="wv-btn" onClick={v.cf.seeWhatsOn} style={st(`${v.s.btnP}align-self:flex-start;`)}>{tr("See what's on")}</button>
+            </div>
+          ) : null}
+          {v.cf.doneOn ? (
+            <section aria-labelledby="cf-bt" style={st("display:flex; flex-direction:column; gap:14px; padding:20px; border-radius:18px; border:1px solid var(--warn); background:var(--surface);")}>
+              <div style={st("display:flex; align-items:center; gap:10px; flex-wrap:wrap;")}>
+                <Icon name={"landmark"} style={st("width:18px;height:18px;color:var(--warn);")} />
+                <h2 id="cf-bt" style={st(`${v.s.h2}font-size:19px; flex:1;`)}>{tr("Pay by bank transfer")}</h2>
+                {v.cf.dueTxt ? <span style={st("display:inline-flex; align-items:center; min-height:26px; padding:0 10px; border-radius:999px; background:var(--warn-soft); color:var(--warn); font-family:var(--mono); font-size:12px; font-weight:700;")}>{v.cf.dueTxt}</span> : null}
+              </div>
+              <p style={st(`${v.s.p}font-size:14px;`)}>{v.cf.doneTxt}</p>
+              <dl style={st("margin:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1px; border-radius:14px; overflow:hidden; border:1px solid var(--border); background:var(--border);")}>
+                {(v.cf.bank ?? []).map((b: any, i_b: number) => (
+                  <div key={i_b} style={st("display:flex; flex-direction:column; gap:3px; padding:11px 13px; background:var(--surface-2);")}>
+                    <dt style={st(v.s.eyebrow)}>{b.k}</dt>
+                    <dd style={st("margin:0; font-family:var(--mono); font-size:14px; font-weight:700;")}>{b.v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          ) : null}
+        </div>
       ) : null}
     </main>
     {" "}

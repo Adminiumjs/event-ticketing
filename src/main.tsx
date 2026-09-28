@@ -131,6 +131,7 @@ async function bootDemo(mount: HTMLElement): Promise<void> {
   app.demo = { onClock: (fn) => demo.onClock(fn) };
   (window as unknown as { __wave?: unknown }).__wave = { app, demo };
   await app.start();
+  await app.arrive(window.location.pathname, window.location.hash);
   createRoot(mount).render(
     <StrictMode>
       <WaveRoot app={app} />

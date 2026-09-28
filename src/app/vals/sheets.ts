@@ -15,10 +15,10 @@ type Field = { id: string; label: string; type: string; v: string; on: (e: { tar
 
 const okEmail = (v: unknown): boolean => /^\S+@\S+\.\S+$/.test(String(v ?? "").trim());
 
-export function sheetVals(app: WaveApp, _v: V): V {
+export function sheetVals(app: WaveApp, v: V): V {
   const s = app.state;
   const nar = app.narrow();
-  const closed = {
+  const defaults: V = {
     sh: { on: false, fields: [], list: [], rows: [], secs: [], btns: [], qs: [], groups: [] },
     acct: { items: [], name: "", email: "" },
     closeAcct: () => {
@@ -31,6 +31,8 @@ export function sheetVals(app: WaveApp, _v: V): V {
     bo: { segW: "" },
     panelScrim: nar && s.panelOpen,
   };
+  // What the side's own values already gave (the account menu, the phone ticket) is kept.
+  const closed: V = Object.fromEntries(Object.entries(defaults).filter(([k]) => v[k] === undefined || k === "sh" || k === "panelScrim"));
   const sh = s.sheet;
   const w = app.persona === "audience" ? app.world() : null;
   if (sh === null) return closed;

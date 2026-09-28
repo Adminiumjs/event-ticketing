@@ -53,6 +53,7 @@ export const ORDER_SELECT = [
   "pay_by",
   "created_at",
   "paid_at",
+  "paid_method",
   "cancelled_at",
   "answers",
   "access_note",
@@ -89,8 +90,12 @@ export const TICKET_SELECT = [
   "sent_at",
   "accepted_at",
   "refund_asked_at",
+  "times_in",
   "answers",
 ];
+
+/** An order's states in which its tickets can be named: held in a checkout, or live. */
+const NAMED = ["held", "confirming", "offered", "door", "no_charge", "paid", "awaiting_transfer", "overdue"];
 
 /** An order's states in which nothing is paid yet: its tickets carry no code to the browser. */
 const UNPAID = ["held", "confirming", "offered", "awaiting_transfer", "overdue", "released"];
@@ -213,19 +218,32 @@ function orderEntry(keyed: Record<string, unknown>, who: Record<string, unknown>
 /** An order's tickets: read with the order, and the changes a buyer makes to them. */
 function ticketEntries(keyed: Record<string, unknown>) {
   return [
-    // The names on the tickets; send one to a friend or take it back; ask for a refund or withdraw
-    // the ask (the refund window is the ticket's own rule). Only once the order is confirmed, and
-    // only while nobody else holds the ticket.
+    // Send a ticket to a friend or take it back; ask for a refund or withdraw the ask (the refund
+    // window is the ticket's own rule). Only once the order is confirmed, and only while nobody
+    // else holds the ticket.
     {
       table: "tickets",
       ...keyed,
       methods: ["GET", "PATCH"],
       ...WITH_ORDER,
       select: TICKET_SELECT,
-      writable: ["status", "holder_name", "answers", "pending_email", "pending_name"],
+      writable: ["status", "pending_email", "pending_name"],
       writableValues: { status: ["offered", "valid", "refund_asked"] },
       writableWhen: { status: ["valid", "offered", "refund_asked"], holder_customer_id: [null], order_status: ["door", "no_charge", "paid"] },
-      limits: { perValue: { columns: ["pending_email"], n: 5 }, plainText: ["holder_name", "pending_name"] },
+      limits: { perValue: { columns: ["pending_email"], n: 5 }, plainText: ["pending_name"] },
+      withhold: WITHHOLD,
+    },
+    // The names on the tickets and their answers: from the moment the places are held (checkout asks
+    // for them then), for as long as the order lives and nobody else holds the ticket.
+    {
+      table: "tickets",
+      ...keyed,
+      methods: ["PATCH"],
+      ...WITH_ORDER,
+      select: TICKET_SELECT,
+      writable: ["holder_name", "answers"],
+      writableWhen: { status: ["valid", "offered", "refund_asked"], holder_customer_id: [null], order_status: NAMED },
+      limits: { plainText: ["holder_name"] },
       withhold: WITHHOLD,
     },
     // Cancel a ticket nothing was paid for, until doors.
@@ -385,7 +403,7 @@ export const PUBLIC_ACCESS = [
     methods: ["GET", "PATCH"],
     claim: { by: "token", column: "link_token", own: true, address: ["pending_email", "holder_email"] },
     // The code only once the ticket is theirs: before they accept, the ticket still belongs to the sender.
-    select: ["id", "ticket_type_id", "event_id", "status", "name", "due", "collected", "code", "pending_name", "holder_name", "offer_until", "accepted_at"],
+    select: ["id", "ticket_type_id", "event_id", "status", "name", "due", "collected", "code", "pending_name", "holder_name", "sender_name", "offer_until", "accepted_at"],
     withhold: { columns: ["code"], when: { where: [{ column: "holder_customer_id", isNull: true }] } },
     writable: ["status", "holder_name"],
     requires: ["status", "holder_name"],
