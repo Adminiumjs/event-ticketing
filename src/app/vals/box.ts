@@ -8,7 +8,8 @@
 import type { Id, Row, Where } from "../../data/wire.ts";
 import { tr } from "../../i18n/tr.ts";
 import { svgData, wave, hsh } from "../art.ts";
-import { boxOf, LIVE, LIVE_TICKET, type Box } from "../box.ts";
+import { boxOf, LIVE, LIVE_TICKET, plural, type Box } from "../box.ts";
+export { plural };
 import type { BoxWorld } from "../boxWorld.ts";
 import { dur, fD, fT, fsi, iso, money, ms, num, sameDay } from "../fmt.ts";
 import type { WaveApp } from "../wave.ts";
@@ -60,7 +61,6 @@ export function boxStyles(nar: boolean): Record<string, unknown> {
 /** A pill in the tone of a state. */
 export const pill = (k: "pos" | "warn" | "danger" | "info" | "accent" | "muted"): string => stStyle(k);
 
-export const plural = (n: number, one: string, many: string): string => tr(`${one}|${many}`, { n });
 
 /** "Tue 28 Jul · 16:30": the clock as a heading says it. */
 export const dayTime = (t: unknown): string => `${fD(t)} · ${fT(t)}`;
@@ -219,6 +219,8 @@ export function orderState(o: Row, now: number): { txt: string; k: Tone; id: str
       return { txt: tr("Didn't come"), k: "muted", id: "notcollected" };
     default:
   }
+  // Every ticket gone (cancelled, or handed to the waitlist): the order is over.
+  if (Number(o["ticket_count"] ?? 1) <= 0 && bal >= 0) return refunded > 0 ? { txt: tr("Refunded"), k: "muted", id: "refunded" } : { txt: tr("Cancelled"), k: "muted", id: "cancelled" };
   if (bal < 0) return { txt: tr("Refund due"), k: "danger", id: "refund" };
   if (refunded > 0) return { txt: tr("Refunded {refunded} of {paid}", { refunded: money(refunded), paid: money(paid) }), k: "muted", id: "paid" };
   if (st === "door") return { txt: tr("Pay at the door"), k: "info", id: "door" };

@@ -593,6 +593,22 @@ export class DemoBoxOffice implements BoxOfficePort {
     }
   }
 
+  async quote(body: OrderBody): Promise<QuoteReply> {
+    const engine = this.engine;
+    const event = engine.world.get("events", body.values["event_id"] as Id);
+    let reply: QuoteReply | null = null;
+    try {
+      engine.transaction(() => {
+        const made = engine.create("orders", { channel: "box_office", ...body.values, room_id: event?.["room_id"] ?? null }, this.writer, { table: "tickets", via: "order_id", rows: body.tickets.map((t) => ({ ...t })) });
+        reply = { data: made.row, tickets: made.children };
+        throw new DryRun();
+      });
+    } catch (error) {
+      if (!(error instanceof DryRun)) throw error;
+    }
+    return reply!;
+  }
+
   async newOrder(body: OrderBody, clientKey: string): Promise<OrderReply> {
     const again = this.retries.get(clientKey);
     const engine = this.engine;

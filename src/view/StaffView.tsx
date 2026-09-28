@@ -457,7 +457,6 @@ export function StaffView({ v }: { v: any }) {
                             </th>
                           </tr>
                         </thead>
-                        {" "}
                         <tbody>
                           {(v.el.rows ?? []).map((r: any, i_r: number) => (
                             <Fragment key={r.id ?? i_r}>
@@ -475,7 +474,6 @@ export function StaffView({ v }: { v: any }) {
                                     </span>
                                   </div>
                                 </td>
-                                {" "}
                                 <td style={st(v.bo.tdm)}>
                                   {r.date}
                                 </td>
@@ -487,7 +485,6 @@ export function StaffView({ v }: { v: any }) {
                                     {r.st}
                                   </span>
                                 </td>
-                                {" "}
                                 <td style={st(v.bo.td)}>
                                   <div style={st("display:flex; flex-direction:column; gap:4px; min-width:120px;")}>
                                     <span style={st("font-family:var(--mono); font-size:12.5px; font-weight:600;")}>
@@ -498,14 +495,12 @@ export function StaffView({ v }: { v: any }) {
                                     </span>
                                   </div>
                                 </td>
-                                {" "}
                                 <td style={st(v.bo.tdm)}>
                                   {r.taken}
                                 </td>
                                 <td style={st(v.bo.tdm)}>
                                   {r.owed}
                                 </td>
-                                {" "}
                                 <td style={st(v.bo.td)}>
                                   <button className="wv-gi" onClick={r.edit} style={st(`${v.s.btnS}min-height:30px; font-size:12px;`)}>
                                     <Icon name={"square-pen"} style={st("width:13px;height:13px;")} />
@@ -1562,7 +1557,6 @@ export function StaffView({ v }: { v: any }) {
                             </th>
                           </tr>
                         </thead>
-                        {" "}
                         <tbody>
                           {(v.or.rows ?? []).map((r: any, i_r: number) => (
                             <Fragment key={r.no ?? i_r}>
@@ -1572,7 +1566,6 @@ export function StaffView({ v }: { v: any }) {
                                     {r.no}
                                   </button>
                                 </td>
-                                {" "}
                                 <td style={st(v.bo.td)}>
                                   <div style={st("display:flex; flex-direction:column; min-width:160px;")}>
                                     <span style={st("font-weight:800;")}>
@@ -1583,7 +1576,6 @@ export function StaffView({ v }: { v: any }) {
                                     </span>
                                   </div>
                                 </td>
-                                {" "}
                                 {v.or.global ? (
                                   <>
                                     <td style={st(`${v.bo.td}white-space:nowrap;`)}>
@@ -1591,7 +1583,6 @@ export function StaffView({ v }: { v: any }) {
                                     </td>
                                   </>
                                 ) : null}
-                                {" "}
                                 <td style={st(v.bo.tdm)}>
                                   {r.n}
                                 </td>
@@ -1700,6 +1691,11 @@ export function StaffView({ v }: { v: any }) {
               {v.bo.s.guests ? (
                 <>
                   <div className="wv-screen" style={st(v.bo.page)}>
+                    {!v.bo.ehOn ? (
+                      <h1 style={st(v.bo.h1)}>
+                        {tr("Guest lists")}
+                      </h1>
+                    ) : null}
                     <div style={st("display:flex; gap:10px; align-items:center; flex-wrap:wrap;")}>
                       <select className="wv-fld" aria-label={tr("Show")} value={v.gl.ev} onChange={v.gl.onEv} style={st(`${v.bo.fld}width:auto; min-width:200px;`)}>
                         {(v.gl.evOpts ?? []).map((o: any, i_o: number) => (
@@ -1843,7 +1839,6 @@ export function StaffView({ v }: { v: any }) {
                             </th>
                           </tr>
                         </thead>
-                        {" "}
                         <tbody>
                           {(v.gl.rows ?? []).map((g: any, i_g: number) => (
                             <Fragment key={g.id ?? i_g}>
@@ -1920,10 +1915,10 @@ export function StaffView({ v }: { v: any }) {
                         {" "}
                         <div style={st("flex:1; min-width:200px; display:flex; flex-direction:column; gap:2px;")}>
                           <h2 id="wv-h" style={st(v.bo.secH)}>
-                            {tr("Velvet Hour")}
+                            {v.wv.name}
                           </h2>
                           <span style={st("font-family:var(--mono); font-size:12.5px; font-weight:600; color:var(--fg-muted);")}>
-                            {tr("Fri 31 Jul · The Annex · sold out")}
+                            {v.wv.line}
                           </span>
                         </div>
                         {" "}
@@ -1931,14 +1926,22 @@ export function StaffView({ v }: { v: any }) {
                           {v.wv.backTxt}
                         </span>
                         {" "}
-                        <button className="wv-btn" onClick={v.wv.offer} disabled={v.wv.offerOff} style={st(`${v.s.btnP}min-height:40px;`)}>
-                          <Icon name={"send"} style={st("width:15px;height:15px;")} />
-                          {v.wv.offerLabel}
-                        </button>
+                        {v.wv.offerOn ? (
+                          <button className="wv-btn" onClick={v.wv.offer} style={st(`${v.s.btnP}min-height:40px;`)}>
+                            <Icon name={"send"} style={st("width:15px;height:15px;")} />
+                            {v.wv.offerLabel}
+                          </button>
+                        ) : null}
+                        {v.wv.putBackOn ? (
+                          <button className="wv-gi" onClick={v.wv.putBack} style={st(v.s.btnS)}>
+                            <Icon name={"undo-2"} style={st("width:14px;height:14px;")} />
+                            {v.wv.putBackLabel}
+                          </button>
+                        ) : null}
                       </div>
                       {" "}
                       <span style={st(v.s.hint)}>
-                        {tr("Tickets that come back are held for the waitlist and go to the next people in order. Each offer is held for 12 hours; if the next person asked for more than is back, they're offered what's back.")}
+                        {v.wv.hint}
                       </span>
                       {" "}
                       <div style={st("overflow-x:auto;")}>
@@ -1970,7 +1973,6 @@ export function StaffView({ v }: { v: any }) {
                               </th>
                             </tr>
                           </thead>
-                          {" "}
                           <tbody>
                             {(v.wv.rows ?? []).map((w: any, i_w: number) => (
                               <Fragment key={w.id ?? i_w}>
@@ -1996,9 +1998,11 @@ export function StaffView({ v }: { v: any }) {
                                     </span>
                                   </td>
                                   <td style={st(v.bo.td)}>
-                                    <button className="wv-gi" onClick={w.del} aria-label={w.delLabel} style={st("width:32px; height:32px; border:0; border-radius:9px; background:transparent; color:var(--fg-subtle); display:flex; align-items:center; justify-content:center;")}>
-                                      <Icon name={"x"} style={st("width:14px;height:14px;")} />
-                                    </button>
+                                    {w.delOn ? (
+                                      <button className="wv-gi" onClick={w.del} aria-label={w.delLabel} style={st("width:32px; height:32px; border:0; border-radius:9px; background:transparent; color:var(--fg-subtle); display:flex; align-items:center; justify-content:center;")}>
+                                        <Icon name={"x"} style={st("width:14px;height:14px;")} />
+                                      </button>
+                                    ) : null}
                                   </td>
                                 </tr>
                               </Fragment>
@@ -2056,7 +2060,6 @@ export function StaffView({ v }: { v: any }) {
                             </th>
                           </tr>
                         </thead>
-                        {" "}
                         <tbody>
                           {(v.cd.rows ?? []).map((c: any, i_c: number) => (
                             <Fragment key={c.code ?? i_c}>
@@ -2073,22 +2076,24 @@ export function StaffView({ v }: { v: any }) {
                                 <td style={st(`${v.bo.td}color:var(--fg-muted);`)}>
                                   {c.type}
                                 </td>
-                                {" "}
                                 <td style={st(v.bo.td)}>
                                   <div style={st("display:flex; flex-direction:column; gap:4px; min-width:90px;")}>
                                     <span style={st("font-family:var(--mono); font-size:12.5px;")}>
                                       {c.uses}
                                     </span>
+                                    {c.perShowOn ? (
+                                      <span style={st("font-family:var(--mono); font-size:11.5px; color:var(--fg-subtle);")}>
+                                        {c.perShow}
+                                      </span>
+                                    ) : null}
                                     <span style={st(v.bo.track)}>
                                       <span style={st(c.bar)}></span>
                                     </span>
                                   </div>
                                 </td>
-                                {" "}
                                 <td style={st(v.bo.tdm)}>
                                   {c.until}
                                 </td>
-                                {" "}
                                 <td style={st(v.bo.td)}>
                                   <button role="switch" aria-checked={c.on} aria-label={c.swLabel} onClick={c.toggle} style={st("padding:4px; border:0; background:transparent; cursor:pointer;")}>
                                     <span style={st(c.swTrack)}>
@@ -2096,7 +2101,6 @@ export function StaffView({ v }: { v: any }) {
                                     </span>
                                   </button>
                                 </td>
-                                {" "}
                                 <td style={st(v.bo.td)}>
                                   <button className="wv-gi" onClick={c.edit} aria-label={c.editLabel} style={st(`${v.s.btnS}min-height:30px; font-size:12px;`)}>
                                     <Icon name={"square-pen"} style={st("width:13px;height:13px;")} />
@@ -2108,6 +2112,11 @@ export function StaffView({ v }: { v: any }) {
                           ))}
                         </tbody>
                       </table>
+                      {v.cd.empty ? (
+                        <p style={st("margin:0; padding:28px; text-align:center; font-size:14px; font-weight:600; color:var(--fg-muted);")}>
+                          {tr("No codes yet.")}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 </>
@@ -2276,7 +2285,6 @@ export function StaffView({ v }: { v: any }) {
                       <h2 id="mh-h" style={st(`${v.bo.secH}padding:16px 16px 6px;`)}>
                         {tr("Sent")}
                       </h2>
-                      {" "}
                       <table style={st(`${v.bo.table}min-width:600px;`)}>
                         <thead>
                           <tr>
@@ -2300,7 +2308,6 @@ export function StaffView({ v }: { v: any }) {
                             </th>
                           </tr>
                         </thead>
-                        {" "}
                         <tbody>
                           {(v.ms.hist ?? []).map((h: any, i_h: number) => (
                             <Fragment key={h.id ?? i_h}>
@@ -2624,7 +2631,6 @@ export function StaffView({ v }: { v: any }) {
                                   </th>
                                 </tr>
                               </thead>
-                              {" "}
                               <tbody>
                                 {(v.pc.rfRows ?? []).map((r: any, i_r: number) => (
                                   <Fragment key={r.no ?? i_r}>

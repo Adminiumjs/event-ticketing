@@ -107,7 +107,8 @@ export class Box {
   // ── what is on screen ────────────────────────────────────────────────────
 
   get s(): BoxState {
-    return (this.app.state.box as BoxState | null) ?? boxFresh();
+    const cur = this.app.state.box as BoxState | null;
+    return cur === null ? boxFresh() : { ...boxFresh(), ...cur };
   }
 
   set(p: Partial<BoxState> | ((s: BoxState) => Partial<BoxState>)): void {
@@ -375,6 +376,118 @@ export class Box {
     await this.write(() => this.port.move(orderId, "released"), tr("{number} released", { number }), "undo-2");
   }
 
+  /** Money recorded on an order; paid in full, it moves to paid (a released order too, when its seats still fit). */
+  async pay(order: Row, amount: number, method: "bank_transfer" | "card" | "cash", note: string): Promise<void> {
+    await this.write(async () => {
+      await this.port.recordPayment(order.id, amount, method, note === "" ? null : note);
+      const after = (await this.port.list("orders", { where: [{ column: "id", eq: order.id }] })).rows[0];
+      const st = String(after?.["status"] ?? "");
+      if (after !== undefined && Number(after["balance"] ?? 0) <= 0 && ["door", "awaiting_transfer", "overdue", "released", "not_collected"].includes(st)) {
+        await this.port.move(order.id, "paid");
+      }
+    }, tr("{amount} recorded on {number}", { amount: money(amount), number: String(order["number"]) }), "badge-check");
+  }
+
+  async refund(order: Row, amount: number, method: "bank_transfer" | "card" | "cash", kind: "cancelled_tickets" | "goodwill"): Promise<void> {
+    await this.write(() => this.port.recordRefund(order.id, amount, method, kind), tr("Refund of {amount} recorded", { amount: money(amount) }), "undo-2");
+  }
+
+  /** A ticket's name changed; it keeps its code. */
+  async rename(ticketId: Id, name: string): Promise<void> {
+    await this.write(() => this.port.update("tickets", ticketId, { holder_name: name }), tr("Name changed"), "user-pen");
+  }
+
+  /** Tickets cancelled by the box office; all of an order's live ones, and the order goes too (on a waitlist show they go to it). */
+  async cancelTickets(order: Row, ids: Id[], all: boolean, waitlist: boolean): Promise<void> {
+    await this.write(async () => {
+      await this.port.cancelTickets(ids, "box_office");
+      if (all && !waitlist) await this.port.move(order.id, "cancelled", { cancel_cause: "box_office" });
+    }, plural(ids.length, "{n} ticket cancelled", "{n} tickets cancelled"), "ticket-x");
+  }
+
+  /** A refund request approved: the asked tickets are cancelled and what is due back shows on the order. */
+  async approve(ids: Id[]): Promise<void> {
+    await this.write(() => this.port.cancelTickets(ids, "request"), tr("Approved — record the refund once it is paid back"), "check");
+  }
+
+  /** A refund request declined: the tickets work again; the reason goes on the order's notes. */
+  async decline(order: Row, ids: Id[], reason: string): Promise<void> {
+    await this.write(async () => {
+      for (const id of ids) await this.port.declineRefund(id);
+      if (reason.trim() !== "") await this.port.update("orders", order.id, { note: joinNote(order["note"], tr("Refund request declined: {reason}", { reason: reason.trim() })) });
+    }, tr("Declined"), "x");
+  }
+
+  async note(order: Row, text: string): Promise<void> {
+    await this.write(() => this.port.update("orders", order.id, { note: joinNote(order["note"], text.trim()) }), tr("Note added"), "sticky-note");
+  }
+
+  /** The order's email sent again: its tickets, or the transfer details while it waits for the money. */
+  async resend(order: Row): Promise<void> {
+    const waiting = ["awaiting_transfer", "overdue"].includes(String(order["status"]));
+    await this.write(
+      () => this.port.mail(waiting ? "transfer-waiting" : "tickets", [{ order_id: order.id, event_id: order["event_id"], to_address: order["email"], repeat_key: `resend-${String(this.app.now)}` }]),
+      tr("Resent to {email}", { email: String(order["email"] ?? "") }),
+      "mail",
+    );
+  }
+
+  // ── guest lists, waitlists, codes ────────────────────────────────────────
+
+  async addGuests(eventId: Id, guests: { name: string; plus: number; on_behalf: string; note: string }[]): Promise<boolean> {
+    return this.write(
+      async () => {
+        for (const g of guests) await this.port.create("guest_list", { event_id: eventId, name: g.name, plus: g.plus, on_behalf: g.on_behalf === "" ? null : g.on_behalf, note: g.note === "" ? null : g.note });
+      },
+      guests.length === 1 ? tr("{name} added to the guest list", { name: guests[0]!.name }) : plural(guests.length, "{n} name added", "{n} names added"),
+      "user-plus",
+    );
+  }
+  async removeGuest(id: Id, name: string): Promise<void> {
+    await this.write(() => this.port.remove("guest_list", id), tr("{name} removed", { name }), "user-minus");
+  }
+  async setListCloses(eventId: Id, at: string | null): Promise<void> {
+    await this.write(() => this.port.update("events", eventId, { guest_list_closes_at: at }), "");
+  }
+  /** The places back offered to the next people, in joining order (the next is offered what's back). */
+  async offer(eventId: Id): Promise<void> {
+    await this.write(async () => {
+      const made = await this.port.offerWaitlist(eventId);
+      const n = made.length;
+      if (n === 0) throw new Error("nothing offered");
+    }, tr("Offered — they have {hours} hours to claim", { hours: this.world()?.settings.offerHours ?? 12 }), "send");
+  }
+  /** Someone put on a show's waitlist by the box office (their account found by the address, or made). */
+  async addWaiting(eventId: Id, name: string, email: string, qty: number): Promise<boolean> {
+    const address = email.trim().toLowerCase();
+    return this.write(async () => {
+      const found = (await this.port.list("customers", { where: [{ column: "email", eq: address }], limit: 1 })).rows[0];
+      const customer = found ?? (await this.port.create("customers", { email: address, name }));
+      await this.port.create("waitlist", { event_id: eventId, customer_id: customer.id, email: address, qty });
+    }, tr("{name} added to the waitlist", { name }), "user-plus");
+  }
+  /** Off the waitlist; someone holding an offer has it ended, so its places are back. */
+  async removeWaiting(row: Row, name: string): Promise<void> {
+    await this.write(async () => {
+      if (row["status"] === "offered" && row["order_id"] !== null && row["order_id"] !== undefined) await this.port.move(row["order_id"] as Id, "expired");
+      else await this.port.update("waitlist", row.id, { status: "removed" });
+    }, tr("{name} removed from the waitlist", { name }), "user-minus");
+  }
+  /** Places back with nobody left waiting: on sale again. */
+  async putBack(eventId: Id, n: number): Promise<void> {
+    await this.write(async () => {
+      const back = await this.port.list("tickets", { where: [{ column: "event_id", eq: eventId }, { column: "status", eq: "returned" }], limit: n });
+      for (const t of back.rows) await this.port.update("tickets", t.id, { status: "released" });
+    }, plural(n, "{n} ticket back on sale", "{n} tickets back on sale"), "undo-2");
+  }
+  async toggleCode(code: Row): Promise<void> {
+    const on = code["active"] === true;
+    await this.write(() => this.port.update("codes", code.id, { active: !on }), on ? tr("{code} turned off", { code: String(code["code"]) }) : tr("{code} turned on", { code: String(code["code"]) }), "ticket-percent");
+  }
+  async saveCode(id: Id | null, values: Record<string, unknown>): Promise<boolean> {
+    return this.write(() => (id === null ? this.port.create("codes", values) : this.port.update("codes", id, values)), tr("{code} saved", { code: String(values["code"]) }), "ticket-percent");
+  }
+
   /** A message written earlier and waiting: into Messages, as it was written, to review and send. */
   reviewWaiting(b: Row): void {
     const to = b["audience"] === "type" || b["audience"] === "not_in" ? b["audience"] : "everyone";
@@ -383,22 +496,133 @@ export class Box {
     });
   }
 
+  /** New order: for a walk-in, comps or a phone booking, on the show chosen (or the next one). */
+  newOrder(eventId: Id | null): void {
+    const ev = eventId ?? this.nextShow()?.id ?? null;
+    this.app.openSheet("bxNew", { ev, q: {}, names: {}, email: "", how: "", err: {}, key: `bo-${String(Date.now())}-${Math.random().toString(36).slice(2, 8)}` });
+  }
+
+  /**
+   * A box-office order: made held with its tickets (Adminium judges the places), then moved on at once —
+   * paid now (its payment first), to pay at the door, waiting for a transfer (the buyer's email required),
+   * or at no charge. A refused move lets the new order go, so nothing stays held.
+   */
+  async createOrder(o: {
+    eventId: Id;
+    tickets: { ticket_type_id: Id; holder_name: string | null }[];
+    email: string;
+    buyer: string;
+    how: "paidnow" | "door" | "transfer" | "none";
+    method: "card" | "cash";
+    key: string;
+  }): Promise<void> {
+    let made: Row | null = null;
+    const ok = await this.write(
+      async () => {
+        const reply = await this.port.newOrder(
+          { values: { event_id: o.eventId, email: o.email === "" ? null : o.email, buyer_name: o.buyer === "" ? null : o.buyer, channel: "box_office" }, tickets: o.tickets },
+          o.key,
+        );
+        made = reply.data;
+        const id = reply.data.id;
+        if (reply.replayed === true && reply.data["status"] !== "held") return;
+        try {
+          if (o.how === "paidnow") {
+            const total = Number(reply.data["total"] ?? 0);
+            if (total > 0) await this.port.recordPayment(id, total, o.method, null);
+            await this.port.move(id, "paid");
+          } else await this.port.move(id, o.how === "door" ? "door" : o.how === "transfer" ? "awaiting_transfer" : "no_charge");
+        } catch (error) {
+          await this.port.move(id, "let_go").catch(() => undefined);
+          throw error;
+        }
+      },
+      "",
+      "check",
+      { words: (error) => this.placesWords(error, o.eventId) },
+    );
+    if (ok && made !== null) {
+      const number = String((made as Row)["number"] ?? "");
+      this.openDrawer((made as Row).id);
+      this.app.toast(tr("{number} created", { number }), "check");
+    }
+  }
+
+  /** A full pool named: "Comps: all 4 are issued." — or the show's own places. */
+  placesWords(error: unknown, eventId: Id): string | null {
+    if (!isApiError(error) || error.code !== "CAPACITY_FULL") return null;
+    const w = this.world();
+    const show = w?.byId.get(eventId);
+    const pool = error.params["pool"];
+    const type = show?.types.find((t) => t.id === pool);
+    if (type !== undefined) {
+      const left = this.sold(show!)?.byType.get(type.id)?.left ?? 0;
+      return left <= 0 ? tr("{type}: all {n} are issued.", { type: type.short, n: type.capacity ?? 0 }) : plural(left, `${type.short}: only {n} left.`, `${type.short}: only {n} left.`);
+    }
+    return tr("{name} has no places left for that many.", { name: show?.name ?? "" });
+  }
+
+  /** Signed out: Adminium's sign-in next (the demo goes back to the audience's side). Unsaved changes are asked about first. */
+  signOut(): void {
+    if (this.app.state.bx === "editor" && this.s.edDirty && this.app.state.sheet?.kind !== "bxLeave") {
+      this.app.openSheet("bxLeave", { signOut: true });
+      return;
+    }
+    this.app.closeSheet();
+    if (this.port.signOut !== undefined) {
+      void this.port.signOut();
+      return;
+    }
+    this.app.setPersona("audience");
+    this.app.toast(tr("Signed out"), "log-out");
+  }
+
+  /** "Leave without saving": on to where the box office was going (or signed out). */
+  leaveEditor(sh: Record<string, unknown>): void {
+    this.set({ edDirty: false, ed: null });
+    this.app.closeSheet();
+    if (sh["signOut"] === true) return this.signOut();
+    this.go((sh["to"] ?? "events") as BoxScreenId, (sh["patch"] ?? {}) as Partial<BoxState>, true);
+  }
+
+  /** The orders on screen, every page of them, as a file. */
+  async exportOrders(query: ListQuery, format: string, n: number): Promise<void> {
+    await this.write(async () => {
+      const all = await this.port.list("orders", { ...query, limit: 100_000 });
+      const w = this.world();
+      const head = [tr("Order"), tr("Buyer"), tr("Email"), tr("Show"), tr("Date"), tr("Tickets"), tr("Total"), tr("Status"), tr("Placed")];
+      const cell = (v: unknown) => `"${String(v ?? "").replace(/[\u2066-\u2069]/g, "").replace(/"/g, '""')}"`;
+      const rows = all.rows.map((o) => {
+        const show = w?.byId.get(o["event_id"] as Id);
+        return [o["number"], o["buyer_name"], o["email"], show?.name, show === undefined ? "" : new Date(show.start).toISOString().slice(0, 10), o["ticket_count"], Number(o["total"] ?? 0).toFixed(2), o["status"], o["created_at"]];
+      });
+      const csv = [head, ...rows].map((r) => r.map(cell).join(",")).join("\n");
+      if (typeof document === "undefined") return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+      a.download = `orders.${format === "csv" ? "csv" : format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }, plural(n, "{n} order exported", "{n} orders exported"), "download");
+  }
+
   /** A new show in the editor (the editor's own module fills the draft). */
   newEvent(): void {
     this.go("editor", { ed: null, edDirty: true, bev: null });
   }
 
   /** A write from a sheet: busy while Adminium answers, the sheet closed and a toast after; a refusal in the sheet. */
-  async write(run: () => Promise<unknown>, done: string, icon = "check", keepSheet = false): Promise<boolean> {
+  async write(run: () => Promise<unknown>, done: string, icon = "check", opts: { keepSheet?: boolean; words?: (error: unknown) => string | null } = {}): Promise<boolean> {
     if (this.app.state.sheet !== null) this.app.patchSheet({ busy: true, refusal: null });
     try {
       await run();
       this.refresh();
-      if (!keepSheet && this.app.state.sheet !== null) this.app.closeSheet();
+      if (opts.keepSheet !== true && this.app.state.sheet !== null) this.app.closeSheet();
       if (done !== "") this.app.toast(done, icon);
       return true;
     } catch (error) {
-      const words = refusalOf(error);
+      const words = opts.words?.(error) ?? refusalOf(error);
       if (this.app.state.sheet !== null) this.app.patchSheet({ busy: false, refusal: words });
       else this.app.toast(words, "circle-alert");
       this.refresh();
@@ -406,6 +630,12 @@ export class Box {
     }
   }
 }
+
+/** "{n} ticket|{n} tickets", in the reader's language. */
+export const plural = (n: number, one: string, many: string): string => tr(`${one}|${many}`, { n });
+
+/** A note added under the order's earlier ones. */
+const joinNote = (was: unknown, line: string): string => (typeof was === "string" && was.trim() !== "" ? `${was}\n${line}` : line).slice(-1000);
 
 /** A refusal in the box office's words: what Adminium refused, and why when it says. */
 export function refusalOf(error: unknown): string {

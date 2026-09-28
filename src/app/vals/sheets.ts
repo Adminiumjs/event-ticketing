@@ -6,9 +6,10 @@
 import type { Id } from "../../data/wire.ts";
 import { tr } from "../../i18n/tr.ts";
 import { fD, fT } from "../fmt.ts";
-import { AUDIENCE } from "../sides.ts";
+import { AUDIENCE, STAFF } from "../sides.ts";
 import type { WaveApp } from "../wave.ts";
 import { accountSheet } from "./account.ts";
+import { boxSheet } from "./boxSheets.ts";
 import { S, type V } from "./base.ts";
 
 type Field = { id: string; label: string; type: string; v: string; on: (e: { target: { value: string } }) => void; errOn: boolean; err: string; eid: string; ac: string; im: string; style: string };
@@ -173,8 +174,9 @@ export function sheetVals(app: WaveApp, v: V): V {
     });
   }
 
-  // The sheets of the buyer's own pages.
+  // The sheets of the buyer's own pages, and the box office's.
   if (AUDIENCE && w !== null) accountSheet(app, w, o, sh, { set, fld, P, busy });
+  if (STAFF && app.persona === "box") boxSheet(app, o, sh, { set, fld, P, busy });
 
   const tones: Record<string, [string, string]> = {
     accent: ["var(--accent-soft)", "var(--accent)"],
@@ -195,6 +197,9 @@ export function sheetVals(app: WaveApp, v: V): V {
   o["btnsOn"] = (o.btns.length > 0 && o["fieldsOn"] !== true) || o["btnsOn"] === true;
   o["noteOn"] = o["noteOn"] === true;
   o["qtyOn"] = o["qtyOn"] === true;
+  o["stepsOn"] = o["stepsOn"] === true;
+  o["refusalOn"] = o["refusalOn"] === true;
+  if (o["stepsOn"] === true) o["fieldsOn"] = true;
   if (o["doneOn"] === true) o["fieldsOn"] = false;
   o["close"] = () => app.closeSheet();
   o["align"] = nar ? "flex-end" : "center";

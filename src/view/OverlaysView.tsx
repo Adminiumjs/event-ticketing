@@ -343,15 +343,59 @@ export function OverlaysView({ v }: { v: any }) {
                         <div role={g.role} aria-label={g.k} style={st("display:flex; flex-wrap:wrap; gap:6px;")}>
                           {(g.opts ?? []).map((o: any, i_o: number) => (
                             <Fragment key={o.id ?? i_o}>
-                              <button type="button" role={g.itemRole} aria-checked={o.on} onClick={o.go} style={st(o.style)}>
+                              <button type="button" role={g.itemRole} aria-checked={o.on} aria-disabled={o.off ? true : undefined} onClick={o.go} style={st(o.style)}>
                                 {o.label}
                               </button>
                             </Fragment>
                           ))}
                         </div>
+                        {g.hintOn ? (
+                          <span style={st(v.s.hint)}>
+                            {g.hint}
+                          </span>
+                        ) : null}
                       </div>
                     </Fragment>
                   ))}
+                  {" "}
+                  {v.sh.stepsOn ? (
+                    <>
+                      <div role="group" aria-label={v.sh.stepsLabel} style={st("display:flex; flex-direction:column; gap:6px;")}>
+                        <span style={st(v.s.lbl)}>
+                          {v.sh.stepsLabel}
+                        </span>
+                        {(v.sh.steps ?? []).map((x: any, i_x: number) => (
+                          <Fragment key={x.id ?? i_x}>
+                            <div style={st("display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:12px; border:1px solid var(--border);")}>
+                              <span style={st("flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;")}>
+                                <span style={st("font-size:14px; font-weight:800;")}>
+                                  {x.name}
+                                </span>
+                                <span style={st("font-family:var(--mono); font-size:12px; font-weight:600; color:var(--fg-muted);")}>
+                                  {x.sub}
+                                </span>
+                              </span>
+                              <button type="button" className="wv-gi" onClick={x.dec} disabled={x.decOff} aria-label={x.decLabel} style={st(v.s.stepBtn)}>
+                                <Icon name={"minus"} style={st("width:15px;height:15px;")} />
+                              </button>
+                              <span aria-live="polite" style={st("min-width:24px; text-align:center; font-family:var(--mono); font-size:15px; font-weight:700;")}>
+                                {x.q}
+                              </span>
+                              <button type="button" className="wv-gi" onClick={x.inc} disabled={x.incOff} aria-label={x.incLabel} style={st(v.s.stepBtn)}>
+                                <Icon name={"plus"} style={st("width:15px;height:15px;")} />
+                              </button>
+                            </div>
+                          </Fragment>
+                        ))}
+                        {v.sh.stepsErrOn ? (
+                          <span role="alert" style={st(v.s.err)}>
+                            <Icon name={"circle-alert"} style={st("width:14px;height:14px;flex-shrink:0;")} />
+                            {v.sh.stepsErr}
+                          </span>
+                        ) : null}
+                      </div>
+                    </>
+                  ) : null}
                   {" "}
                   {v.sh.areaOn ? (
                     <>
@@ -400,6 +444,15 @@ export function OverlaysView({ v }: { v: any }) {
                         {v.sh.note}
                       </span>
                     </>
+                  ) : null}
+                  {" "}
+                  {v.sh.refusalOn ? (
+                    <div role="alert" style={st(v.s.aDanger)}>
+                      <Icon name={"circle-alert"} style={st("width:16px;height:16px;flex-shrink:0;margin-block-start:2px;color:var(--danger);")} />
+                      <span>
+                        {v.sh.refusal}
+                      </span>
+                    </div>
                   ) : null}
                   {" "}
                   <button type="submit" className="wv-btn" style={st(v.sh.submitStyle)}>
@@ -512,6 +565,15 @@ export function OverlaysView({ v }: { v: any }) {
                   </span>
                 </div>
               </>
+            ) : null}
+            {" "}
+            {v.sh.refusalOn && !v.sh.fieldsOn ? (
+              <div role="alert" style={st(v.s.aDanger)}>
+                <Icon name={"circle-alert"} style={st("width:16px;height:16px;flex-shrink:0;margin-block-start:2px;color:var(--danger);")} />
+                <span>
+                  {v.sh.refusal}
+                </span>
+              </div>
             ) : null}
             {" "}
             {v.sh.btnsOn ? (

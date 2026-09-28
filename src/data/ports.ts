@@ -161,6 +161,12 @@ export interface BoxOfficePort {
   broadcast(values: Record<string, unknown>, to: Record<string, unknown>[], send: boolean): Promise<Row>;
   sendBroadcast(id: Id, values: Record<string, unknown>, to: Record<string, unknown>[]): Promise<Row>;
 
+  /** The file types the box office's exports come in (absent: the screen writes a CSV itself). */
+  exportFormats?(): string[];
+  /** Ends the box office's session (Adminium's own sign-out); the demo has none. */
+  signOut?(): Promise<void>;
+  /** A box-office order priced by Adminium, written nowhere. */
+  quote(body: OrderBody): Promise<QuoteReply>;
   /** A phone order or comps: made held; `clientKey` makes a retry land on the same order. */
   newOrder(body: OrderBody, clientKey: string): Promise<OrderReply>;
   /** An order moved on by the box office (to the door, to waiting for a transfer, released, paid). */
