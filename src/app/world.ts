@@ -277,7 +277,12 @@ export type TypeState = "on" | "soldout" | "soon" | "ended" | "stopped" | "cance
 export function typeState(show: Show, type: Type, left: TypeLeft | undefined, now: number): TypeState {
   if (show.cancelled) return "cancelled";
   if (now > show.curfew) return "past";
-  if (left === undefined) return "on";
+  if (left === undefined) {
+    // Not in the availability answer (a type behind a code): its own sales window says.
+    if (type.salesStart !== null && now < type.salesStart) return "soon";
+    if (type.salesEnd !== null && now >= type.salesEnd) return type.selling ? "ended" : "stopped";
+    return type.selling ? "on" : "stopped";
+  }
   if (left.state === "sold_out") return "soldout";
   if (left.state === "open") return "on";
   const opens = type.salesStart ?? show.onSaleAt;

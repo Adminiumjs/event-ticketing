@@ -1,19 +1,15 @@
 /*
  * Entry point.
  *
- * The four global stylesheets are imported here, before `App`, so the cascade
- * order is deterministic in the built bundle: tokens (custom properties) →
- * base (reset, fonts, behaviour classes) → components (shared UI) → screens
- * (view-specific rules, which therefore always win a tie).
+ * The demo build draws the venue's screens (`app/WaveRoot.tsx`, with their
+ * own stylesheet) on the demo's own Adminium. The hosted and standalone
+ * builds still draw the first screens until the real doors reach the new
+ * ones; their four stylesheets load with them, in cascade order.
  */
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
-import "./styles/tokens.css";
-import "./styles/base.css";
-import "./styles/components.css";
-import "./styles/screens.css";
 
 import { I18nProvider } from "./i18n/index.tsx";
 import { setDataSource } from "./data/source.ts";
@@ -212,6 +208,11 @@ async function boot(): Promise<void> {
     );
   }
 
+  // The gen-1 screens' stylesheets, in cascade order (the demo build's screens bring their own).
+  await import("./styles/tokens.css");
+  await import("./styles/base.css");
+  await import("./styles/components.css");
+  await import("./styles/screens.css");
   const { default: App } = await import("./app/App.tsx");
 
   /*

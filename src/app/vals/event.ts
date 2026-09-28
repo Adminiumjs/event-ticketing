@@ -448,7 +448,7 @@ export function eventVals(app: WaveApp, w: World, show: Show | null, _v: V): V {
   const festLineup = show.festival && !(tt.on as boolean);
   return {
     pl: {
-      on: true,
+      on: app.state.scr === "event",
       isFest: show.festival,
       name: show.name,
       supportTxt: show.festival ? tr("{n} acts across both rooms, {from} – {to}", { n: show.acts.length, from: fD(first), to: fD(last) }) : supportTxt(show),

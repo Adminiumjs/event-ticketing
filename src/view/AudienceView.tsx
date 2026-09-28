@@ -71,6 +71,18 @@ export function AudienceView({ v }: { v: any }) {
           </div>
         </>
       ) : null}
+      {v.loadFailed ? (
+        <div style={st(`max-width:1280px; width:100%; margin-inline:auto; padding:40px ${v.L.padX}; display:flex; flex-direction:column; gap:14px; align-items:flex-start;`)}>
+          <div role="alert" style={st(v.s.aDanger)}>
+            <Icon name={"circle-alert"} style={st("width:16px;height:16px;flex-shrink:0;margin-block-start:2px;color:var(--danger);")} />
+            <span>{tr("We couldn't load this.")}</span>
+          </div>
+          <button className="wv-btn" onClick={v.retry} style={st(v.s.btnP)}>
+            <Icon name={"refresh-cw"} style={st("width:16px;height:16px;")} />
+            {tr("Try again")}
+          </button>
+        </div>
+      ) : null}
       {" "}
       {v.scr.home ? (
         <>
