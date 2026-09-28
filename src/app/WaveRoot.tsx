@@ -29,18 +29,19 @@ function topLayer(): HTMLElement | null {
  * focus back to what opened it.
  */
 function useLayerFocus(): void {
-  const layer = useRef<{ el: HTMLElement; opener: Element | null } | null>(null);
+  // A stack: a sheet opened from the drawer gives focus back to the drawer's button, then the drawer to its row.
+  const layers = useRef<{ el: HTMLElement; opener: Element | null }[]>([]);
   useEffect(() => {
     const top = topLayer();
-    const now = layer.current;
-    if (top !== null && top !== now?.el) {
-      layer.current = { el: top, opener: now?.opener ?? document.activeElement };
+    const stack = layers.current;
+    // Layers that closed since: each gives focus back to what opened it.
+    let back: Element | null = null;
+    while (stack.length > 0 && !stack[stack.length - 1]!.el.isConnected) back = stack.pop()!.opener;
+    if (top !== null && stack[stack.length - 1]?.el !== top) {
+      stack.push({ el: top, opener: back ?? document.activeElement });
       const first = top.querySelector<HTMLElement>("[data-autofocus]") ?? top.querySelector<HTMLElement>("input,textarea") ?? top.querySelector<HTMLElement>(FOCUSABLE);
       first?.focus();
-    } else if (top === null && now !== null) {
-      layer.current = null;
-      if (now.opener instanceof HTMLElement && now.opener.isConnected) now.opener.focus();
-    }
+    } else if (back instanceof HTMLElement && back.isConnected) back.focus();
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -76,11 +77,17 @@ export function WaveRoot({ app }: { app: WaveApp }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") app.escape();
     };
+    // The editor's unsaved changes: closing or reloading the tab asks first.
+    const onLeave = (e: BeforeUnloadEvent) => {
+      if (STAFF && app.persona === "box" && app.state.box?.edDirty === true) e.preventDefault();
+    };
     window.addEventListener("resize", onResize);
     window.addEventListener("keydown", onKey);
+    window.addEventListener("beforeunload", onLeave);
     return () => {
       window.removeEventListener("resize", onResize);
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("beforeunload", onLeave);
     };
   }, [app]);
   const v = renderVals(app);

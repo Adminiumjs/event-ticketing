@@ -165,6 +165,8 @@ export interface BoxOfficePort {
 
   /** The file types the box office's exports come in (absent: the screen writes a CSV itself). */
   exportFormats?(): string[];
+  /** A poster uploaded as a public picture; its address (the demo keeps it in the browser). */
+  uploadPoster?(file: File): Promise<string>;
   /** Ends the box office's session (Adminium's own sign-out); the demo has none. */
   signOut?(): Promise<void>;
   /** A box-office order priced by Adminium, written nowhere. */

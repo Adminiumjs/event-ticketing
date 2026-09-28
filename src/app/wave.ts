@@ -382,10 +382,14 @@ export class WaveApp {
     this.setState({ sheet: null });
     this.refocus();
   }
+  /** The box office's own layers (its drawer, the full preview), closed by Escape under a sheet. */
+  escapeHook: (() => boolean) | null = null;
+
   /** Escape closes the top layer. */
   escape(): void {
     const s = this.state;
     if (s.sheet !== null) return this.closeSheet();
+    if (this.escapeHook?.() === true) return;
     if (s.dm !== null) {
       this.setState({ dm: null });
       return this.refocus();

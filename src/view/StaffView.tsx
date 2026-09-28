@@ -539,7 +539,18 @@ export function StaffView({ v }: { v: any }) {
                             <span style={st(v.s.lbl)}>
                               {tr("Name")}
                             </span>
-                            <input className="wv-fld" value={v.ed.name.v ?? ""} onChange={v.ed.name.on} style={st(`${v.bo.fld}font-size:16px; font-weight:800;`)} />
+                            <input id="ed-name" className="wv-fld" value={v.ed.name.v ?? ""} onChange={v.ed.name.on} readOnly={v.ed.frozen} aria-invalid={v.ed.name.errOn} aria-describedby={v.ed.name.errOn ? "ed-name-e" : v.ed.slugHint ? "ed-slug" : undefined} style={st(`${v.ed.name.fld}font-size:16px; font-weight:800;`)} />
+                            {v.ed.name.errOn ? (
+                              <span id="ed-name-e" role="alert" style={st(v.s.err)}>
+                                <Icon name={"circle-alert"} style={st("width:14px;height:14px;flex-shrink:0;")} />
+                                {v.ed.name.err}
+                              </span>
+                            ) : null}
+                            {v.ed.slugHint ? (
+                              <span id="ed-slug" style={st(`${v.s.hint}font-family:var(--mono); font-size:12px; unicode-bidi:plaintext;`)}>
+                                {v.ed.slugHint}
+                              </span>
+                            ) : null}
                           </label>
                           {" "}
                           <label style={st(v.bo.fl)}>
@@ -583,26 +594,27 @@ export function StaffView({ v }: { v: any }) {
                             {tr("When")}
                           </h2>
                           {" "}
+                          {v.ed.whenOn ? (
                           <div style={st("display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px;")}>
                             <label style={st(v.bo.fl)}>
                               <span style={st(v.s.lbl)}>
                                 {tr("Date")}
                               </span>
-                              <input className="wv-fld" type="date" value={v.ed.date.v ?? ""} onChange={v.ed.date.on} readOnly={v.ed.lockWhen} aria-describedby="ed-lock" style={st(`${v.bo.fld}font-family:var(--mono); font-size:13px;`)} />
+                              <input className="wv-fld" type="date" value={v.ed.date.v ?? ""} onChange={v.ed.date.on} readOnly={v.ed.lockWhen} aria-describedby={v.ed.lockOn ? "ed-lock" : undefined} style={st(`${v.bo.fld}font-family:var(--mono); font-size:13px;`)} />
                             </label>
                             {" "}
                             <label style={st(v.bo.fl)}>
                               <span style={st(v.s.lbl)}>
                                 {tr("Doors")}
                               </span>
-                              <input className="wv-fld" type="time" value={v.ed.doors.v ?? ""} onChange={v.ed.doors.on} readOnly={v.ed.lockWhen} aria-invalid={v.ed.timeErr} aria-describedby="ed-terr" style={st(v.ed.tFld)} />
+                              <input id="ed-doors" className="wv-fld" type="time" value={v.ed.doors.v ?? ""} onChange={v.ed.doors.on} readOnly={v.ed.lockWhen} aria-invalid={v.ed.timeErr} aria-describedby={v.ed.timeErr ? "ed-terr" : undefined} style={st(v.ed.tFld)} />
                             </label>
                             {" "}
                             <label style={st(v.bo.fl)}>
                               <span style={st(v.s.lbl)}>
                                 {tr("On stage")}
                               </span>
-                              <input className="wv-fld" type="time" value={v.ed.stage.v ?? ""} onChange={v.ed.stage.on} readOnly={v.ed.lockWhen} aria-invalid={v.ed.timeErr} aria-describedby="ed-terr" style={st(v.ed.tFld)} />
+                              <input className="wv-fld" type="time" value={v.ed.stage.v ?? ""} onChange={v.ed.stage.on} readOnly={v.ed.lockWhen} aria-invalid={v.ed.timeErr} aria-describedby={v.ed.timeErr ? "ed-terr" : undefined} style={st(v.ed.tFld)} />
                             </label>
                             {" "}
                             <label style={st(v.bo.fl)}>
@@ -612,28 +624,31 @@ export function StaffView({ v }: { v: any }) {
                               <input className="wv-fld" type="time" value={v.ed.curfew.v ?? ""} onChange={v.ed.curfew.on} readOnly={v.ed.lockWhen} style={st(`${v.bo.fld}font-family:var(--mono); font-size:13px;`)} />
                             </label>
                           </div>
+                          ) : null}
                           {" "}
                           {v.ed.timeErr ? (
                             <>
                               <span id="ed-terr" role="alert" style={st(v.s.err)}>
                                 <Icon name={"circle-alert"} style={st("width:14px;height:14px;flex-shrink:0;")} />
-                                {tr("Doors must be before on stage.")}
+                                {v.ed.timeErrTxt}
                               </span>
                             </>
                           ) : null}
                           {" "}
                           <span style={st(v.s.hint)}>
-                            {tr("All times are Waveform's local time.")}{" "}{v.ed.dateTxt}
+                            {v.ed.localTxt}{" "}{v.ed.whenOn ? v.ed.dateTxt : ""}
                           </span>
                           {" "}
-                          {v.ed.lockWhen ? (
+                          {v.ed.lockOn ? (
                             <>
                               <div id="ed-lock" style={st("display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12.5px; font-weight:700; color:var(--fg-muted);")}>
                                 <Icon name={"lock"} style={st("width:13px;height:13px;")} />
-                                {tr("This show has tickets, so the date, times and room can't be edited here.")}
-                                <button className="wv-gi" onClick={v.ed.postpone} style={st(`${v.s.btnT}min-height:28px;`)}>
-                                  {tr("Change the date — Postpone")}
-                                </button>
+                                {v.ed.lockLine}
+                                {v.ed.postponeOn ? (
+                                  <button className="wv-gi" onClick={v.ed.postpone} style={st(`${v.s.btnT}min-height:28px;`)}>
+                                    {tr("Change the date — Postpone")}
+                                  </button>
+                                ) : null}
                               </div>
                             </>
                           ) : null}
@@ -661,28 +676,31 @@ export function StaffView({ v }: { v: any }) {
                                         <span style={st(v.s.hint)}>
                                           {tr("Gates")}
                                         </span>
-                                        <input className="wv-fld" type="time" value={dy.gates.v ?? ""} onChange={dy.gates.on} style={st(`${v.bo.fld}font-family:var(--mono); font-size:12.5px;`)} />
+                                        <input className="wv-fld" type="time" value={dy.gates.v ?? ""} onChange={dy.gates.on} readOnly={v.ed.lockWhen} style={st(`${v.bo.fld}font-family:var(--mono); font-size:12.5px;`)} />
                                       </label>
                                       <label style={st(v.bo.fl)}>
                                         <span style={st(v.s.hint)}>
                                           {tr("Last entry")}
                                         </span>
-                                        <input className="wv-fld" type="time" value={dy.last.v ?? ""} onChange={dy.last.on} style={st(`${v.bo.fld}font-family:var(--mono); font-size:12.5px;`)} />
+                                        <input className="wv-fld" type="time" value={dy.last.v ?? ""} onChange={dy.last.on} readOnly={v.ed.lockWhen} style={st(`${v.bo.fld}font-family:var(--mono); font-size:12.5px;`)} />
                                       </label>
                                     </div>
+                                    {dy.dateHint ? (
+                                      <span style={st(`${v.s.hint}padding-inline-start:68px;`)}>
+                                        {dy.dateHint}
+                                      </span>
+                                    ) : null}
                                   </Fragment>
                                 ))}
                                 {" "}
-                                {v.ed.addDayOn ? (
-                                  <>
-                                    <button className="wv-gi" onClick={v.ed.addDay} style={st(`${v.s.btnS}align-self:flex-start;`)}>
-                                      <Icon name={"plus"} style={st("width:14px;height:14px;")} />
-                                      {tr("Add a day")}
-                                    </button>
-                                  </>
-                                ) : null}
                               </div>
                             </>
+                          ) : null}
+                          {v.ed.addDayOn ? (
+                            <button className="wv-gi" onClick={v.ed.addDay} style={st(`${v.s.btnS}align-self:flex-start;`)}>
+                              <Icon name={"plus"} style={st("width:14px;height:14px;")} />
+                              {tr("Add a day")}
+                            </button>
                           ) : null}
                         </section>
                         {" "}
@@ -754,8 +772,14 @@ export function StaffView({ v }: { v: any }) {
                                 </>
                               ) : null}
                               {" "}
+                              {v.ed.posterErrOn ? (
+                                <span role="alert" style={st(v.s.err)}>
+                                  <Icon name={"circle-alert"} style={st("width:14px;height:14px;flex-shrink:0;")} />
+                                  {v.ed.posterErr}
+                                </span>
+                              ) : null}
                               <span style={st(v.s.hint)}>
-                                {tr("Portrait, 4:5, at least 1200 px wide. Without one, we make one — the two colours come from the name and stay the same.")}
+                                {tr("Portrait, 4:5, at least 1200 px wide — a picture of another shape is cropped to 4:5. Without one, we make one — the two colours come from the name and stay the same.")}
                               </span>
                             </div>
                           </div>
@@ -779,6 +803,28 @@ export function StaffView({ v }: { v: any }) {
                                   <Icon name={"trash-2"} style={st("width:15px;height:15px;")} />
                                 </button>
                               </div>
+                              {a.dayOn || a.roomOn ? (
+                                <div style={st("display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-block-start:-2px;")}>
+                                  {a.dayOn ? (
+                                    <div role="radiogroup" aria-label={tr("Day")} style={st("display:flex; gap:6px;")}>
+                                      {(a.days ?? []).map((o: any, i_o: number) => (
+                                        <button key={o.id ?? i_o} role="radio" aria-checked={o.on} onClick={o.go} style={st(o.style)}>
+                                          {o.id}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                  {a.roomOn ? (
+                                    <div role="radiogroup" aria-label={tr("Room")} style={st("display:flex; gap:6px;")}>
+                                      {(a.rooms ?? []).map((o: any, i_o: number) => (
+                                        <button key={o.id ?? i_o} role="radio" aria-checked={o.on} onClick={o.go} style={st(o.style)}>
+                                          {o.id}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              ) : null}
                             </Fragment>
                           ))}
                           {" "}
@@ -835,7 +881,13 @@ export function StaffView({ v }: { v: any }) {
                               <span style={st(v.s.lbl)}>
                                 {tr("Guest-list places")}
                               </span>
-                              <input className="wv-fld" inputMode="numeric" value={v.ed.gl.v ?? ""} onChange={v.ed.gl.on} style={st(`${v.bo.fld}font-family:var(--mono);`)} />
+                              <input id="ed-gl" className="wv-fld" inputMode="numeric" value={v.ed.gl.v ?? ""} onChange={v.ed.gl.on} aria-invalid={v.ed.gl.errOn} aria-describedby={v.ed.gl.errOn ? "ed-gl-e" : undefined} style={st(`${v.ed.gl.fld}font-family:var(--mono);`)} />
+                              {v.ed.gl.errOn ? (
+                                <span id="ed-gl-e" role="alert" style={st(v.s.err)}>
+                                  <Icon name={"circle-alert"} style={st("width:14px;height:14px;flex-shrink:0;")} />
+                                  {v.ed.gl.err}
+                                </span>
+                              ) : null}
                             </label>
                           </div>
                           {" "}
@@ -880,7 +932,13 @@ export function StaffView({ v }: { v: any }) {
                                     <span style={st(v.s.lbl)}>
                                       {tr("Name")}
                                     </span>
-                                    <input className="wv-fld" value={t.name.v ?? ""} onChange={t.name.on} style={st(v.bo.fld)} />
+                                    <input id={`${t.k}-name`} className="wv-fld" value={t.name.v ?? ""} onChange={t.name.on} aria-invalid={t.nameErrOn} style={st(v.bo.fld)} />
+                                    {t.nameErrOn ? (
+                                      <span id={`${t.k}-name-e`} role="alert" style={st(v.s.err)}>
+                                        <Icon name={"circle-alert"} style={st("width:14px;height:14px;flex-shrink:0;")} />
+                                        {t.nameErr}
+                                      </span>
+                                    ) : null}
                                   </label>
                                   {" "}
                                   <label style={st(v.bo.fl)}>
@@ -910,7 +968,7 @@ export function StaffView({ v }: { v: any }) {
                                         <>
                                           <span style={st("display:flex; align-items:center; gap:4px; font-family:var(--mono); font-size:14px; font-weight:700;")}>
                                             {"$"}
-                                            <input className="wv-fld" inputMode="decimal" aria-label={tr("Price")} aria-describedby={`${t.k}-ph`} value={t.price.v ?? ""} onChange={t.price.on} style={st(`${v.bo.fld}width:90px; font-family:var(--mono);`)} />
+                                            <input id={`${t.k}-price`} className="wv-fld" inputMode="decimal" aria-label={tr("Price")} aria-invalid={t.priceErrOn} aria-describedby={t.priceHintOn ? `${t.k}-ph` : t.priceErrOn ? `${t.k}-price-e` : undefined} value={t.price.v ?? ""} onChange={t.price.on} style={st(`${v.bo.fld}width:90px; font-family:var(--mono);`)} />
                                           </span>
                                         </>
                                       ) : null}
@@ -921,6 +979,12 @@ export function StaffView({ v }: { v: any }) {
                                           {t.priceHint}
                                         </span>
                                       </>
+                                    ) : null}
+                                    {t.priceErrOn ? (
+                                      <span id={`${t.k}-price-e`} role="alert" style={st(v.s.err)}>
+                                        <Icon name={"circle-alert"} style={st("width:14px;height:14px;flex-shrink:0;")} />
+                                        {t.priceErr}
+                                      </span>
                                     ) : null}
                                   </div>
                                   {" "}
@@ -956,7 +1020,7 @@ export function StaffView({ v }: { v: any }) {
                                         </>
                                       ) : null}
                                     </span>
-                                    <input id={t.capId} className="wv-fld" inputMode="numeric" value={t.cap.v ?? ""} onChange={t.cap.on} aria-invalid={t.capErrOn} aria-describedby={`${t.capId}-e`} style={st(`${t.capFld}width:110px;`)} />
+                                    <input id={t.capId} className="wv-fld" inputMode="numeric" value={t.cap.v ?? ""} onChange={t.cap.on} aria-invalid={t.capErrOn} aria-describedby={t.capErrOn ? `${t.capId}-e` : undefined} style={st(`${t.capFld}width:110px;`)} />
                                     {t.capErrOn ? (
                                       <>
                                         <span id={`${t.capId}-e`} role="alert" style={st(v.s.err)}>
@@ -993,20 +1057,42 @@ export function StaffView({ v }: { v: any }) {
                                       {tr("Sales start")}
                                     </span>
                                     <input className="wv-fld" type="datetime-local" value={t.start.v ?? ""} onChange={t.start.on} style={st(`${v.bo.fld}font-family:var(--mono); font-size:12.5px;`)} />
+                                    {t.startHint ? (
+                                      <span style={st(v.s.hint)}>
+                                        {t.startHint}
+                                      </span>
+                                    ) : null}
                                   </label>
                                   {" "}
                                   <label style={st(v.bo.fl)}>
                                     <span style={st(v.s.lbl)}>
                                       {tr("Sales end")}
                                     </span>
-                                    <input className="wv-fld" type="datetime-local" value={t.end.v ?? ""} onChange={t.end.on} style={st(`${v.bo.fld}font-family:var(--mono); font-size:12.5px;`)} />
+                                    <input id={`${t.k}-end`} className="wv-fld" type="datetime-local" value={t.end.v ?? ""} onChange={t.end.on} aria-invalid={t.endErrOn} style={st(`${v.bo.fld}font-family:var(--mono); font-size:12.5px;`)} />
+                                    {t.endHint ? (
+                                      <span style={st(v.s.hint)}>
+                                        {t.endHint}
+                                      </span>
+                                    ) : null}
+                                    {t.endErrOn ? (
+                                      <span id={`${t.k}-end-e`} role="alert" style={st(v.s.err)}>
+                                        <Icon name={"circle-alert"} style={st("width:14px;height:14px;flex-shrink:0;")} />
+                                        {t.endErr}
+                                      </span>
+                                    ) : null}
                                   </label>
                                   {" "}
                                   <label style={st(v.bo.fl)}>
                                     <span style={st(v.s.lbl)}>
                                       {tr("Per order: min")}
                                     </span>
-                                    <input className="wv-fld" inputMode="numeric" value={t.min.v ?? ""} onChange={t.min.on} style={st(`${v.bo.fld}font-family:var(--mono);`)} />
+                                    <input id={`${t.k}-min`} className="wv-fld" inputMode="numeric" value={t.min.v ?? ""} onChange={t.min.on} aria-invalid={t.minErrOn} style={st(`${v.bo.fld}font-family:var(--mono);`)} />
+                                    {t.minErrOn ? (
+                                      <span id={`${t.k}-min-e`} role="alert" style={st(v.s.err)}>
+                                        <Icon name={"circle-alert"} style={st("width:14px;height:14px;flex-shrink:0;")} />
+                                        {t.minErr}
+                                      </span>
+                                    ) : null}
                                   </label>
                                   {" "}
                                   <label style={st(v.bo.fl)}>
@@ -1217,8 +1303,21 @@ export function StaffView({ v }: { v: any }) {
                                   {tr("Tickets go on sale")}
                                 </span>
                                 <input className="wv-fld" type="datetime-local" value={v.ed.pubAt.v ?? ""} onChange={v.ed.pubAt.on} style={st(`${v.bo.fld}font-family:var(--mono); font-size:12.5px;`)} />
+                                {v.ed.pubAtHint ? (
+                                  <span style={st(v.s.hint)}>
+                                    {v.ed.pubAtHint}
+                                  </span>
+                                ) : null}
                               </label>
                             </>
+                          ) : null}
+                          {v.ed.wlOn ? (
+                            <button role="switch" aria-checked={v.ed.waitlist} onClick={v.ed.toggleWl} className="wv-gi" style={st("display:flex; align-items:center; gap:10px; min-height:36px; padding:0 10px; border-radius:10px; border:0; background:transparent; font-size:13.5px; font-weight:700; align-self:flex-start;")}>
+                              <span style={st(v.ed.wlTrack)}>
+                                <span style={st(v.ed.wlKnob)}></span>
+                              </span>
+                              {tr("Waitlist when sold out")}
+                            </button>
                           ) : null}
                           {" "}
                           <span style={st(v.s.hint)}>
@@ -1249,10 +1348,8 @@ export function StaffView({ v }: { v: any }) {
                           </div>
                         </div>
                         {" "}
-                        <div ref={v.ed.pvRef} style={st("width:100%;")}>
-                          <div style={st(v.ed.pvBox)}>
-                            <iframe data-wv-pv="1" title={tr("The public page for this draft")} tabIndex={-1} src={`Waveform%20Tickets.dc.html?wvPreview=1&theme=${v.ed.pvTheme}`} onLoad={v.ed.pvLoad} style={st(v.ed.pvIframe)}></iframe>
-                          </div>
+                        <div style={st("width:100%;")}>
+                          {v.ed.pvNode}
                         </div>
                         {" "}
                         <span style={st(v.s.hint)}>
@@ -1278,7 +1375,7 @@ export function StaffView({ v }: { v: any }) {
                             {tr("Discard")}
                           </button>
                           {" "}
-                          <button className="wv-btn" onClick={v.ed.save} disabled={v.ed.timeErr} style={st(`${v.s.btnP}min-height:36px; font-size:13px;`)}>
+                          <button className="wv-btn" onClick={v.ed.save} aria-disabled={v.ed.saveOff} style={st(`${v.s.btnP}min-height:36px; font-size:13px;${v.ed.saveOff ? " background:var(--surface-3); color:var(--fg-muted);" : ""}`)}>
                             {v.ed.saveLabel}
                           </button>
                         </div>

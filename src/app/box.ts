@@ -9,11 +9,15 @@
  * Only the box office's build carries this module (the audience site's
  * leaves it out, `sides.ts`).
  */
-import type { BoxOfficePort, StaffPerson } from "../data/ports.ts";
+import { createElement, type ReactNode } from "react";
+
+import type { BoxOfficePort, EventChildren, StaffPerson } from "../data/ports.ts";
 import { isApiError, type HistoryEntry, type Id, type ListQuery, type ListReply, type PoolCount, type Row, type Where } from "../data/wire.ts";
 import { tr } from "../i18n/tr.ts";
 import { boxWorldOf, type BoxShow, type BoxWorld } from "./boxWorld.ts";
 import { day0, money, ms } from "./fmt.ts";
+import { PreviewPane } from "./preview.tsx";
+import type { Draft } from "./vals/editor.ts";
 import type { BoxScreen, WaveApp } from "./wave.ts";
 
 export type BoxScreenId = BoxScreen;
@@ -52,6 +56,8 @@ export interface BoxState {
   /** The editor's draft. */
   ed: unknown;
   edDirty: boolean;
+  /** Save was pressed with something to fix: every error shows. */
+  edTried: boolean;
   edFull: boolean;
   edPv: "desktop" | "phone";
   /** When each order was last reminded here. */
@@ -72,6 +78,7 @@ export function boxFresh(): BoxState {
     set: null,
     ed: null,
     edDirty: false,
+    edTried: false,
     edFull: false,
     edPv: "desktop",
     reminded: {},
@@ -98,6 +105,18 @@ export class Box {
 
   constructor(app: WaveApp) {
     this.app = app;
+    app.escapeHook = () => {
+      if (this.s.edFull) {
+        this.set({ edFull: false });
+        this.app.refocus();
+        return true;
+      }
+      if (this.s.drawer !== null) {
+        this.closeDrawer();
+        return true;
+      }
+      return false;
+    };
   }
 
   get port(): BoxOfficePort {
@@ -731,6 +750,51 @@ export class Box {
       a.click();
       a.remove();
     }, plural(n, "{n} order exported", "{n} orders exported"), "download");
+  }
+
+  // ── the event editor ─────────────────────────────────────────────────────
+
+  /** The live preview of the draft's public page. */
+  previewNode(draft: Draft, phone: boolean, full: boolean): ReactNode {
+    return createElement(PreviewPane, { box: this, draft, phone, full, key: full ? "full" : "aside" });
+  }
+
+  /** A poster picked: a picture of 1200 px or wider, up to 10 MB (a JPG, PNG or WebP), kept as the show's. */
+  async pickPoster(file: File): Promise<void> {
+    const put = (p: Partial<Draft>) => this.set({ ed: { ...(this.s.ed as Draft), ...p }, edDirty: true });
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return put({ posterError: tr("That file isn't a picture we can use (JPG, PNG or WebP).") });
+    if (file.size > 10 * 1024 * 1024) return put({ posterError: tr("That picture is over 10 MB.") });
+    const width = await new Promise<number>((resolve) => {
+      if (typeof Image === "undefined") return resolve(0);
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        resolve(img.naturalWidth);
+        URL.revokeObjectURL(url);
+      };
+      img.onerror = () => resolve(0);
+      img.src = url;
+    });
+    if (width < 1200) return put({ posterError: tr("That picture is {n} px wide — posters need at least 1200 px.", { n: width }) });
+    try {
+      const url = this.port.uploadPoster !== undefined ? await this.port.uploadPoster(file) : URL.createObjectURL(file);
+      put({ image: url, posterError: null });
+    } catch (error) {
+      put({ posterError: refusalOf(error) });
+    }
+  }
+
+  /** The show saved with its days, types, acts and questions; the editor then reads it back as saved. */
+  async saveEvent(draft: Draft, rows: { values: Record<string, unknown>; children: EventChildren }): Promise<void> {
+    let saved: Row | null = null;
+    const ok = await this.write(
+      async () => {
+        saved = await this.port.saveEvent(draft.id, rows.values, rows.children);
+      },
+      draft.pub === "draft" ? tr("Draft saved — only the box office can see it") : tr("Saved — the public page is up to date"),
+      "check",
+    );
+    if (ok && saved !== null) this.set({ ed: null, edDirty: false, edTried: false, bev: (saved as Row).id });
   }
 
   /** A new show in the editor (the editor's own module fills the draft). */

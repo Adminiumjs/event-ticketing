@@ -20,6 +20,7 @@ export function setZone(z: string | null | undefined): void {
   if (typeof z === "string" && z !== "") zone = z;
 }
 export const venueZone = (): string => zone;
+export const venueCurrency = (): string => currency;
 
 const tagOf = () => (locale() === "ar-EG" ? "ar-EG-u-nu-latn" : locale());
 const cache = new Map<string, Intl.NumberFormat | Intl.DateTimeFormat>();

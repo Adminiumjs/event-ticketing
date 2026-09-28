@@ -61,7 +61,7 @@ export function OverlaysView({ v }: { v: any }) {
           </div>
           {" "}
           <div style={st(`flex:1; min-height:0; display:flex; justify-content:center; align-items:stretch; padding:${v.ed.fullPad};`)}>
-            <iframe data-wv-pv="1" title={tr("The public page for this draft, full size")} src={`Waveform%20Tickets.dc.html?wvPreview=1&theme=${v.ed.pvTheme}`} onLoad={v.ed.pvLoad} style={st(v.ed.fullIframe)}></iframe>
+            {v.ed.fullNode}
           </div>
         </div>
       </>
