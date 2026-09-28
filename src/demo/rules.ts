@@ -60,6 +60,10 @@ export const MANIFEST_RULES = {
             "hours": {
               "table": "settings",
               "column": "offer_hours"
+            },
+            "notAfter": {
+              "column": "doors_at",
+              "via": "event_id"
             }
           }
         },
@@ -191,6 +195,10 @@ export const MANIFEST_RULES = {
             "hours": {
               "table": "settings",
               "column": "send_hours"
+            },
+            "notAfter": {
+              "column": "doors_at",
+              "via": "event_id"
             }
           }
         },
@@ -374,6 +382,10 @@ export const MANIFEST_RULES = {
             "hours": {
               "table": "settings",
               "column": "offer_hours"
+            },
+            "notAfter": {
+              "column": "doors_at",
+              "via": "event_id"
             }
           }
         },
@@ -758,9 +770,6 @@ export const MANIFEST_RULES = {
       ],
       [
         "client_key"
-      ],
-      [
-        "staff_key"
       ]
     ],
     "check_ins": [
@@ -1401,6 +1410,13 @@ export const MANIFEST_RULES = {
             "pending_name": null,
             "lapsed": true
           }
+        },
+        {
+          "from": "returned",
+          "to": "released",
+          "at": {
+            "column": "doors_at"
+          }
         }
       ],
       "create": {
@@ -1699,7 +1715,22 @@ export const MANIFEST_RULES = {
           "code",
           "holder_email"
         ],
-        "unlessHolder": "holder_customer_id"
+        "unlessHolder": "holder_customer_id",
+        "when": {
+          "where": [
+            {
+              "column": "order_status",
+              "in": [
+                "held",
+                "confirming",
+                "offered",
+                "awaiting_transfer",
+                "overdue",
+                "released"
+              ]
+            }
+          ]
+        }
       }
     },
     {
@@ -1767,7 +1798,22 @@ export const MANIFEST_RULES = {
           "code",
           "holder_email"
         ],
-        "unlessHolder": "holder_customer_id"
+        "unlessHolder": "holder_customer_id",
+        "when": {
+          "where": [
+            {
+              "column": "order_status",
+              "in": [
+                "held",
+                "confirming",
+                "offered",
+                "awaiting_transfer",
+                "overdue",
+                "released"
+              ]
+            }
+          ]
+        }
       }
     },
     {
@@ -2477,7 +2523,22 @@ export const MANIFEST_RULES = {
           "code",
           "holder_email"
         ],
-        "unlessHolder": "holder_customer_id"
+        "unlessHolder": "holder_customer_id",
+        "when": {
+          "where": [
+            {
+              "column": "order_status",
+              "in": [
+                "held",
+                "confirming",
+                "offered",
+                "awaiting_transfer",
+                "overdue",
+                "released"
+              ]
+            }
+          ]
+        }
       }
     },
     {
@@ -2546,7 +2607,22 @@ export const MANIFEST_RULES = {
           "code",
           "holder_email"
         ],
-        "unlessHolder": "holder_customer_id"
+        "unlessHolder": "holder_customer_id",
+        "when": {
+          "where": [
+            {
+              "column": "order_status",
+              "in": [
+                "held",
+                "confirming",
+                "offered",
+                "awaiting_transfer",
+                "overdue",
+                "released"
+              ]
+            }
+          ]
+        }
       }
     },
     {
@@ -2639,11 +2715,25 @@ export const MANIFEST_RULES = {
         "name",
         "due",
         "collected",
+        "code",
         "pending_name",
         "holder_name",
         "offer_until",
         "accepted_at"
       ],
+      "withhold": {
+        "columns": [
+          "code"
+        ],
+        "when": {
+          "where": [
+            {
+              "column": "holder_customer_id",
+              "isNull": true
+            }
+          ]
+        }
+      },
       "writable": [
         "status",
         "holder_name"
@@ -2673,6 +2763,9 @@ export const MANIFEST_RULES = {
         "link": "holder_customer_id",
         "fill": {
           "name": "holder_name"
+        },
+        "on": {
+          "to": "valid"
         }
       }
     }
@@ -2864,7 +2957,6 @@ export const MANIFEST_RULES = {
             "status",
             "buyer_name",
             "channel",
-            "staff_key",
             "note"
           ],
           "writableValues": {
@@ -3176,6 +3268,7 @@ export const MANIFEST_RULES = {
         "column": "pending_email",
         "name": "pending_name"
       },
+      "repeatBy": "link_token",
       "onChange": {
         "table": "tickets",
         "column": "status",
@@ -3202,6 +3295,7 @@ export const MANIFEST_RULES = {
     {
       "kind": "friend-returned",
       "link": "ticket_id",
+      "repeat": true,
       "onChange": {
         "table": "tickets",
         "column": "lapsed",

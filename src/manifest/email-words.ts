@@ -20,6 +20,7 @@ export const EMAIL_DE: EmailWords = {
   "bankNumber": "Kontonummer",
   "bankRouting": "BIC oder Bankleitzahl",
   "bankReference": "Verwendungszweck",
+  "receiptAttached": "Deine Quittung ist angehängt.",
   "tickets": {
     "name": "Deine Tickets",
     "subject": "Deine Tickets für {{order.event.name}} · {{order.number}}",
@@ -121,7 +122,7 @@ export const EMAIL_DE: EmailWords = {
     "preheader": "{{ticket.event.doors_at.date}} · Einlass {{ticket.event.doors_at.time}}",
     "heading": "Dein Ticket ist da",
     "paras": [
-      "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code}}",
+      "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code.grouped}}",
       "{{ticket.event.doors_at.date}} · Einlass {{ticket.event.doors_at.time}}. Zeig diesen Code am Einlass."
     ],
     "button": "Mein Ticket ansehen",
@@ -144,7 +145,7 @@ export const EMAIL_DE: EmailWords = {
     "preheader": "{{ticket.event.doors_at.date}} · Einlass {{ticket.event.doors_at.time}}",
     "heading": "Ein Ticket für {{ticket.event.name}} gehört dir",
     "paras": [
-      "Die Kasse hat dieses Ticket auf deinen Namen ausgestellt: {{ticket.name}} · {{ticket.code}}. Zeig den Code am Einlass."
+      "Die Kasse hat dieses Ticket auf deinen Namen ausgestellt: {{ticket.name}} · {{ticket.code.grouped}}. Zeig den Code am Einlass."
     ],
     "button": "Mein Ticket ansehen",
     "foot": "Der Button öffnet dein Ticket – heb diese E-Mail gut auf."
@@ -333,6 +334,7 @@ export const EMAIL_FR: EmailWords = {
   "bankNumber": "Numéro de compte",
   "bankRouting": "Code banque ou BIC",
   "bankReference": "Référence",
+  "receiptAttached": "Votre reçu est en pièce jointe.",
   "tickets": {
     "name": "Vos billets",
     "subject": "Vos billets pour {{order.event.name}} · {{order.number}}",
@@ -434,7 +436,7 @@ export const EMAIL_FR: EmailWords = {
     "preheader": "{{ticket.event.doors_at.date}} · ouverture des portes à {{ticket.event.doors_at.time}}",
     "heading": "Votre billet est prêt",
     "paras": [
-      "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code}}",
+      "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code.grouped}}",
       "{{ticket.event.doors_at.date}} · Ouverture des portes à {{ticket.event.doors_at.time}}. Présentez ce code à l'entrée."
     ],
     "button": "Voir mon billet",
@@ -457,7 +459,7 @@ export const EMAIL_FR: EmailWords = {
     "preheader": "{{ticket.event.doors_at.date}} · ouverture des portes à {{ticket.event.doors_at.time}}",
     "heading": "Un billet pour {{ticket.event.name}} est à vous",
     "paras": [
-      "La billetterie a mis ce billet à votre nom : {{ticket.name}} · {{ticket.code}}. Présentez le code à l'entrée."
+      "La billetterie a mis ce billet à votre nom : {{ticket.name}} · {{ticket.code.grouped}}. Présentez le code à l'entrée."
     ],
     "button": "Voir mon billet",
     "foot": "Le bouton ouvre votre billet : gardez cet e-mail."
@@ -646,6 +648,7 @@ export const EMAIL_DA: EmailWords = {
   "bankNumber": "Kontonummer",
   "bankRouting": "Reg.nr. eller routingnummer",
   "bankReference": "Reference",
+  "receiptAttached": "Din kvittering er vedhæftet.",
   "tickets": {
     "name": "Dine billetter",
     "subject": "Dine billetter til {{order.event.name}} · {{order.number}}",
@@ -747,7 +750,7 @@ export const EMAIL_DA: EmailWords = {
     "preheader": "{{ticket.event.doors_at.date}} · dørene åbner {{ticket.event.doors_at.time}}",
     "heading": "Din billet er klar",
     "paras": [
-      "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code}}",
+      "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code.grouped}}",
       "{{ticket.event.doors_at.date}} · Dørene åbner {{ticket.event.doors_at.time}}. Vis denne kode ved døren."
     ],
     "button": "Se min billet",
@@ -770,7 +773,7 @@ export const EMAIL_DA: EmailWords = {
     "preheader": "{{ticket.event.doors_at.date}} · dørene åbner {{ticket.event.doors_at.time}}",
     "heading": "En billet til {{ticket.event.name}} er din",
     "paras": [
-      "Billetlugen har sat denne billet i dit navn: {{ticket.name}} · {{ticket.code}}. Vis koden ved døren."
+      "Billetlugen har sat denne billet i dit navn: {{ticket.name}} · {{ticket.code.grouped}}. Vis koden ved døren."
     ],
     "button": "Se min billet",
     "foot": "Knappen åbner din billet – gem denne mail."
@@ -959,6 +962,7 @@ export const EMAIL_CS: EmailWords = {
   "bankNumber": "Číslo účtu",
   "bankRouting": "Kód banky",
   "bankReference": "Variabilní symbol",
+  "receiptAttached": "Účtenka je v příloze.",
   "tickets": {
     "name": "Vaše vstupenky",
     "subject": "Vaše vstupenky na {{order.event.name}} · {{order.number}}",
@@ -1060,7 +1064,7 @@ export const EMAIL_CS: EmailWords = {
     "preheader": "{{ticket.event.doors_at.date}} · otevíráme v {{ticket.event.doors_at.time}}",
     "heading": "Vaše vstupenka je připravená",
     "paras": [
-      "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code}}",
+      "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code.grouped}}",
       "{{ticket.event.doors_at.date}} · Otevíráme v {{ticket.event.doors_at.time}}. Tento kód ukažte u vchodu."
     ],
     "button": "Zobrazit vstupenku",
@@ -1083,7 +1087,7 @@ export const EMAIL_CS: EmailWords = {
     "preheader": "{{ticket.event.doors_at.date}} · otevíráme v {{ticket.event.doors_at.time}}",
     "heading": "Vstupenka na {{ticket.event.name}} je vaše",
     "paras": [
-      "Pokladna vystavila tuto vstupenku na vaše jméno: {{ticket.name}} · {{ticket.code}}. Kód ukažte u vchodu."
+      "Pokladna vystavila tuto vstupenku na vaše jméno: {{ticket.name}} · {{ticket.code.grouped}}. Kód ukažte u vchodu."
     ],
     "button": "Zobrazit vstupenku",
     "foot": "Tlačítko otevře vaši vstupenku – tento e-mail si uschovejte."
@@ -1272,6 +1276,7 @@ export const EMAIL_AR: EmailWords = {
   "bankNumber": "رقم الحساب",
   "bankRouting": "رمز الفرع أو رقم التوجيه",
   "bankReference": "المرجع",
+  "receiptAttached": "إيصالك مرفق.",
   "tickets": {
     "name": "تذاكرك",
     "subject": "تذاكرك لحضور {{order.event.name}} · {{order.number}}",
@@ -1373,7 +1378,7 @@ export const EMAIL_AR: EmailWords = {
     "preheader": "{{ticket.event.doors_at.date}} · فتح الأبواب {{ticket.event.doors_at.time}}",
     "heading": "تذكرتك جاهزة",
     "paras": [
-      "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code}}",
+      "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code.grouped}}",
       "{{ticket.event.doors_at.date}} · فتح الأبواب {{ticket.event.doors_at.time}}. اعرض هذا الرمز عند الباب."
     ],
     "button": "عرض تذكرتي",
@@ -1396,7 +1401,7 @@ export const EMAIL_AR: EmailWords = {
     "preheader": "{{ticket.event.doors_at.date}} · فتح الأبواب {{ticket.event.doors_at.time}}",
     "heading": "تذكرة لحضور {{ticket.event.name}} أصبحت لك",
     "paras": [
-      "سجّل شباك التذاكر هذه التذكرة باسمك: {{ticket.name}} · {{ticket.code}}. اعرض الرمز عند الباب."
+      "سجّل شباك التذاكر هذه التذكرة باسمك: {{ticket.name}} · {{ticket.code.grouped}}. اعرض الرمز عند الباب."
     ],
     "button": "عرض تذكرتي",
     "foot": "الزر يفتح تذكرتك، فاحتفظ بهذه الرسالة."
@@ -1585,6 +1590,7 @@ export const EMAIL_ZH_CN: EmailWords = {
   "bankNumber": "账号",
   "bankRouting": "银行代码",
   "bankReference": "附言",
+  "receiptAttached": "收据已附上。",
   "tickets": {
     "name": "你的门票",
     "subject": "你的 {{order.event.name}} 门票 · {{order.number}}",
@@ -1686,7 +1692,7 @@ export const EMAIL_ZH_CN: EmailWords = {
     "preheader": "{{ticket.event.doors_at.date}} · {{ticket.event.doors_at.time}} 开门",
     "heading": "你的票已准备好",
     "paras": [
-      "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code}}",
+      "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code.grouped}}",
       "{{ticket.event.doors_at.date}} · {{ticket.event.doors_at.time}} 开门。入场时请出示这个票码。"
     ],
     "button": "查看我的票",
@@ -1709,7 +1715,7 @@ export const EMAIL_ZH_CN: EmailWords = {
     "preheader": "{{ticket.event.doors_at.date}} · {{ticket.event.doors_at.time}} 开门",
     "heading": "这张 {{ticket.event.name}} 门票归你了",
     "paras": [
-      "售票处已将这张票登记在你名下：{{ticket.name}} · {{ticket.code}}。入场时请出示票码。"
+      "售票处已将这张票登记在你名下：{{ticket.name}} · {{ticket.code.grouped}}。入场时请出示票码。"
     ],
     "button": "查看我的票",
     "foot": "点击按钮即可打开门票，请保留这封邮件。"
@@ -1898,6 +1904,7 @@ export const EMAIL_ZH_TW: EmailWords = {
   "bankNumber": "帳號",
   "bankRouting": "銀行代碼",
   "bankReference": "轉帳備註",
+  "receiptAttached": "收據已附上。",
   "tickets": {
     "name": "你的票券",
     "subject": "你的 {{order.event.name}} 票券 · {{order.number}}",
@@ -1999,7 +2006,7 @@ export const EMAIL_ZH_TW: EmailWords = {
     "preheader": "{{ticket.event.doors_at.date}} · {{ticket.event.doors_at.time}} 入場",
     "heading": "你的票準備好了",
     "paras": [
-      "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code}}",
+      "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code.grouped}}",
       "{{ticket.event.doors_at.date}} · {{ticket.event.doors_at.time}} 入場。入場時請出示這個代碼。"
     ],
     "button": "查看我的票",
@@ -2022,7 +2029,7 @@ export const EMAIL_ZH_TW: EmailWords = {
     "preheader": "{{ticket.event.doors_at.date}} · {{ticket.event.doors_at.time}} 入場",
     "heading": "這張 {{ticket.event.name}} 的票是你的了",
     "paras": [
-      "售票處已將這張票登記在你名下：{{ticket.name}} · {{ticket.code}}。入場時請出示代碼。"
+      "售票處已將這張票登記在你名下：{{ticket.name}} · {{ticket.code.grouped}}。入場時請出示代碼。"
     ],
     "button": "查看我的票",
     "foot": "按下按鈕即可開啟你的票，請保留這封信。"

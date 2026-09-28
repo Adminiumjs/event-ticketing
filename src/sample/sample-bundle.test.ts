@@ -32,7 +32,7 @@ describe("seeds/events.sample.json", () => {
 
   it("gives no share code, retry key or running number", () => {
     const text = JSON.stringify(sampleBundle());
-    for (const column of ["link_token", "confirm_token", "client_key", "staff_key"]) expect(text).not.toContain(`"${column}"`);
+    for (const column of ["link_token", "confirm_token", "client_key"]) expect(text).not.toContain(`"${column}"`);
     const orders = sampleBundle().tables.find((t) => t.ref === "orders")!.rows;
     expect(orders.every((row) => row["number_seq"] === null && String(row["number"]).startsWith("WV-S"))).toBe(true);
   });

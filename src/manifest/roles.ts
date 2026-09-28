@@ -74,7 +74,7 @@ export const ROLES = [
     limits: {
       // At the door: an order is sold held, moved to the door, and paid once nothing is owed.
       orders: {
-        writable: ["status", "buyer_name", "channel", "staff_key", "note"],
+        writable: ["status", "buyer_name", "channel", "note"],
         writableValues: { status: ["door", "paid"], channel: ["door"] },
       },
       // A collection taken by mistake is voided; nothing else of it changes.

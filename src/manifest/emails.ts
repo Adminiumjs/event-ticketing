@@ -44,6 +44,8 @@ export type EmailWords = Record<Kind, Words> & {
   bankNumber: string;
   bankRouting: string;
   bankReference: string;
+  /** Said only when the email carries the receipt (Invoices & Receipts draws it). */
+  receiptAttached: string;
 };
 
 const KEEP = "Order {{order.number}}. The button opens your order — keep this email.";
@@ -59,6 +61,7 @@ export const EMAIL_EN: EmailWords = {
   bankNumber: "Account number",
   bankRouting: "Sort code or routing number",
   bankReference: "Reference",
+  receiptAttached: "Your receipt is attached.",
   tickets: {
     name: "Your tickets",
     subject: "Your tickets for {{order.event.name}} · {{order.number}}",
@@ -158,7 +161,7 @@ export const EMAIL_EN: EmailWords = {
     preheader: "{{ticket.event.doors_at.date}} · doors {{ticket.event.doors_at.time}}",
     heading: "Your ticket is ready",
     paras: [
-      "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code}}",
+      "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code.grouped}}",
       "{{ticket.event.doors_at.date}} · Doors {{ticket.event.doors_at.time}}. Show this code at the door.",
     ],
     button: "See my ticket",
@@ -178,7 +181,7 @@ export const EMAIL_EN: EmailWords = {
     subject: "A ticket for {{ticket.event.name}} in your name",
     preheader: "{{ticket.event.doors_at.date}} · doors {{ticket.event.doors_at.time}}",
     heading: "A ticket for {{ticket.event.name}} is yours",
-    paras: ["The box office put this ticket in your name: {{ticket.name}} · {{ticket.code}}. Show the code at the door."],
+    paras: ["The box office put this ticket in your name: {{ticket.name}} · {{ticket.code.grouped}}. Show the code at the door."],
     button: "See my ticket",
     foot: "The button opens your ticket — keep this email.",
   },
@@ -335,12 +338,16 @@ const TICKET_ROWS: Block = {
   id: "tickets",
   data: {
     from: { link: "order", table: "tickets", via: "order_id", orderBy: "position", where: { column: "status", in: ["valid", "offered", "refund_asked"] }, limit: 12 },
-    row: { title: "{{row.holder_name}}", meta: "{{row.name}} · {{row.code}}", image: "{{row.code.qr}}" },
+    row: { title: "{{row.holder_name}}", meta: "{{row.name}} · {{row.code.grouped}}", image: "{{row.code.qr}}" },
   },
 };
 
 /** The emails that carry the order's tickets. */
 const WITH_TICKETS: ReadonlySet<Kind> = new Set(["tickets", "tickets-paid", "payment-received", "tonight", "tomorrow"]);
+/** The emails that carry the receipt, when an add-on draws one: without it they go as they are, minus the line saying so. */
+const WITH_RECEIPT: ReadonlySet<Kind> = new Set(["payment-received"]);
+/** The receipt each of those carries. */
+const RECEIPT = { kind: "receipt", link: "order", optional: true };
 /** The emails that carry the venue's bank details. */
 const WITH_BANK: ReadonlySet<Kind> = new Set(["transfer-waiting", "transfer-reminder"]);
 /** Where each email's button leads. */
@@ -363,6 +370,7 @@ function layout(kind: Kind, all: EmailWords) {
   const blocks: Block[] = [{ block: "email.heading", id: "heading", data: { text: w.heading } }];
   blocks.push({ block: "email.text", id: "body", data: { paras: w.paras } });
   if (WITH_TICKETS.has(kind)) blocks.push(TICKET_ROWS);
+  if (WITH_RECEIPT.has(kind)) blocks.push({ block: "email.text", id: "receipt", data: { paras: [all.receiptAttached], withAttachment: true } });
   if (WITH_BANK.has(kind)) {
     blocks.push({
       block: "email.stats",
@@ -413,6 +421,7 @@ export function emailTemplates(kinds: readonly Kind[]): unknown[] {
     key: `events-${kind}`,
     name: Object.fromEntries(Object.entries(words).map(([tag, w]) => [tag, w[kind].name])),
     vars: varsOf(kind),
+    ...(WITH_RECEIPT.has(kind) ? { attach: RECEIPT } : {}),
     locales: Object.fromEntries(Object.entries(words).map(([tag, w]) => [tag, layout(kind, w)])),
   }));
 }

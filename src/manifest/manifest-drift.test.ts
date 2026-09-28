@@ -70,7 +70,6 @@ describe("nobody in the audience reads what is not theirs", () => {
     "confirm_token",
     "link_stopped",
     "client_key",
-    "staff_key",
     "number_seq",
     "customer_id",
     "holder_customer_id",
@@ -95,15 +94,24 @@ describe("nobody in the audience reads what is not theirs", () => {
     expect(leaks).toEqual([]);
   });
 
-  it("keeps a friend's code and address from the buyer who sent it", () => {
+  it("keeps a friend's code and address from the buyer who sent it, and every code back until the order is paid", () => {
     const buyerTickets = manifest.publicAccess.filter((e) => e.table === "tickets" && (e.select ?? []).includes("code") && e["visibleWith"] !== undefined);
     expect(buyerTickets.length).toBeGreaterThan(0);
-    for (const e of buyerTickets) expect(e["withhold"]).toEqual({ columns: ["code", "holder_email"], unlessHolder: "holder_customer_id" });
+    for (const e of buyerTickets) {
+      expect(e["withhold"]).toEqual({
+        columns: ["code", "holder_email"],
+        unlessHolder: "holder_customer_id",
+        when: { where: [{ column: "order_status", in: ["held", "confirming", "offered", "awaiting_transfer", "overdue", "released"] }] },
+      });
+    }
   });
 
-  it("shows a friend no code on the page their link opens", () => {
+  it("shows a friend the code on the page their link opens only once they accept it", () => {
     const friend = manifest.publicAccess.find((e) => e.table === "tickets" && e.key === "ticket")!;
-    expect(friend.select).not.toContain("code");
+    expect(friend.select).toContain("code");
+    expect(friend["withhold"]).toEqual({ columns: ["code"], when: { where: [{ column: "holder_customer_id", isNull: true }] } });
+    // The friend is found by the save that accepts, not by any save while the ticket has no holder.
+    expect((friend["identity"] as { on?: unknown }).on).toEqual({ to: "valid" });
   });
 });
 

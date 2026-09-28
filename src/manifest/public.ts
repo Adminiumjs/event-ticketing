@@ -89,8 +89,18 @@ export const TICKET_SELECT = [
   "answers",
 ];
 
-/** A friend's code and address stay with the friend; the buyer sees "Sent to Kai Renner". */
-const WITHHOLD = { columns: ["code", "holder_email"], unlessHolder: "holder_customer_id" };
+/** An order's states in which nothing is paid yet: its tickets carry no code to the browser. */
+const UNPAID = ["held", "confirming", "offered", "awaiting_transfer", "overdue", "released"];
+
+/**
+ * A friend's code and address stay with the friend; the buyer sees "Sent to Kai Renner". And no ticket shows
+ * a code before its order is paid or confirmed to pay at the door.
+ */
+const WITHHOLD = {
+  columns: ["code", "holder_email"],
+  unlessHolder: "holder_customer_id",
+  when: { where: [{ column: "order_status", in: UNPAID }] },
+};
 
 /** The venue's public face. */
 export const SETTINGS_SELECT = [
@@ -370,13 +380,15 @@ export const PUBLIC_ACCESS = [
     key: "ticket",
     methods: ["GET", "PATCH"],
     claim: { by: "token", column: "link_token", own: true, address: ["pending_email", "holder_email"] },
-    // No code here until the ticket is theirs: the page says it is in their email.
-    select: ["id", "ticket_type_id", "event_id", "status", "name", "due", "collected", "pending_name", "holder_name", "offer_until", "accepted_at"],
+    // The code only once the ticket is theirs: before they accept, the ticket still belongs to the sender.
+    select: ["id", "ticket_type_id", "event_id", "status", "name", "due", "collected", "code", "pending_name", "holder_name", "offer_until", "accepted_at"],
+    withhold: { columns: ["code"], when: { where: [{ column: "holder_customer_id", isNull: true }] } },
     writable: ["status", "holder_name"],
     requires: ["status", "holder_name"],
     writableValues: { status: ["valid"] },
     writableWhen: { status: ["offered"] },
     limits: { plainText: ["holder_name"] },
-    identity: { table: "customers", email: "pending_email", link: "holder_customer_id", fill: { name: "holder_name" } },
+    // The friend is found (or made) only by the save that accepts the ticket.
+    identity: { table: "customers", email: "pending_email", link: "holder_customer_id", fill: { name: "holder_name" }, on: { to: "valid" } },
   },
 ];

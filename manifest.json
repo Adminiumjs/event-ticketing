@@ -5063,6 +5063,10 @@
                     "hours": {
                       "table": "settings",
                       "column": "offer_hours"
+                    },
+                    "notAfter": {
+                      "column": "doors_at",
+                      "via": "event_id"
                     }
                   }
                 },
@@ -5733,23 +5737,6 @@
             },
             "nullable": true,
             "unique": true
-          },
-          {
-            "ref": "staff_key",
-            "type": "text",
-            "maxLength": 64,
-            "label": {
-              "en-US": "Box-office retry key",
-              "de-DE": "Wiederholungsschlüssel der Kasse",
-              "fr-FR": "Clé de relance de la billetterie",
-              "da-DK": "Billetlugens genforsøgsnøgle",
-              "cs-CZ": "Klíč pro opakování v pokladně",
-              "ar-EG": "مفتاح إعادة المحاولة في شباك التذاكر",
-              "zh-CN": "售票处重试码",
-              "zh-TW": "售票處重試碼"
-            },
-            "nullable": true,
-            "unique": true
           }
         ]
       },
@@ -5924,6 +5911,13 @@
                 "pending_email": null,
                 "pending_name": null,
                 "lapsed": true
+              }
+            },
+            {
+              "from": "returned",
+              "to": "released",
+              "at": {
+                "column": "doors_at"
               }
             }
           ],
@@ -6386,7 +6380,8 @@
               "copy": {
                 "via": "event_id",
                 "from": "doors_at",
-                "mode": "always"
+                "mode": "always",
+                "follow": true
               }
             }
           },
@@ -6408,7 +6403,8 @@
               "copy": {
                 "via": "event_id",
                 "from": "eve_email",
-                "mode": "always"
+                "mode": "always",
+                "follow": true
               }
             }
           },
@@ -7695,6 +7691,10 @@
                     "hours": {
                       "table": "settings",
                       "column": "send_hours"
+                    },
+                    "notAfter": {
+                      "column": "doors_at",
+                      "via": "event_id"
                     }
                   }
                 },
@@ -10039,6 +10039,10 @@
                     "hours": {
                       "table": "settings",
                       "column": "offer_hours"
+                    },
+                    "notAfter": {
+                      "column": "doors_at",
+                      "via": "event_id"
                     }
                   }
                 },
@@ -11324,6 +11328,22 @@
               "ar-EG": "أرسلها",
               "zh-CN": "发送人",
               "zh-TW": "寄件人"
+            },
+            "nullable": true
+          },
+          {
+            "ref": "repeat_key",
+            "type": "text",
+            "maxLength": 64,
+            "label": {
+              "en-US": "Which send",
+              "de-DE": "Welcher Versand",
+              "fr-FR": "Envoi concerné",
+              "da-DK": "Hvilken afsendelse",
+              "cs-CZ": "Které odeslání",
+              "ar-EG": "أي إرسال",
+              "zh-CN": "对应的发送",
+              "zh-TW": "對應的寄送"
             },
             "nullable": true
           }
@@ -13852,7 +13872,6 @@
             "status",
             "buyer_name",
             "channel",
-            "staff_key",
             "note"
           ],
           "writableValues": {
@@ -14077,7 +14096,22 @@
           "code",
           "holder_email"
         ],
-        "unlessHolder": "holder_customer_id"
+        "unlessHolder": "holder_customer_id",
+        "when": {
+          "where": [
+            {
+              "column": "order_status",
+              "in": [
+                "held",
+                "confirming",
+                "offered",
+                "awaiting_transfer",
+                "overdue",
+                "released"
+              ]
+            }
+          ]
+        }
       }
     },
     {
@@ -14145,7 +14179,22 @@
           "code",
           "holder_email"
         ],
-        "unlessHolder": "holder_customer_id"
+        "unlessHolder": "holder_customer_id",
+        "when": {
+          "where": [
+            {
+              "column": "order_status",
+              "in": [
+                "held",
+                "confirming",
+                "offered",
+                "awaiting_transfer",
+                "overdue",
+                "released"
+              ]
+            }
+          ]
+        }
       }
     },
     {
@@ -14855,7 +14904,22 @@
           "code",
           "holder_email"
         ],
-        "unlessHolder": "holder_customer_id"
+        "unlessHolder": "holder_customer_id",
+        "when": {
+          "where": [
+            {
+              "column": "order_status",
+              "in": [
+                "held",
+                "confirming",
+                "offered",
+                "awaiting_transfer",
+                "overdue",
+                "released"
+              ]
+            }
+          ]
+        }
       }
     },
     {
@@ -14924,7 +14988,22 @@
           "code",
           "holder_email"
         ],
-        "unlessHolder": "holder_customer_id"
+        "unlessHolder": "holder_customer_id",
+        "when": {
+          "where": [
+            {
+              "column": "order_status",
+              "in": [
+                "held",
+                "confirming",
+                "offered",
+                "awaiting_transfer",
+                "overdue",
+                "released"
+              ]
+            }
+          ]
+        }
       }
     },
     {
@@ -15017,11 +15096,25 @@
         "name",
         "due",
         "collected",
+        "code",
         "pending_name",
         "holder_name",
         "offer_until",
         "accepted_at"
       ],
+      "withhold": {
+        "columns": [
+          "code"
+        ],
+        "when": {
+          "where": [
+            {
+              "column": "holder_customer_id",
+              "isNull": true
+            }
+          ]
+        }
+      },
       "writable": [
         "status",
         "holder_name"
@@ -15051,6 +15144,9 @@
         "link": "holder_customer_id",
         "fill": {
           "name": "holder_name"
+        },
+        "on": {
+          "to": "valid"
         }
       }
     }
@@ -15066,6 +15162,7 @@
       "sentAt": "sent_at",
       "error": "error",
       "skipReason": "skip_reason",
+      "repeatKey": "repeat_key",
       "subjectOverride": "subject_override",
       "bodyOverride": "body_override",
       "approvedBy": "approved_by"
@@ -15408,6 +15505,7 @@
           "column": "pending_email",
           "name": "pending_name"
         },
+        "repeatBy": "link_token",
         "onChange": {
           "table": "tickets",
           "column": "status",
@@ -15434,6 +15532,7 @@
       {
         "kind": "friend-returned",
         "link": "ticket_id",
+        "repeat": true,
         "onChange": {
           "table": "tickets",
           "column": "lapsed",
@@ -15595,7 +15694,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -15653,7 +15752,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -15711,7 +15810,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -15769,7 +15868,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -15827,7 +15926,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -15885,7 +15984,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -15943,7 +16042,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -16001,7 +16100,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -16088,7 +16187,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -16146,7 +16245,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -16204,7 +16303,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -16262,7 +16361,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -16320,7 +16419,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -16378,7 +16477,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -16436,7 +16535,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -16494,7 +16593,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -18107,6 +18206,11 @@
         "practice.address",
         "practice.contact_email"
       ],
+      "attach": {
+        "kind": "receipt",
+        "link": "order",
+        "optional": true
+      },
       "locales": {
         "en-US": {
           "subject": "Payment received · {{order.event.name}} · {{order.number}}",
@@ -18150,9 +18254,19 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "receipt",
+              "data": {
+                "paras": [
+                  "Your receipt is attached."
+                ],
+                "withAttachment": true
               }
             },
             {
@@ -18208,9 +18322,19 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "receipt",
+              "data": {
+                "paras": [
+                  "Deine Quittung ist angehängt."
+                ],
+                "withAttachment": true
               }
             },
             {
@@ -18266,9 +18390,19 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "receipt",
+              "data": {
+                "paras": [
+                  "Votre reçu est en pièce jointe."
+                ],
+                "withAttachment": true
               }
             },
             {
@@ -18324,9 +18458,19 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "receipt",
+              "data": {
+                "paras": [
+                  "Din kvittering er vedhæftet."
+                ],
+                "withAttachment": true
               }
             },
             {
@@ -18382,9 +18526,19 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "receipt",
+              "data": {
+                "paras": [
+                  "Účtenka je v příloze."
+                ],
+                "withAttachment": true
               }
             },
             {
@@ -18440,9 +18594,19 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "receipt",
+              "data": {
+                "paras": [
+                  "إيصالك مرفق."
+                ],
+                "withAttachment": true
               }
             },
             {
@@ -18498,9 +18662,19 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "receipt",
+              "data": {
+                "paras": [
+                  "收据已附上。"
+                ],
+                "withAttachment": true
               }
             },
             {
@@ -18556,9 +18730,19 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "receipt",
+              "data": {
+                "paras": [
+                  "收據已附上。"
+                ],
+                "withAttachment": true
               }
             },
             {
@@ -18874,7 +19058,7 @@
         "booking_url",
         "practice.address",
         "practice.contact_email",
-        "ticket.code",
+        "ticket.code.grouped",
         "ticket.event.doors_at.date",
         "ticket.event.doors_at.time",
         "ticket.event.name",
@@ -18900,7 +19084,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code}}",
+                  "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code.grouped}}",
                   "{{ticket.event.doors_at.date}} · Doors {{ticket.event.doors_at.time}}. Show this code at the door."
                 ]
               }
@@ -18932,7 +19116,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code}}",
+                  "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code.grouped}}",
                   "{{ticket.event.doors_at.date}} · Einlass {{ticket.event.doors_at.time}}. Zeig diesen Code am Einlass."
                 ]
               }
@@ -18964,7 +19148,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code}}",
+                  "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code.grouped}}",
                   "{{ticket.event.doors_at.date}} · Ouverture des portes à {{ticket.event.doors_at.time}}. Présentez ce code à l'entrée."
                 ]
               }
@@ -18996,7 +19180,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code}}",
+                  "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code.grouped}}",
                   "{{ticket.event.doors_at.date}} · Dørene åbner {{ticket.event.doors_at.time}}. Vis denne kode ved døren."
                 ]
               }
@@ -19028,7 +19212,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code}}",
+                  "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code.grouped}}",
                   "{{ticket.event.doors_at.date}} · Otevíráme v {{ticket.event.doors_at.time}}. Tento kód ukažte u vchodu."
                 ]
               }
@@ -19060,7 +19244,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code}}",
+                  "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code.grouped}}",
                   "{{ticket.event.doors_at.date}} · فتح الأبواب {{ticket.event.doors_at.time}}. اعرض هذا الرمز عند الباب."
                 ]
               }
@@ -19092,7 +19276,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code}}",
+                  "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code.grouped}}",
                   "{{ticket.event.doors_at.date}} · {{ticket.event.doors_at.time}} 开门。入场时请出示这个票码。"
                 ]
               }
@@ -19124,7 +19308,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code}}",
+                  "{{ticket.holder_name}} · {{ticket.name}} · {{ticket.code.grouped}}",
                   "{{ticket.event.doors_at.date}} · {{ticket.event.doors_at.time}} 入場。入場時請出示這個代碼。"
                 ]
               }
@@ -19429,7 +19613,7 @@
         "booking_url",
         "practice.address",
         "practice.contact_email",
-        "ticket.code",
+        "ticket.code.grouped",
         "ticket.event.doors_at.date",
         "ticket.event.doors_at.time",
         "ticket.event.name",
@@ -19453,7 +19637,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "The box office put this ticket in your name: {{ticket.name}} · {{ticket.code}}. Show the code at the door."
+                  "The box office put this ticket in your name: {{ticket.name}} · {{ticket.code.grouped}}. Show the code at the door."
                 ]
               }
             },
@@ -19484,7 +19668,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Die Kasse hat dieses Ticket auf deinen Namen ausgestellt: {{ticket.name}} · {{ticket.code}}. Zeig den Code am Einlass."
+                  "Die Kasse hat dieses Ticket auf deinen Namen ausgestellt: {{ticket.name}} · {{ticket.code.grouped}}. Zeig den Code am Einlass."
                 ]
               }
             },
@@ -19515,7 +19699,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "La billetterie a mis ce billet à votre nom : {{ticket.name}} · {{ticket.code}}. Présentez le code à l'entrée."
+                  "La billetterie a mis ce billet à votre nom : {{ticket.name}} · {{ticket.code.grouped}}. Présentez le code à l'entrée."
                 ]
               }
             },
@@ -19546,7 +19730,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Billetlugen har sat denne billet i dit navn: {{ticket.name}} · {{ticket.code}}. Vis koden ved døren."
+                  "Billetlugen har sat denne billet i dit navn: {{ticket.name}} · {{ticket.code.grouped}}. Vis koden ved døren."
                 ]
               }
             },
@@ -19577,7 +19761,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Pokladna vystavila tuto vstupenku na vaše jméno: {{ticket.name}} · {{ticket.code}}. Kód ukažte u vchodu."
+                  "Pokladna vystavila tuto vstupenku na vaše jméno: {{ticket.name}} · {{ticket.code.grouped}}. Kód ukažte u vchodu."
                 ]
               }
             },
@@ -19608,7 +19792,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "سجّل شباك التذاكر هذه التذكرة باسمك: {{ticket.name}} · {{ticket.code}}. اعرض الرمز عند الباب."
+                  "سجّل شباك التذاكر هذه التذكرة باسمك: {{ticket.name}} · {{ticket.code.grouped}}. اعرض الرمز عند الباب."
                 ]
               }
             },
@@ -19639,7 +19823,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "售票处已将这张票登记在你名下：{{ticket.name}} · {{ticket.code}}。入场时请出示票码。"
+                  "售票处已将这张票登记在你名下：{{ticket.name}} · {{ticket.code.grouped}}。入场时请出示票码。"
                 ]
               }
             },
@@ -19670,7 +19854,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "售票處已將這張票登記在你名下：{{ticket.name}} · {{ticket.code}}。入場時請出示代碼。"
+                  "售票處已將這張票登記在你名下：{{ticket.name}} · {{ticket.code.grouped}}。入場時請出示代碼。"
                 ]
               }
             },
@@ -21641,7 +21825,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -21698,7 +21882,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -21755,7 +21939,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -21812,7 +21996,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -21869,7 +22053,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -21926,7 +22110,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -21983,7 +22167,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -22040,7 +22224,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -22122,7 +22306,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -22179,7 +22363,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -22236,7 +22420,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -22293,7 +22477,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -22350,7 +22534,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -22407,7 +22591,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -22464,7 +22648,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }
@@ -22521,7 +22705,7 @@
                 },
                 "row": {
                   "title": "{{row.holder_name}}",
-                  "meta": "{{row.name}} · {{row.code}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
                   "image": "{{row.code.qr}}"
                 }
               }

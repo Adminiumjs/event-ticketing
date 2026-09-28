@@ -28,13 +28,15 @@
  *                          was approved, or the buyer cancelled unpaid ones;
  *   refund-declined        a refund request was declined.
  *
- * Messages the box office writes itself — a transfer reminder, a moved show,
- * a message to a show's buyers, a new holder set by hand — are rows it adds
- * to the outbox, with the kind that picks their template.
+ * Messages the box office writes itself — a transfer reminder, the tickets or
+ * the confirm link sent again, a moved show (with the words it typed), a
+ * message to a show's buyers, a new holder set by hand — are rows it adds to
+ * the outbox, with the kind that picks their template.
  *
  * The log is the dedupe: a kind already queued or sent for the same row is
- * not queued again. Every email waits while its switch in Settings is off
- * where it has one.
+ * not queued again — except a ticket sent to a friend, emailed once per send,
+ * and one that came back, told each time. Every email waits while its switch
+ * in Settings is off where it has one.
  */
 
 export const KINDS = [
@@ -96,6 +98,7 @@ export const OUTBOX = {
     sentAt: "sent_at",
     error: "error",
     skipReason: "skip_reason",
+    repeatKey: "repeat_key",
     subjectOverride: "subject_override",
     bodyOverride: "body_override",
     approvedBy: "approved_by",
@@ -140,9 +143,9 @@ export const OUTBOX = {
     { kind: "tonight-holder", ...byTicket, ...toHolder, ...TONIGHT, due: { date: "doors_at", days: 0, at: "12:00" }, dropWhen: [TICKET_GONE], ...onTicket("holder_reminder", 1) },
     { kind: "tomorrow-holder", ...byTicket, ...toHolder, ...TONIGHT, due: { date: "eve_at", days: 0, at: "18:00" }, dropWhen: [TICKET_GONE], ...onTicket("holder_reminder", 2) },
     // Sent to a friend, accepted by them, or back with the buyer.
-    { kind: "friend-offer", ...byTicket, ...toPending, ...onTicket("status", "offered") },
+    { kind: "friend-offer", ...byTicket, ...toPending, repeatBy: "link_token", ...onTicket("status", "offered") },
     { kind: "friend-ready", ...byTicket, ...toHolder, ...onTicket("status", "valid", accepted) },
-    { kind: "friend-returned", ...byTicket, ...onTicket("lapsed", true) },
+    { kind: "friend-returned", ...byTicket, repeat: true, ...onTicket("lapsed", true) },
     { kind: "refund-declined", ...byTicket, ...onTicket("status", "valid", { column: "refund_declined_at", isNull: false }) },
     // A ticket the box office cancelled, a refund request approved, unpaid tickets the buyer cancelled: one email an order.
     {

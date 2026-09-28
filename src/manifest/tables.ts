@@ -125,6 +125,8 @@ const onStatus = (...values: string[]) => ({ column: "status", values });
 const onState = (...values: string[]) => ({ column: "state", values });
 export const setting = (column: string) => ({ table: "settings", column });
 const voidedNow = { column: "voided", values: [true] };
+/** An offer or a send ends at doors at the latest. */
+const DOORS = { column: "doors_at", via: "event_id" };
 const copyOf = (via: string, from: string, follow = false) => ({ copy: { via, from, mode: "always", ...(follow ? { follow: true } : {}) } });
 /** A 1 or a 0 a condition reads: a formula fills only a number. */
 const yes = (condition: unknown) => ({ formula: { if: [condition, 1, 0] } });
@@ -367,7 +369,11 @@ const TICKET_STATES = {
     returned: ["released"],
   },
   // A friend who did not accept in time: the ticket comes back, and the link sent to them stops.
-  timed: [{ from: "offered", to: "valid", at: { column: "offer_until" }, set: { pending_email: null, pending_name: null, lapsed: true } }],
+  timed: [
+    { from: "offered", to: "valid", at: { column: "offer_until" }, set: { pending_email: null, pending_name: null, lapsed: true } },
+    // A place still back for the waitlist at doors goes on sale at the door.
+    { from: "returned", to: "released", at: { column: "doors_at" } },
+  ],
   // "Stop selling": a type the box office stopped takes no new ticket, from anyone.
   create: { requires: { linked: [{ via: "ticket_type_id", where: [{ column: "selling", eq: true }] }] } },
 };
@@ -779,7 +785,7 @@ export const TABLES: Table[] = [
         // Written at the checkout and again when the buyer chooses a transfer: they get ten fresh minutes to confirm.
         rules: stamp({ addMinutes: { minutes: setting("hold_minutes") } }, { columns: ["status"] }),
       }),
-      at("offer_until", "Offer runs until", { ...opt, rules: stamp({ addMinutes: { hours: setting("offer_hours") } }, onStatus("offered")) }),
+      at("offer_until", "Offer runs until", { ...opt, rules: stamp({ addMinutes: { hours: setting("offer_hours"), notAfter: DOORS } }, onStatus("offered")) }),
       at("pay_by", "Pay by", {
         ...opt,
         rules: stamp(
@@ -827,9 +833,8 @@ export const TABLES: Table[] = [
       text("link_token", 16, "Link code", { ...opt, rules: { code: { length: 16 } } }),
       bool("link_stopped", "Link stopped", false),
       text("confirm_token", 16, "Confirm code", { ...opt, rules: { code: { length: 16 } } }),
-      // The buyer's retry key, and the box office's: a retried sale lands on the same order.
+      // The retry key, the buyer's or the box office's: a retried sale lands on the same order.
       text("client_key", 64, "Retry key", { ...opt, unique: true }),
-      text("staff_key", 64, "Box-office retry key", { ...opt, unique: true }),
     ],
   },
   {
@@ -850,9 +855,9 @@ export const TABLES: Table[] = [
       }),
       choice("order_status", "Order", ORDER_STATUSES, { ...opt, rules: copyOf("order_id", "status", true) }),
       choice("order_cancel_cause", "Why the order was cancelled", CANCEL_CAUSES, { ...opt, rules: copyOf("order_id", "cancel_cause", true) }),
-      // Copied, not followed (a ticket follows its order alone): the Postpone action saves the show's tickets again.
-      at("doors_at", "Doors", { ...opt, rules: copyOf("event_id", "doors_at") }),
-      bool("eve_email", "Remind the evening before", false, { rules: copyOf("event_id", "eve_email") }),
+      // The show's doors, kept in step with it: places still back for the waitlist go on sale then.
+      at("doors_at", "Doors", { ...opt, rules: copyOf("event_id", "doors_at", true) }),
+      bool("eve_email", "Remind the evening before", false, { rules: copyOf("event_id", "eve_email", true) }),
       at("eve_at", "The evening before", { ...opt, rules: stamp({ moment: { column: "doors_at", minus: { days: 1 } } }, { columns: ["doors_at"] }) }),
       // A friend holding the ticket gets the show's reminder too: 1 at noon on the day, 2 the evening before.
       worked("holder_reminder", "Holder's reminder", {
@@ -899,7 +904,7 @@ export const TABLES: Table[] = [
       // Sent to a friend.
       text("pending_name", 120, "Sent to", opt),
       text("pending_email", 254, "Sent to email", { ...opt, semantic: "email", rules: { validation: { format: "email" } } }),
-      at("offer_until", "Accept by", { ...opt, rules: stamp({ addMinutes: { hours: setting("send_hours") } }, onStatus("offered")) }),
+      at("offer_until", "Accept by", { ...opt, rules: stamp({ addMinutes: { hours: setting("send_hours"), notAfter: DOORS } }, onStatus("offered")) }),
       fk("holder_customer_id", "customers", "Holder's account", opt),
       // The ticket's own link, emailed only to the friend it is sent to; a new send makes a new one.
       text("link_token", 16, "Link code", { ...opt, rules: { code: { length: 16, renew: { on: { column: "pending_email", changed: true } } } } }),
@@ -1058,7 +1063,7 @@ export const TABLES: Table[] = [
       fk("order_id", "orders", "Offer", opt),
       at("joined_at", "Joined", { ...opt, rules: stamp("now", onCreate) }),
       at("offered_at", "Offered", { ...opt, rules: stamp("now", onStatus("offered")) }),
-      at("offer_until", "Offer runs until", { ...opt, rules: stamp({ addMinutes: { hours: setting("offer_hours") } }, onStatus("offered")) }),
+      at("offer_until", "Offer runs until", { ...opt, rules: stamp({ addMinutes: { hours: setting("offer_hours"), notAfter: DOORS } }, onStatus("offered")) }),
     ],
   },
   {
@@ -1142,6 +1147,8 @@ export const TABLES: Table[] = [
       text("subject_override", 200, "Subject as sent", opt),
       text("body_override", 1000, "Message as sent", opt),
       text("approved_by", 80, "Sent by", opt),
+      // Which send of a ticket to a friend a message is for: a ticket sent again is emailed again.
+      text("repeat_key", 64, "Which send", opt),
     ],
   },
   {
