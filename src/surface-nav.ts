@@ -93,6 +93,13 @@ export const SURFACE_EXTRAS = {
 } as const satisfies Record<"staff" | "customer", readonly View[]>;
 
 /**
+ * Where the demo's seeded venue is written: the venue's own words, which the
+ * sample bundle the demo's Adminium loads carries. The surface gate reads its
+ * literals to prove the demo build still has them.
+ */
+export const SURFACE_DEMO_DATA = "src/sample/words.ts";
+
+/**
  * Every view a side renders, as a TYPE — nav entries plus extras.
  *
  * A type and not a test, deliberately. `App.tsx` must keep its two `SCREENS`

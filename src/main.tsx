@@ -117,10 +117,16 @@ function codeOf(reason: Error | null): string | null {
 
 /**
  * The demo build: the venue's screens on the demo's own Adminium, in this
- * browser. `?side=box` opens the box office (the demo card switches sides).
+ * browser, driven by the website's demo card (`demoBridge.ts`). `?side=box`
+ * opens the box office.
  */
 async function bootDemo(mount: HTMLElement): Promise<void> {
-  const [{ DemoAdminium }, { WaveApp }, { WaveRoot }] = await Promise.all([import("./demo/adminium.ts"), import("./app/wave.ts"), import("./app/WaveRoot.tsx")]);
+  const [{ DemoAdminium }, { WaveApp }, { WaveRoot }, { startDemoBridge }] = await Promise.all([
+    import("./demo/adminium.ts"),
+    import("./app/wave.ts"),
+    import("./app/WaveRoot.tsx"),
+    import("./demoBridge.ts"),
+  ]);
   const demo = new DemoAdminium();
   const params = new URLSearchParams(window.location.search);
   const persona = params.get("side") === "box" ? "box" : "audience";
@@ -137,6 +143,8 @@ async function bootDemo(mount: HTMLElement): Promise<void> {
       <WaveRoot app={app} />
     </StrictMode>,
   );
+  // The website's demo card, when the page is framed by it: its screens, side, language, theme and clock.
+  startDemoBridge(app, demo);
 }
 
 async function boot(): Promise<void> {

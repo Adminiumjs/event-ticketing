@@ -14,8 +14,7 @@
 import { useEffect } from "react";
 import type { ComponentType } from "react";
 
-import DemoDock from "../components/DemoDock.tsx";
-import { DEMO, SURFACE_SIDE } from "../surface.ts";
+import { SURFACE_SIDE } from "../surface.ts";
 import { ToastLayer } from "../components/Overlays.tsx";
 import Shell from "../components/Shell.tsx";
 import type { View } from "../data/types.ts";
@@ -118,11 +117,6 @@ export default function App() {
       <Shell>
         <CurrentScreen />
       </Shell>
-      {/*
-        Build-time, not runtime. `DEMO` folds to a literal, so a hosted or
-        connected build does not CONTAIN the dock — it is not merely hidden.
-      */}
-      {DEMO && <DemoDock />}
       <ToastLayer />
     </>
   );

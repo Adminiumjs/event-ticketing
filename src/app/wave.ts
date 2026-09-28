@@ -29,6 +29,9 @@ function discountLabel(show: Show, code: string, data: Record<string, unknown>):
 /** The audience's screens. */
 export type Screen = "home" | "event" | "checkout" | "going" | "signin" | "tickets" | "friend" | "offer" | "confirm" | "404";
 
+/** The box office's screens. */
+export type BoxScreen = "today" | "events" | "editor" | "sales" | "orders" | "refunds" | "guests" | "waits" | "codes" | "msgs" | "pc" | "settings" | "door";
+
 export interface Toast {
   id: number;
   msg: string;
@@ -44,6 +47,8 @@ export interface Sheet {
 export function fresh() {
   return {
     scr: "home" as Screen,
+    /** The box office's screen. */
+    bx: "today" as BoxScreen,
     /** The show on screen (its id). */
     evId: null as Id | null,
     /** A show's address opened before the venue answered: its slug, found once the shows are read. */
@@ -264,6 +269,14 @@ export class WaveApp {
     this.now = now;
     this.refresh();
     this.buyer.tick();
+  }
+
+  /** Switches between the audience site (on What's on) and the box office (on Today). */
+  setPersona(persona: "audience" | "box"): void {
+    if (persona === this.persona) return;
+    this.persona = persona;
+    if (persona === "audience") return this.go("home");
+    this.setState({ bx: "today", sheet: null, dm: null, panelOpen: false, acctOpen: false });
   }
 
   // ── the venue, as the audience reads it ─────────────────────────────────
