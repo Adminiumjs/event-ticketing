@@ -99,7 +99,7 @@ function msgVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unknown>
     who === undefined
       ? "…"
       : [people(who.people), plural(who.orders, "{n} order", "{n} orders"), ...(who.holders > 0 ? [plural(who.holders, "{n} sent-on ticket", "{n} sent-on tickets")] : [])].join(" · ");
-  const waiting = (box.list("broadcasts", { where: [{ column: "status", eq: "waiting" }], sort: [{ column: "id" }], limit: 50 })?.rows ?? []).map((b) => {
+  const waiting = (box.list("broadcasts", { where: [{ column: "status", eq: "waiting" }], sort: [{ column: "id" }], limit: 50 })?.rows ?? []).filter((b) => w.byId.get(b["event_id"] as Id)?.status !== "cancelled").map((b) => {
     const e = w.byId.get(b["event_id"] as Id);
     return {
       id: b.id,

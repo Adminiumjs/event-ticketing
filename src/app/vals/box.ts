@@ -455,7 +455,7 @@ function todayVals(app: WaveApp, box: Box, w: BoxWorld): V {
   const waitingMsgs = box.list("broadcasts", { where: [{ column: "status", eq: "waiting" }], limit: 50 })?.rows ?? [];
   for (const b of waitingMsgs) {
     const e = w.byId.get(b["event_id"] as Id);
-    if (e === undefined) continue;
+    if (e === undefined || e.status === "cancelled") continue;
     const moved = b["template"] === "moved";
     needs.push({
       id: `bm${String(b.id)}`,

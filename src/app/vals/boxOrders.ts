@@ -304,7 +304,7 @@ function drawerVals(app: WaveApp, box: Box, w: BoxWorld): V {
           act("dc", tr("Decline the refund request"), "x", () => app.openSheet("bxDecline", { o: id, note: "" })),
         ]
       : []),
-    ...(waiting ? [act("rl", tr("Release now"), "undo-2", () => app.openSheet("bxRelease", { o: id }), true)] : []),
+    ...(status === "overdue" ? [act("rl", tr("Release now"), "undo-2", () => app.openSheet("bxRelease", { o: id }), true)] : []),
     act("nt", tr("Add a note"), "sticky-note", () => app.openSheet("bxNote", { o: id, area: "" })),
   ];
 
@@ -437,12 +437,12 @@ function refundsVals(app: WaveApp, box: Box, w: BoxWorld): V {
 export function localValue(t: number | null): string {
   if (t === null) return "";
   const d = fDateParts(t);
-  return `${d.y}-${d.m}-${d.d}T${fT(t).replace(/[^\d:]/g, "")}`;
+  return `${d.y}-${d.m}-${d.d}T${d.h}:${d.mi}`;
 }
-function fDateParts(t: number): { y: string; m: string; d: string } {
-  const p = new Intl.DateTimeFormat("en-CA", { timeZone: venueZone(), year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(t);
+function fDateParts(t: number): { y: string; m: string; d: string; h: string; mi: string } {
+  const p = new Intl.DateTimeFormat("en-CA", { timeZone: venueZone(), year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(t);
   const g = (k: string) => p.find((x) => x.type === k)?.value ?? "";
-  return { y: g("year"), m: g("month"), d: g("day") };
+  return { y: g("year"), m: g("month"), d: g("day"), h: g("hour"), mi: g("minute") };
 }
 
 function guestVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unknown>): V {

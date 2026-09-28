@@ -783,7 +783,7 @@ function codeSheet(app: WaveApp, box: Box, o: V & { fields: unknown[] }, sh: Rec
       if (kind === "amount" && !(val >= 0.01 && val <= 500)) err["val"] = tr("Enter an amount between {a} and {b}", { a: money(0.01), b: money(500) });
       if (limit !== "" && !(Number(limit) >= 1 && Number.isInteger(Number(limit)))) err["limit"] = tr("Enter at least 1, or leave it empty");
       if (untilAt !== null && untilAt < box.venueDayStart(now)) err["until"] = tr("Pick a date from today");
-      if (kind === "unlock" && sh["unlocks"] === undefined) err["code"] = err["code"] ?? tr("Choose the ticket type it unlocks");
+      if (kind === "unlock" && String(sh["unlocks"] ?? "") === "") err["code"] = err["code"] ?? tr("Choose the ticket type it unlocks");
       if (Object.keys(err).length > 0) return set({ err });
       const values: Record<string, unknown> = {
         code,

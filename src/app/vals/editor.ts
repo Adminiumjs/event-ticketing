@@ -102,6 +102,8 @@ export interface Draft {
   frozen: "past" | "cancelled" | null;
   /** As saved: the refund close and the start it was set against (kept while neither the start nor the policy moves). */
   savedRefund: { until: number | null; start: number } | null;
+  /** As saved: the show's start and first doors (a festival's start keeps its distance from its gates). */
+  savedTimes: { start: number; doors: number } | null;
   posterError: string | null;
 }
 
@@ -207,6 +209,7 @@ export function draftOf(box: Box, show: BoxShow): Draft {
     waitlist: show.waitlistOn,
     frozen: show.status === "cancelled" ? "cancelled" : now > show.ends ? "past" : null,
     savedRefund: show.refundText === null && show.refundUntil !== null ? { until: show.refundUntil, start: show.start } : null,
+    savedTimes: { start: show.start, doors: show.doors },
     posterError: null,
   };
 }
@@ -274,6 +277,7 @@ export function newDraft(box: Box): Draft {
     waitlist: false,
     frozen: null,
     savedRefund: null,
+    savedTimes: null,
     posterError: null,
   };
 }
@@ -293,7 +297,8 @@ export function rowsOf(box: Box, d: Draft, zone: string): { values: Record<strin
     return { ...(x.id === null ? {} : { id: x.id }), day: i + 1, doors_at: new Date(doors).toISOString(), last_entry_at: last === null ? null : new Date(last).toISOString(), curfew_at: new Date(curfew).toISOString() };
   });
   const firstDoors = ms(dayRows[0]!.doors_at)!;
-  let start = multi ? firstDoors : (at(d.date, d.stage, zone) ?? firstDoors);
+  // A festival has no stage time of its own: its start stays as far from its first gates as it was.
+  let start = multi ? (d.savedTimes === null ? firstDoors : d.savedTimes.start + (firstDoors - d.savedTimes.doors)) : (at(d.date, d.stage, zone) ?? firstDoors);
   if (!multi && start < firstDoors) start += 86_400_000;
   let curfew = ms(dayRows[dayRows.length - 1]!.curfew_at)!;
   if (!multi && curfew <= start) curfew = Math.max(curfew, start + 3_600_000);
@@ -417,7 +422,11 @@ export function checkDraft(box: Box, d: Draft, zone: string): DraftErrors {
     out.name = tr("Give the night a name.");
     first("ed-name");
   }
-  if (d.days === null && d.doors !== "" && d.stage !== "" && hm(d.doors) >= hm(d.stage)) {
+  const missing = d.days === null ? d.date === "" || d.doors === "" || d.stage === "" || d.curfew === "" : d.days.some((x) => x.date === "" || x.gates === "");
+  if (missing) {
+    out.time = d.days === null ? tr("Give the date and the times.") : tr("Give each day its date and gates.");
+    first(d.days === null ? "ed-doors" : "ed-days");
+  } else if (d.days === null && hm(d.doors) >= hm(d.stage)) {
     out.time = tr("Doors must be before on stage.");
     first("ed-doors");
   }
@@ -438,7 +447,8 @@ export function checkDraft(box: Box, d: Draft, zone: string): DraftErrors {
     if (t.name.trim() === "") e.name = tr("Give the ticket type a name.");
     if (!t.free && !(Number(t.price) > 0)) e.price = tr("Enter a price, or choose No charge.");
     const cap = Number(t.cap || 0);
-    if (cap < t.sold + t.held) e.cap = tr("Can't go below {sold} sold and {held} held", { sold: t.sold, held: t.held });
+    // An empty size has no limit.
+    if (t.cap !== "" && cap < t.sold + t.held) e.cap = tr("Can't go below {sold} sold and {held} held", { sold: t.sold, held: t.held });
     const min = Number(t.min || 1);
     const max = Number(t.max || 6);
     if (!(min >= 1) || min > max) e.min = tr("At least 1, and no more than the max.");

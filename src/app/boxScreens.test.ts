@@ -329,3 +329,60 @@ describe("The event editor", () => {
     expect(box.world()!.shows).toHaveLength(14);
   });
 });
+
+describe("The editor after a save, and between shows", () => {
+  it("reads the show back as saved after a save, and opens another show's own draft", async () => {
+    const { box, v, go, idOf } = await open();
+    const neon = idOf("Neon Circuit");
+    await go("editor", { bev: neon, ed: null });
+    await v();
+    const ed = box.s.ed as { name: string };
+    const vals = (await go("editor", { ed: { ...ed, name: "Neon Circuit — late show" }, edDirty: true }))["ed"] as V;
+    (vals["save"] as () => void)();
+    for (let i = 0; i < 5; i += 1) await v();
+    expect([(box.s.ed as { name: string }).name, box.s.edDirty]).toEqual(["Neon Circuit — late show", false]);
+    box.goShow(idOf("Cinder"), "editor");
+    await v();
+    expect((box.s.ed as { name: string; id: Id }).name).toBe("Cinder");
+  });
+
+  it("opens in Danish, and keeps a festival's start when only its words change", async () => {
+    const { app, box, v, go, idOf } = await open();
+    app.setState({ lang: "da-DK" });
+    const fest = idOf("Waveform Weekender");
+    const before = box.world()!.byId.get(fest)!.start;
+    await go("editor", { bev: fest, ed: null });
+    await v();
+    const ed = box.s.ed as { about: string; days: unknown[] | null };
+    expect(ed.days).toHaveLength(2);
+    const vals = (await go("editor", { ed: { ...ed, about: "Two days, two rooms." }, edDirty: true }))["ed"] as V;
+    (vals["save"] as () => void)();
+    for (let i = 0; i < 5; i += 1) await v();
+    expect(box.world()!.byId.get(fest)!.start).toBe(before);
+  });
+
+  it("will not save a show with its date cleared", async () => {
+    const { box, v, go } = await open();
+    box.newEvent();
+    await v();
+    const ed = box.s.ed as Record<string, unknown>;
+    const vals = (await go("editor", { ed: { ...ed, name: "Night Swim", date: "" }, edDirty: true }))["ed"] as V;
+    (vals["save"] as () => void)();
+    const again = (await v())["ed"] as V;
+    expect(bidi(again["timeErrTxt"])).toBe("Give the date and the times.");
+    expect(box.world()!.shows).toHaveLength(14);
+  });
+});
+
+describe("Release now", () => {
+  it("is offered on an overdue transfer and not on one still awaited", async () => {
+    const { box, v } = await open();
+    const find = async (n: string) => (await box.port.list("orders", { where: [{ column: "number", eq: n }] })).rows[0]!;
+    const acts = async (n: string) => {
+      box.openDrawer((await find(n)).id);
+      return (((await v())["dr"] as V)["acts"] as V[]).map((a) => String(a["id"]));
+    };
+    expect(await acts("WV-S8793")).toContain("rl");
+    expect(await acts("WV-S8809")).not.toContain("rl");
+  });
+});

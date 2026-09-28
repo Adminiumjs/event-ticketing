@@ -661,7 +661,7 @@ export function StaffView({ v }: { v: any }) {
                           {v.ed.daysOn ? (
                             <>
                               <div style={st("display:flex; flex-direction:column; gap:8px; padding-block-start:6px;")}>
-                                <span style={st(v.s.lbl)}>
+                                <span id="ed-days" tabIndex={-1} style={st(v.s.lbl)}>
                                   {tr("Days")}
                                 </span>
                                 {" "}

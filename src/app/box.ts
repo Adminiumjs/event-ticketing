@@ -330,6 +330,8 @@ export class Box {
     if (tab === "orders") return this.go("orders", { bev: id, ord: { ...s.ord, ev: id, tab: true, st: "all", q: "", n: 50 } });
     if (tab === "pc") return this.go("pc", { bev: id, pc: { ...s.pc, ev: id, tried: false, msg: null, rfPage: 0 } });
     if (tab === "guests") return this.go("guests", { bev: id, gl: { ...s.gl, ev: id, err: null } });
+    const draft = s.ed as { id?: Id | null } | null;
+    if (tab === "editor" && draft !== null && draft.id !== id) return this.go("editor", { bev: id, ed: null, edDirty: false, edTried: false });
     this.go(tab, { bev: id });
   }
 
@@ -400,11 +402,17 @@ export class Box {
   /** Money recorded on an order; paid in full, it moves to paid (a released order too, when its seats still fit). */
   async pay(order: Row, amount: number, method: "bank_transfer" | "card" | "cash", note: string): Promise<void> {
     await this.write(async () => {
-      await this.port.recordPayment(order.id, amount, method, note === "" ? null : note);
+      const payment = await this.port.recordPayment(order.id, amount, method, note === "" ? null : note);
       const after = (await this.port.list("orders", { where: [{ column: "id", eq: order.id }] })).rows[0];
       const st = String(after?.["status"] ?? "");
       if (after !== undefined && Number(after["balance"] ?? 0) <= 0 && ["door", "awaiting_transfer", "overdue", "released", "not_collected"].includes(st)) {
-        await this.port.move(order.id, "paid");
+        try {
+          await this.port.move(order.id, "paid");
+        } catch (error) {
+          // The move refused (a released order's seats have gone): the money is not left recorded against it.
+          await this.port.update("payments", payment.id, { voided: true }).catch(() => undefined);
+          throw error;
+        }
       }
     }, tr("{amount} recorded on {number}", { amount: money(amount), number: String(order["number"]) }), "badge-check");
   }
@@ -593,6 +601,14 @@ export class Box {
         });
         const day = show.days[0];
         if (show.days.length === 1 && day !== undefined) await this.port.update("event_days", day.id, { doors_at: at.doors, curfew_at: at.curfew });
+        else {
+          // Every day moves by as much as the first.
+          const by = Date.parse(at.doors) - show.doors;
+          const moved = (t: number | null) => (t === null ? null : new Date(t + by).toISOString());
+          for (const d of show.days) await this.port.update("event_days", d.id, { doors_at: moved(d.doors), last_entry_at: moved(d.lastEntry), curfew_at: moved(d.curfew) });
+          const last = show.days[show.days.length - 1]!;
+          await this.port.update("events", show.id, { curfew_at: moved(last.curfew), ends_at: moved(last.curfew) });
+        }
         await this.port.broadcast(
           { event_id: show.id, audience: "everyone", template: "moved", subject: message.subject, body: message.body, people: who.people, order_count: who.orders },
           who.rows,
@@ -610,6 +626,9 @@ export class Box {
     await this.write(
       async () => {
         await this.port.cancelShow(show.id);
+        // A message still waiting (a postponement's) would tell them the wrong thing now.
+        const waiting = await this.port.list("broadcasts", { where: [{ column: "event_id", eq: show.id }, { column: "status", eq: "waiting" }] });
+        for (const b of waiting.rows) await this.port.remove("broadcasts", b.id);
         const orders = await this.port.list("orders", { where: [{ column: "event_id", eq: show.id }, { column: "cancel_cause", eq: "show" }], limit: 5000 });
         const ids = orders.rows.map((o) => o.id);
         const held = ids.length === 0 ? { rows: [] as Row[] } : await this.port.list("messages", { where: [{ column: "order_id", in: ids }, { column: "status", eq: "held" }], limit: 10_000 });
@@ -628,20 +647,28 @@ export class Box {
     const d = this.s.set;
     const w = this.world();
     if (d === null || w === null) return;
+    const rooms = d.rooms.map((r) => ({ ...r }));
+    const devices = d.devices.map((x) => ({ ...x }));
+    let gone = [...d.gone];
     const ok = await this.write(async () => {
+      // Removals first: a door that is still in use is refused before anything else is written.
+      for (const id of [...gone]) {
+        await this.port.remove("devices", id);
+        gone = gone.filter((x) => x !== id);
+      }
       await this.port.update("settings", w.settingsRow.id, d.settings);
-      for (const r of d.rooms) {
+      for (const r of rooms) {
         const values = { name: r["name"], capacity: Number(r["capacity"]), note: r["note"] ?? null };
         if (r.id > 0) await this.port.update("rooms", r.id, values);
-        else await this.port.create("rooms", { ...values, kind: "room" });
+        else r.id = (await this.port.create("rooms", { ...values, kind: "room" })).id;
       }
-      for (const dev of d.devices) {
+      for (const dev of devices) {
         if (dev.id > 0) await this.port.update("devices", dev.id, { name: dev["name"] });
-        else await this.port.create("devices", { name: dev["name"] });
+        else dev.id = (await this.port.create("devices", { name: dev["name"] })).id;
       }
-      for (const id of d.gone) await this.port.remove("devices", id);
     }, tr("Settings saved"), "check");
-    if (ok) this.set({ set: null });
+    // Saved, or not all of it: what was made keeps its id, so trying again makes nothing twice.
+    this.set({ set: ok ? null : { ...d, rooms, devices, gone } });
   }
 
   /** A message written earlier and waiting: into Messages, as it was written, to review and send. */
@@ -681,14 +708,16 @@ export class Box {
         );
         made = reply.data;
         const id = reply.data.id;
+        let payment: Row | null = null;
         if (reply.replayed === true && reply.data["status"] !== "held") return;
         try {
           if (o.how === "paidnow") {
             const total = Number(reply.data["total"] ?? 0);
-            if (total > 0) await this.port.recordPayment(id, total, o.method, null);
+            if (total > 0) payment = await this.port.recordPayment(id, total, o.method, null);
             await this.port.move(id, "paid");
           } else await this.port.move(id, o.how === "door" ? "door" : o.how === "transfer" ? "awaiting_transfer" : "no_charge");
         } catch (error) {
+          if (payment !== null) await this.port.update("payments", payment.id, { voided: true }).catch(() => undefined);
           await this.port.move(id, "let_go").catch(() => undefined);
           throw error;
         }
@@ -805,7 +834,14 @@ export class Box {
       draft.pub === "draft" ? tr("Draft saved — only the box office can see it") : tr("Saved — the public page is up to date"),
       "check",
     );
-    if (ok && saved !== null) this.set({ ed: null, edDirty: false, edTried: false, bev: (saved as Row).id });
+    if (!ok || saved === null) return;
+    this.set({ edDirty: false, edTried: false, bev: (saved as Row).id });
+    // Asked again and answered before the draft is rebuilt from what was saved (never from the answers before).
+    this.world();
+    await this.app.idle();
+    this.world();
+    await this.app.idle();
+    this.set({ ed: null, edDirty: false });
   }
 
   /** A new show in the editor (the editor's own module fills the draft). */
