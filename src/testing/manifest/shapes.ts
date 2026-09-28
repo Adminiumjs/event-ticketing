@@ -10,7 +10,9 @@
  * the shipped bundle's import graph may reach it, which sources.test.ts gates.
  *
  * The only edits are import specifiers: `.js` becomes `.ts`, and the
- * `@adminium/add-on-contracts` package import becomes relative ones.
+ * `@adminium/add-on-contracts` package import becomes relative ones — and a
+ * constructor's parameter properties are written as plain fields, so the copy
+ * passes an app's `erasableSyntaxOnly`.
  */
 /**
  * Tables built on an add-on's shape — whether an app's table really is one.
@@ -49,7 +51,7 @@
  * Pure: no I/O, no import of the schema at run time.
  */
 import type { ColumnRules } from './schema.ts';
-import type { States } from './states.ts';
+import type { StateChild, States } from './states.ts';
 
 /** A column as a shape and an app both declare it. */
 export interface ShapeColumn {
@@ -294,7 +296,9 @@ function statesDifferences(want: States, have: States, ownColumns: (childRef: st
   }
   for (const [ref, rule] of Object.entries(want.children ?? {})) {
     const own = have.children?.[ref];
-    if (own === undefined || own.via !== rule.via || own.lock !== rule.lock || !same(own.parentIn, rule.parentIn)) {
+    // `parentIn` is `createIn` and `changeIn` at once: the states a child is tied to are compared however they are written.
+    const tiedIn = (child: StateChild | undefined, key: 'createIn' | 'changeIn') => child?.[key] ?? child?.parentIn;
+    if (own === undefined || own.via !== rule.via || own.lock !== rule.lock || !same(tiedIn(own, 'createIn'), tiedIn(rule, 'createIn')) || !same(tiedIn(own, 'changeIn'), tiedIn(rule, 'changeIn'))) {
       out.push(`"${ref}" is tied to the state as the shape ties it`);
       continue;
     }

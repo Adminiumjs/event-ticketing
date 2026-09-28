@@ -186,7 +186,9 @@ function vendor(srcRel, base) {
     ` * the shipped bundle's import graph may reach it, which sources.test.ts gates.\n` +
     ` *\n` +
     ` * The only edits are import specifiers: \`.js\` becomes \`.ts\`, and the\n` +
-    ` * \`@adminium/add-on-contracts\` package import becomes relative ones.\n */`;
+    ` * \`@adminium/add-on-contracts\` package import becomes relative ones — and a\n` +
+    ` * constructor's parameter properties are written as plain fields, so the copy\n` +
+    ` * passes an app's \`erasableSyntaxOnly\`.\n */`;
 
   let out = text.replace(/^\/\/ SPDX-License-Identifier:[^\n]*\n/, `${header}\n`);
   if (out === text) out = `${header}\n${text}`;
@@ -233,6 +235,10 @@ function vendor(srcRel, base) {
    * emitted a copy it had promised to refuse and exited 0. This header says a
    * subtly wrong copy is worse than an openly stale one; this makes that true.
    */
+  // 4. Parameter properties (`constructor(readonly index: number)`) are not
+  //    erasable syntax: an app built with `erasableSyntaxOnly` refuses them.
+  out = eraseParameterProperties(out);
+
   for (const spec of specifiersIn(out)) {
     if (spec.startsWith('.')) {
       const base = spec.replace(/^\.\//, '');
@@ -244,6 +250,97 @@ function vendor(srcRel, base) {
     }
   }
   return out;
+}
+
+/**
+ * The same class with each constructor parameter property (`readonly x: T`,
+ * `private x: T` …) written as a field declared above the constructor and
+ * assigned after its `super(…)` call (or first, with none). A class without
+ * one comes back unchanged. Comments and strings are skipped when counting
+ * brackets, so a bracket in a doc comment cannot end the list early.
+ */
+function eraseParameterProperties(text) {
+  const skip = (src, i) => {
+    if (src.startsWith('/*', i)) return src.indexOf('*/', i + 2) + 2;
+    if (src.startsWith('//', i)) { const n = src.indexOf('\n', i); return n === -1 ? src.length : n; }
+    const q = src[i];
+    if (q === "'" || q === '"' || q === '`') {
+      let j = i + 1;
+      while (j < src.length && src[j] !== q) j += src[j] === '\\' ? 2 : 1;
+      return j + 1;
+    }
+    return i;
+  };
+  /** The index of the bracket closing the one at `open`. */
+  const closing = (src, open) => {
+    const pairs = { '(': ')', '{': '}', '[': ']' };
+    const stack = [];
+    for (let i = open; i < src.length; ) {
+      const next = skip(src, i);
+      if (next !== i) { i = next; continue; }
+      const c = src[i];
+      if (pairs[c] !== undefined) stack.push(pairs[c]);
+      else if (c === stack[stack.length - 1]) { stack.pop(); if (stack.length === 0) return i; }
+      i += 1;
+    }
+    throw new Error('an unbalanced constructor');
+  };
+  /** The top-level parts of a parameter list, split at its commas. */
+  const split = (src) => {
+    const parts = [];
+    let depth = 0, start = 0;
+    for (let i = 0; i < src.length; ) {
+      const next = skip(src, i);
+      if (next !== i) { i = next; continue; }
+      const c = src[i];
+      if ('([{<'.includes(c)) depth += 1;
+      else if (')]}'.includes(c) || (c === '>' && src[i - 1] !== '=')) depth -= 1;
+      else if (c === ',' && depth === 0) { parts.push(src.slice(start, i)); start = i + 1; }
+      i += 1;
+    }
+    parts.push(src.slice(start));
+    return parts;
+  };
+  const MODIFIER = /^((?:\s|\/\*[\s\S]*?\*\/|\/\/[^\n]*\n)*)((?:(?:public|private|protected|readonly|override)\s+)+)([A-Za-z_$][\w$]*)/;
+  let out = text;
+  let from = 0;
+  for (;;) {
+    const at = out.indexOf('constructor(', from);
+    if (at === -1) return out;
+    const open = at + 'constructor'.length;
+    const close = closing(out, open);
+    const params = split(out.slice(open + 1, close));
+    const fields = [];
+    const kept = params.map((param) => {
+      const m = MODIFIER.exec(param);
+      if (m === null) return param;
+      const [, lead, mods, name] = m;
+      const declared = param.slice(m[0].length).replace(/\s+$/, '');
+      fields.push({ lead, mods: mods.trim().replace(/\s+/g, ' '), name, declared });
+      return `${lead}${name}${declared}`;
+    });
+    if (fields.length === 0) { from = close; continue; }
+    const lineStart = out.lastIndexOf('\n', at) + 1;
+    const indent = out.slice(lineStart, at);
+    const declarations = fields
+      .map((f) => {
+        const docs = f.lead.trim() === '' ? '' : `${f.lead.replace(/^\s*\n?/, '').replace(/\s+$/, '').split('\n').map((l) => `${indent}${l.trim()}`).join('\n')}\n`;
+        return `${docs}${indent}${f.mods} ${f.name}${f.declared.replace(/\s*=[\s\S]*$/, '')};\n`;
+      })
+      .join('');
+    const params2 = kept.map((p) => p.replace(/\/\*\*[\s\S]*?\*\/\s*/g, '')).join(',');
+    const bodyOpen = out.indexOf('{', close);
+    const bodyClose = closing(out, bodyOpen);
+    const body = out.slice(bodyOpen + 1, bodyClose);
+    const superAt = body.search(/\bsuper\(/);
+    let insertAt = 0;
+    if (superAt !== -1) insertAt = closing(body, body.indexOf('(', superAt)) + 1 + (body[closing(body, body.indexOf('(', superAt)) + 1] === ';' ? 1 : 0);
+    const assigns = fields.map((f) => `\n${indent}  this.${f.name} = ${f.name};`).join('');
+    const newBody = body.slice(0, insertAt) + assigns + body.slice(insertAt);
+    const rebuilt = `${declarations}${indent}constructor(${params2})${out.slice(close + 1, bodyOpen)}{${newBody}}`;
+    out = out.slice(0, lineStart) + rebuilt + out.slice(bodyClose + 1);
+    from = lineStart + rebuilt.length;
+  }
 }
 
 let stale = 0;
