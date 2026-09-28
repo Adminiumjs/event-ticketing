@@ -96,7 +96,7 @@ function checkoutVals(app: WaveApp, w: World): V {
   const me = app.signedIn();
   const guest = me === null;
   const ph = co.phase;
-  const p = poster(show.name, show.short, show.posterStyle, app.light());
+  const p = poster(show.name, show.short, show.posterStyle, app.light(), show.posterHue);
   // What Adminium priced: the held order once there is one, the dry run of the choice before.
   const quote = co.order === null ? app.quoteFor(show) : null;
   // A claim confirms only the places kept: their own figures, until the claim writes them.
@@ -350,7 +350,7 @@ function goingVals(app: WaveApp, w: World): V {
   const order = o.order;
   const show = w.byId.get(order["event_id"] as Id);
   if (show === undefined) return { tickets: [], bank: [], dlCols: "" };
-  const p = poster(show.name, show.short, show.posterStyle, light);
+  const p = poster(show.name, show.short, show.posterStyle, light, show.posterHue);
   const os = String(order["status"]);
   const tear = nar
     ? `height:14px; background:${cssUrl(wave(160, 12, () => 0.9, 3, light ? "#c9c9d2" : "#3a3a44", 1.3))} repeat-x center / 160px 12px;`
@@ -664,7 +664,7 @@ function ticketsVals(app: WaveApp, w: World): V {
     .filter((e): e is Show => e !== undefined && (up ? !isPast(e) : isPast(e)))
     .sort((a, c) => (up ? a.start - c.start : c.start - a.start));
   const groups = shows.map((show) => {
-    const p = poster(show.name, show.short, show.posterStyle, light);
+    const p = poster(show.name, show.short, show.posterStyle, light, show.posterHue);
     const off = offers.find((x) => x["event_id"] === show.id);
     const os = byShow.get(show.id) ?? [];
     if (off !== undefined && os.length === 0) {
@@ -866,7 +866,7 @@ function friendVals(app: WaveApp, w: World): V {
   if (t === undefined) return { loadOn: true, p: {} };
   const show = w.byId.get(t["event_id"] as Id);
   if (show === undefined) return { p: {} };
-  const p = poster(show.name, show.short, show.posterStyle, app.light());
+  const p = poster(show.name, show.short, show.posterStyle, app.light(), show.posterHue);
   const past = app.now > show.curfew;
   const status = String(t["status"]);
   const holder = String(t["holder_name"] ?? "");
@@ -945,7 +945,7 @@ function offerVals(app: WaveApp, w: World): V {
       n: w.settings.offerHours,
       time: until === null ? "" : `${fD(until)}, ${fT(until)}`,
     }),
-    p: poster(show.name, show.short, show.posterStyle, app.light()),
+    p: poster(show.name, show.short, show.posterStyle, app.light(), show.posterHue),
     headTxt: tr("{n} ticket for {show} is yours if you want it|{n} tickets for {show} are yours if you want them", { n: wn, show: show.name }),
     card: {
       when: tr("{date} · Doors {time}", { date: fD(show.start), time: fT(show.doors) }),

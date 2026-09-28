@@ -8,7 +8,7 @@
 import type { EventChildren } from "../../data/ports.ts";
 import type { Id } from "../../data/wire.ts";
 import { tr } from "../../i18n/tr.ts";
-import { poster } from "../art.ts";
+import { hsh, poster } from "../art.ts";
 import { plural, type Box } from "../box.ts";
 import type { BoxShow, BoxWorld } from "../boxWorld.ts";
 import { fD, fT, money, ms, num, venueZone } from "../fmt.ts";
@@ -78,6 +78,8 @@ export interface Draft {
   curfew: string;
   room: Id | null;
   style: string;
+  /** The poster's hue once saved (a rename keeps it). */
+  hue: number | null;
   image: string | null;
   days: DraftDay[] | null;
   acts: DraftAct[];
@@ -142,6 +144,7 @@ export function draftOf(box: Box, show: BoxShow): Draft {
     curfew: timeOf(show.curfew),
     room: show.room?.id ?? null,
     style: show.posterStyle ?? "rings",
+    hue: show.posterHue,
     image: show.image,
     days: multi
       ? show.days.map((d) => ({ k: `d${String(d.id)}`, id: d.id, date: dateOf(d.doors), gates: timeOf(d.doors), last: timeOf(d.lastEntry ?? d.curfew), curfew: timeOf(d.curfew) }))
@@ -228,6 +231,7 @@ export function newDraft(box: Box): Draft {
     curfew: "23:00",
     room: room?.id ?? null,
     style: STYLES[Math.floor(Math.random() * STYLES.length)]!,
+    hue: null,
     image: null,
     days: null,
     acts: [],
@@ -310,6 +314,7 @@ export function rowsOf(box: Box, d: Draft, zone: string): { values: Record<strin
     about: d.about.trim() === "" ? null : d.about.trim(),
     image: d.image,
     poster_style: d.style,
+    poster_hue: d.hue ?? hsh(d.name.trim()) % 360,
     age: d.age,
     age_note: d.ageNote.trim() === "" ? null : d.ageNote.trim(),
     refund_until: refundUntil === null ? null : new Date(refundUntil).toISOString(),
@@ -503,7 +508,7 @@ export function editorVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string
     knob: `position:absolute; inset-block-start:3px; inset-inline-start:${on ? "18px" : "3px"}; width:15px; height:15px; border-radius:50%; background:${on ? "var(--accent-fg)" : "var(--fg-subtle)"}; transition:inset-inline-start .15s;`,
   });
   const segO = (list: [string, string][], cur: string, go: (id: string) => void) => list.map(([id, label]) => ({ id: label, key: id, on: cur === id, go: () => go(id), style: seg(cur === id) }));
-  const p = poster(draft.name || tr("New event"), null, draft.style, light);
+  const p = poster(draft.name || tr("New event"), null, draft.style, light, draft.hue);
   const sysName: Record<string, string> = { dots: tr("halftone dots"), rings: tr("rings"), stripes: tr("stripes"), grain: tr("grain"), glyph: tr("big letter") };
   const refundDays = Number(w.settingsRow["refund_days"] ?? 7);
   const sendOn = w.settings.sendOn;

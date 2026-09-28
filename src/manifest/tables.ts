@@ -546,6 +546,8 @@ export const TABLES: Table[] = [
       text("about", 1000, "About", opt),
       text("image", 400, "Poster", { ...opt, semantic: "image" }),
       text("poster_style", 24, "Poster style", opt),
+      // Set at the first save: a renamed show keeps its poster's colours.
+      int("poster_hue", "Poster colour", { ...opt, rules: { validation: { min: 0, max: 359 } } }),
       at("on_sale_at", "On sale", opt),
       at("refund_until", "Refunds until", opt),
       text("refund_text", 300, "Refund words", opt),

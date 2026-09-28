@@ -228,6 +228,7 @@ export const WORDS: Record<string, Translation> = {
   "Plus": {"de-DE": "Begleitung", "fr-FR": "En plus", "da-DK": "Plus", "cs-CZ": "Plus", "ar-EG": "إضافة", "zh-CN": "另加", "zh-TW": "攜伴人數"},
   "Position": {"de-DE": "Position", "fr-FR": "Position", "da-DK": "Placering", "cs-CZ": "Pořadí", "ar-EG": "الترتيب", "zh-CN": "位次", "zh-TW": "排序"},
   "Poster": {"de-DE": "Plakat", "fr-FR": "Affiche", "da-DK": "Plakat", "cs-CZ": "Plakát", "ar-EG": "الملصق", "zh-CN": "海报", "zh-TW": "海報"},
+  "Poster colour": {"de-DE": "Posterfarbe", "fr-FR": "Couleur de l'affiche", "da-DK": "Plakatfarve", "cs-CZ": "Barva plakátu", "ar-EG": "لون الملصق", "zh-CN": "海报颜色", "zh-TW": "海報顏色"},
   "Poster style": {"de-DE": "Plakatstil", "fr-FR": "Style d'affiche", "da-DK": "Plakatstil", "cs-CZ": "Styl plakátu", "ar-EG": "نمط الملصق", "zh-CN": "海报样式", "zh-TW": "海報風格"},
   "Postponed": {"de-DE": "Verschoben", "fr-FR": "Reporté", "da-DK": "Udskudt", "cs-CZ": "Odloženo", "ar-EG": "مؤجَّل", "zh-CN": "已延期", "zh-TW": "延期"},
   "Presale": {"de-DE": "Vorverkauf", "fr-FR": "Prévente", "da-DK": "Forsalg", "cs-CZ": "Předprodej", "ar-EG": "بيع مسبق", "zh-CN": "预售", "zh-TW": "預售"},

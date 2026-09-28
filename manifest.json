@@ -1452,6 +1452,27 @@
             "nullable": true
           },
           {
+            "ref": "poster_hue",
+            "type": "int",
+            "label": {
+              "en-US": "Poster colour",
+              "de-DE": "Posterfarbe",
+              "fr-FR": "Couleur de l'affiche",
+              "da-DK": "Plakatfarve",
+              "cs-CZ": "Barva plakátu",
+              "ar-EG": "لون الملصق",
+              "zh-CN": "海报颜色",
+              "zh-TW": "海報顏色"
+            },
+            "nullable": true,
+            "rules": {
+              "validation": {
+                "min": 0,
+                "max": 359
+              }
+            }
+          },
+          {
             "ref": "on_sale_at",
             "type": "timestamptz",
             "label": {

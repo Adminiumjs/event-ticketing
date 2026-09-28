@@ -78,6 +78,8 @@ export interface Show {
   about: string | null;
   image: string | null;
   posterStyle: string | null;
+  /** The poster's hue, kept from the first save so a rename keeps its colours (null: from the name). */
+  posterHue: number | null;
   onSaleAt: number | null;
   refundUntil: number | null;
   refundText: string | null;
@@ -243,6 +245,7 @@ export function worldOf(venue: Venue, unlocked: Map<Id, { code: string; types: R
       about: str(e["about"]),
       image: str(e["image"]),
       posterStyle: str(e["poster_style"]),
+      posterHue: typeof e["poster_hue"] === "number" ? e["poster_hue"] : null,
       onSaleAt: ms(e["on_sale_at"]),
       refundUntil: ms(e["refund_until"]),
       refundText: str(e["refund_text"]),

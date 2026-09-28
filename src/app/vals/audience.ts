@@ -99,7 +99,7 @@ export function priceFrom(show: Show): string {
 }
 
 export function posterOf(app: WaveApp, show: Show): Poster {
-  return poster(show.name, show.short, show.posterStyle, app.light());
+  return poster(show.name, show.short, show.posterStyle, app.light(), show.posterHue);
 }
 
 /** The show's line of acts or words under its name. */

@@ -39,9 +39,9 @@ const grain = (a: number) =>
 const G1 = grain(0.1);
 const G2 = grain(0.32);
 
-/** A show's two hues, from its name. */
-export function hues(name: string): [number, number] {
-  const a = hsh(name) % 360;
+/** A show's two hues: from its stored hue when it has one (a renamed show keeps its colours), else from its name. */
+export function hues(name: string, hue: number | null = null): [number, number] {
+  const a = hue ?? hsh(name) % 360;
   return [a, (a + 140 + (hsh(`${name}~`) % 80)) % 360];
 }
 
@@ -59,8 +59,8 @@ export interface Poster {
 }
 
 /** The poster of a show: its background, its big letter (the `glyph` style), its title, and the page's wash. */
-export function poster(name: string, short: string | null, style: string | null, light: boolean): Poster {
-  const [a, b] = hues(name);
+export function poster(name: string, short: string | null, style: string | null, light: boolean, hue: number | null = null): Poster {
+  const [a, b] = hues(name, hue);
   const base = `oklch(0.27 0.09 ${String(a)})`;
   const mid = `oklch(0.66 0.17 ${String(b)})`;
   const ink = `oklch(0.94 0.06 ${String(b)})`;
