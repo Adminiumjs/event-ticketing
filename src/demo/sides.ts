@@ -12,7 +12,15 @@ import type { AudiencePort, BoxOfficePort, DoorPort, OrderWithTickets, StaffPers
 import { ApiError, type ClaimReply, type Config, type Id, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type TypeLeft } from "../data/wire.ts";
 import { venueDay, wallTime, toMs } from "../lib/venueTime.ts";
 import { normalizeCode } from "./codes.ts";
-import type { Engine, Writer } from "./engine.ts";
+import { holds, type Engine, type Writer } from "./engine.ts";
+import { MANIFEST_RULES } from "./rules.ts";
+
+type Withhold = { columns: string[]; when: { where: Parameters<typeof holds>[1][] } };
+type Entry = { table: string; key?: string; select?: string[]; visibleWith?: unknown; withhold?: Withhold };
+const ENTRIES = MANIFEST_RULES.publicAccess as unknown as Entry[];
+/** The buyer's read of an order's tickets, and a ticket's own link: what each shows and holds back. */
+const BUYER_WITHHOLD = ENTRIES.find((e) => e.table === "tickets" && e.visibleWith !== undefined && e.withhold !== undefined)!.withhold!;
+const TICKET_LINK = ENTRIES.find((e) => e.table === "tickets" && e.key === "ticket") as Required<Pick<Entry, "select" | "withhold">>;
 
 const copy = (row: Row): Row => ({ ...row });
 const LIVE_ORDER = ["door", "awaiting_transfer", "overdue", "no_charge", "paid"];
@@ -128,14 +136,15 @@ export class DemoAudience implements AudiencePort {
     return order;
   }
 
-  /** A ticket of the opened order, read as its buyer: a friend's code and address stay with the friend. */
+  /**
+   * A ticket of the opened order, read as its buyer, as the manifest's withhold says: a friend's code and
+   * address stay with the friend, and no code shows before the order is paid or confirmed to pay at the door.
+   */
   private asBuyer(ticket: Row): Row {
     const order = this.engine.world.get("orders", ticket["order_id"] as Id)!;
     const out = copy(ticket);
-    if (ticket["holder_customer_id"] !== null && ticket["holder_customer_id"] !== order["customer_id"]) {
-      out["code"] = null;
-      out["holder_email"] = null;
-    }
+    const byHolder = ticket["holder_customer_id"] !== null && ticket["holder_customer_id"] !== order["customer_id"];
+    if (byHolder || BUYER_WITHHOLD.when.where.every((c) => holds(ticket, c))) for (const column of BUYER_WITHHOLD.columns) out[column] = null;
     return out;
   }
 
@@ -210,9 +219,10 @@ export class DemoAudience implements AudiencePort {
   async openTicket(token: string): Promise<Row> {
     const ticket = this.engine.world.all("tickets").find((t) => t["link_token"] === token);
     if (ticket === undefined) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
-    // No code here until the ticket is theirs.
-    const out = copy(ticket);
-    for (const column of ["code", "holder_email", "pending_email", "link_token"]) out[column] = null;
+    // What the ticket's own link reads; the code only once the friend has accepted it.
+    const out: Row = { id: ticket.id };
+    for (const column of TICKET_LINK.select) out[column] = ticket[column] ?? null;
+    if (TICKET_LINK.withhold.when.where.every((c) => holds(ticket, c))) for (const column of TICKET_LINK.withhold.columns) out[column] = null;
     return out;
   }
 
@@ -258,7 +268,7 @@ function releaseReturned(engine: Engine, eventId: Id, n: number, claimedBy: Id):
 export class DemoBoxOffice implements BoxOfficePort {
   private readonly engine: Engine;
   private readonly person: StaffPerson;
-  private staffKeys = new Map<string, Id>();
+  private retries = new Map<string, Id>();
 
   constructor(engine: Engine, person: StaffPerson = { name: "Priya", roles: ["box-office"] }) {
     this.engine = engine;
@@ -285,17 +295,17 @@ export class DemoBoxOffice implements BoxOfficePort {
     return this.engine.counts(eventId);
   }
 
-  async newOrder(body: OrderBody, staffKey: string): Promise<OrderReply> {
-    const again = this.staffKeys.get(staffKey);
+  async newOrder(body: OrderBody, clientKey: string): Promise<OrderReply> {
+    const again = this.retries.get(clientKey);
     const engine = this.engine;
     if (again !== undefined) return { data: copy(engine.world.get("orders", again)!), tickets: engine.world.where("tickets", (t) => t["order_id"] === again).map(copy), replayed: true };
     const event = engine.world.get("events", body.values["event_id"] as Id);
-    const made = engine.create("orders", { channel: "box_office", ...body.values, room_id: event?.["room_id"] ?? null, staff_key: staffKey }, this.writer, {
+    const made = engine.create("orders", { channel: "box_office", ...body.values, room_id: event?.["room_id"] ?? null, client_key: clientKey }, this.writer, {
       table: "tickets",
       via: "order_id",
       rows: body.tickets.map((t) => ({ ...t })),
     });
-    this.staffKeys.set(staffKey, made.row.id);
+    this.retries.set(clientKey, made.row.id);
     return { data: made.row, tickets: made.children };
   }
 

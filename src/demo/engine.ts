@@ -78,9 +78,11 @@ const RULE_SET = MANIFEST_RULES as unknown as {
   producers: Json[];
 };
 
+/** An order's states whose tickets count for good: no hold ends them. */
+const COUNTED = ["door", "awaiting_transfer", "overdue", "no_charge", "paid"];
 const iso = (ms: number) => new Date(ms).toISOString();
 
-function holds(row: Readonly<Record<string, unknown>>, c: Condition): boolean {
+export function holds(row: Readonly<Record<string, unknown>>, c: Condition): boolean {
   const value = row[c.column];
   if (c.isNull !== undefined) return c.isNull ? value === null || value === undefined : value !== null && value !== undefined;
   if (c.in !== undefined) return c.in.includes(value as never);
@@ -297,6 +299,8 @@ export class Engine {
       }
     }
     const usage = this.usage(writer, [stored["event_id"] as Id | undefined]);
+    // An order out of its hold into a state that counts for good (an offer claimed, a checkout confirmed).
+    const leaving = table === "orders" && moving && this.holding(before) && COUNTED.includes(String(values["status"]));
     Object.assign(stored, values);
     // A code drawn again when what it belongs to changes (a new holder, a new friend it is sent to).
     for (const [column, on] of Object.entries(RULE_SET.renewals[table] ?? {})) {
@@ -307,7 +311,7 @@ export class Engine {
     this.settleAll();
     const after = this.world.get(table, id)!;
     if (move !== null && move.requires !== undefined) this.judgeRequires(table, after, move.requires, writer, { from: String(before[states!.column]), to: move.to });
-    this.judgeLimits([{ table, row: after }], writer, false, usage);
+    this.judgeLimits([{ table, row: after }], writer, false, usage, leaving);
     this.judgeUniques(table);
     if (moving) this.effects(table, before, after);
     this.produce(table, before, after);
@@ -403,7 +407,7 @@ export class Engine {
     if (status === "returned" && !forPublic) return false;
     const order = this.world.get("orders", ticket["order_id"] as Id);
     if (order === undefined) return false;
-    if (["door", "awaiting_transfer", "overdue", "no_charge", "paid"].includes(String(order["status"]))) return true;
+    if (COUNTED.includes(String(order["status"]))) return true;
     return this.holding(order);
   }
 
@@ -420,7 +424,7 @@ export class Engine {
         if (!this.takes(t, true)) continue;
         const order = this.world.get("orders", t["order_id"] as Id)!;
         if (t["status"] === "returned") reserved += 1;
-        else if (this.holding(order) && !["door", "awaiting_transfer", "overdue", "no_charge", "paid"].includes(String(order["status"]))) held += 1;
+        else if (this.holding(order) && !COUNTED.includes(String(order["status"]))) held += 1;
         else taken += 1;
       }
       return { taken, held, reserved };
@@ -468,8 +472,13 @@ export class Engine {
     return out;
   }
 
-  private judgeLimits(written: { table: Table; row: Row }[], writer: Writer, creating: boolean, before: Map<string, number>): void {
-    const forPublic = writer.origin === "public";
+  /**
+   * `leaving`: the write only takes an order out of its hold. It takes no new place, so its pools are counted as
+   * the box office counts them — the places kept back for a waitlist are the ones it was offered — and judged:
+   * more offered than fits is refused.
+   */
+  private judgeLimits(written: { table: Table; row: Row }[], writer: Writer, creating: boolean, before: Map<string, number>, leaving = false): void {
+    const forPublic = writer.origin === "public" && !leaving;
     const tickets = written.filter((w) => w.table === "tickets").map((w) => this.world.get("tickets", w.row.id)!);
     const orders = written.filter((w) => w.table === "orders").map((w) => this.world.get("orders", w.row.id)!);
     // A ticket's pools, for a new ticket or a ticket (or order) that now takes a place.
@@ -496,11 +505,11 @@ export class Engine {
         if (pool.left >= 0) continue;
         // Over already, and this write adds nothing to it: an offer claimed, an order moved on.
         const was = before.get(`${String(eventId)}:${String(pool.ticket_type_id)}`);
-        if (was !== undefined && pool.size - pool.left <= was) continue;
+        if (!leaving && was !== undefined && pool.size - pool.left <= was) continue;
         const mine = tickets.find((t) => pool.ticket_type_id === null || t["ticket_type_id"] === pool.ticket_type_id);
         const byOrder = orders.length > 0;
         if (mine === undefined && !byOrder) continue;
-        throw new ApiError(409, forPublic ? "PUBLIC_SOLD_OUT" : "CAPACITY_FULL", {
+        throw new ApiError(409, writer.origin === "public" ? "PUBLIC_SOLD_OUT" : "CAPACITY_FULL", {
           child: mine === undefined ? null : "tickets",
           index: mine === undefined ? null : tickets.indexOf(mine),
           column: "ticket_type_id",
@@ -514,7 +523,7 @@ export class Engine {
       const code = this.world.get("codes", o["code_id"] as Id)!;
       const max = code["max_uses"];
       if (max === null || max === undefined) continue;
-      const used = this.world.where("orders", (x) => x["code_id"] === code.id && (["door", "awaiting_transfer", "overdue", "no_charge", "paid"].includes(String(x["status"])) || this.holding(x))).length;
+      const used = this.world.where("orders", (x) => x["code_id"] === code.id && (COUNTED.includes(String(x["status"])) || this.holding(x))).length;
       if (used > Number(max)) throw new ApiError(400, forPublic ? "PUBLIC_WRITE_REFUSED" : "VALIDATION", { column: "code_text", reason: "used-up" });
     }
     for (const w of written) {
@@ -557,7 +566,8 @@ export class Engine {
       else if (typeof set === "object" && "addMinutes" in set) {
         const a = set["addMinutes"] as Json;
         const ms = a["minutes"] !== undefined ? this.amount(a["minutes"]) * 60_000 : this.amount(a["hours"]) * 3_600_000;
-        row[column] = iso(at + ms);
+        const cap = a["notAfter"] === undefined ? null : this.moment(table, row, a["notAfter"] as Moment);
+        row[column] = iso(cap !== null && cap < at + ms ? cap : at + ms);
       } else if (typeof set === "object" && "deadline" in set) {
         const d = set["deadline"] as { days: unknown; time: unknown; notAfter?: Moment };
         const time = typeof d.time === "string" ? d.time : String(this.setting((d.time as { column: string }).column));
@@ -593,17 +603,29 @@ export class Engine {
     }
   }
 
-  /** The emails a write queues: one of a kind a row, as the producers say. */
+  /**
+   * The emails a write queues, as the producers say: one of a kind a row, or one for each value of a column
+   * (`repeatBy`, the one waiting for an older value skipped), or one for each change (`repeat`).
+   */
   private produce(table: Table, before: Row | null, after: Row): void {
     for (const producer of RULE_SET.producers) {
       const onCreate = producer["onCreate"] as { table: string; via?: string; where?: Condition } | undefined;
-      const onChange = producer["onChange"] as { table: string; via?: string; column: string; to: unknown; where?: Condition } | undefined;
+      const onChange = producer["onChange"] as
+        | { table: string; via?: string; column?: string; to?: unknown; columns?: string[]; changed?: true; where?: Condition }
+        | undefined;
       let fires = false;
       if (onCreate !== undefined && before === null && onCreate.table === table) fires = onCreate.where === undefined || holds(after, onCreate.where);
       if (onChange !== undefined && onChange.table === table) {
-        const to = Array.isArray(onChange.to) ? onChange.to : [onChange.to];
-        const changed = (before === null ? null : before[onChange.column]) !== after[onChange.column];
-        fires = changed && to.includes(after[onChange.column]) && (onChange.where === undefined || holds(after, onChange.where));
+        const where = onChange.where === undefined || holds(after, onChange.where);
+        if (onChange.columns !== undefined) {
+          // Any change of these columns, against the row as it was stored: a new row is no change.
+          fires = before !== null && onChange.columns.some((c) => before[c] !== after[c]) && where;
+        } else {
+          const column = onChange.column!;
+          const to = Array.isArray(onChange.to) ? onChange.to : [onChange.to];
+          const changed = (before === null ? null : before[column]) !== after[column];
+          fires = changed && to.includes(after[column]) && where;
+        }
       }
       if (!fires) continue;
       const via = (onCreate ?? onChange)!.via;
@@ -611,7 +633,18 @@ export class Engine {
       const linkId = via === undefined ? (link === `${table.replace(/s$/, "")}_id` ? after.id : after[link]) : after[via];
       const kind = String(producer["kind"]);
       const linkColumn = link;
-      if (this.world.where("messages", (m) => m["kind"] === kind && m[linkColumn] === linkId).length > 0) continue;
+      const repeatBy = producer["repeatBy"] as string | undefined;
+      const repeatKey = repeatBy === undefined ? null : String(after[repeatBy] ?? "");
+      const earlier = this.world.where("messages", (m) => m["kind"] === kind && m[linkColumn] === linkId);
+      if (producer["repeat"] !== true) {
+        if (earlier.some((m) => repeatBy === undefined || m["repeat_key"] === repeatKey)) continue;
+        // Overtaken: a message still waiting for an older value is not sent.
+        for (const old of earlier) {
+          if (old["status"] !== "queued" && old["status"] !== "held") continue;
+          Object.assign(old, { status: "skipped", skip_reason: "overtaken" });
+          this.world.touched("messages", old.id);
+        }
+      }
       const recipient = producer["recipient"] as { column: string } | undefined;
       const due = producer["due"] as { date: string; at?: string } | undefined;
       const dueAt = due === undefined ? null : toMs(after[due.date]);
@@ -636,6 +669,7 @@ export class Engine {
         subject_override: null,
         body_override: null,
         approved_by: null,
+        repeat_key: repeatKey,
         [linkColumn]: linkId,
       });
     }

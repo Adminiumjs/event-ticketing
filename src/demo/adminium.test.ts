@@ -276,3 +276,74 @@ describe("a ticket sent to a friend", () => {
 it("starts at Tuesday 28 July 2026, 16:30 at the venue", () => {
   expect(new DemoAdminium().now).toBe(T1630);
 });
+
+describe("offers and sends end at doors", () => {
+  it("gives a ticket sent to a friend at 16:30 until Neon Circuit's doors at 20:00, not two days", async () => {
+    const demo = new DemoAdminium();
+    await demo.audience.openOrder(String(order(demo, "WV-S8761")["link_token"]));
+    const ana = ticketByCode(demo, "P4MA-7VKE");
+    await demo.audience.sendTicket(ana.id, "kai.renner@example.com", "Kai Renner");
+    expect(Date.parse(String(demo.world.get("tickets", ana.id)!["offer_until"]))).toBe(at("2026-07-28T20:00"));
+  });
+
+  it("puts the places still back for the waitlist on sale at Velvet Hour's doors", async () => {
+    const demo = new DemoAdminium();
+    const velvet = byName(demo, "Velvet Hour").id;
+    const back = (status: string) => demo.world.where("tickets", (t) => t["event_id"] === velvet && t["status"] === status).length;
+    demo.advanceTo(at("2026-07-31T19:29"));
+    const released = back("released");
+    expect(back("returned")).toBe(2);
+    demo.advanceTo(at("2026-07-31T19:30"));
+    expect([back("returned"), back("released") - released]).toEqual([0, 2]);
+  });
+});
+
+describe("a ticket sent again", () => {
+  it("emails the second friend too, and drops the first friend's email still waiting", async () => {
+    const demo = new DemoAdminium();
+    await demo.audience.openOrder(String(order(demo, "WV-S8761")["link_token"]));
+    const ana = ticketByCode(demo, "P4MA-7VKE");
+    await demo.audience.sendTicket(ana.id, "kai.renner@example.com", "Kai Renner");
+    await demo.audience.takeBack(ana.id);
+    await demo.audience.sendTicket(ana.id, "jo.park@example.com", "Jo Park");
+    const offers = demo.world.where("messages", (m) => m["kind"] === "friend-offer" && m["ticket_id"] === ana.id);
+    expect(offers.map((m) => [m["to_address"], m["status"]])).toEqual([
+      ["kai.renner@example.com", "skipped"],
+      ["jo.park@example.com", "queued"],
+    ]);
+  });
+});
+
+describe("a claim leaving its hold", () => {
+  it("is counted as the box office counts: more offered than the show holds is refused", async () => {
+    const demo = new DemoAdminium();
+    // The offer's two places are held; with the Standard pool cut by one, the claim no longer fits.
+    typeOf(demo, "Velvet Hour", "Standard")["capacity"] = 119;
+    await demo.audience.openOrder(String(order(demo, "WV-S8814")["link_token"]));
+    expect(await refused(() => demo.audience.choose("door", 2))).toMatchObject({ code: "PUBLIC_SOLD_OUT" });
+    expect(order(demo, "WV-S8814")["status"]).toBe("offered");
+  });
+});
+
+describe("a code while nothing is paid", () => {
+  it("never reaches the buyer's page of a transfer still awaited", async () => {
+    const demo = new DemoAdminium();
+    const waiting = demo.world.all("orders").find((o) => o["status"] === "awaiting_transfer" && o["link_token"] !== null)!;
+    await demo.audience.openOrder(String(waiting["link_token"]));
+    const { tickets } = await demo.audience.order();
+    expect(tickets.length).toBeGreaterThan(0);
+    expect(tickets.every((t) => t["code"] === null)).toBe(true);
+  });
+
+  it("reaches the friend's page only once they accept it", async () => {
+    const demo = new DemoAdminium();
+    await demo.audience.openOrder(String(order(demo, "WV-S8761")["link_token"]));
+    const ana = ticketByCode(demo, "P4MA-7VKE");
+    await demo.audience.sendTicket(ana.id, "kai.renner@example.com", "Kai Renner");
+    const token = String(demo.world.get("tickets", ana.id)!["link_token"]);
+    expect((await demo.audience.openTicket(token))["code"]).toBeNull();
+    await demo.audience.acceptTicket(token, "Kai Renner");
+    const theirs = await demo.audience.openTicket(token);
+    expect([theirs["holder_name"], theirs["code"]]).toEqual(["Kai Renner", demo.world.get("tickets", ana.id)!["code"]]);
+  });
+});

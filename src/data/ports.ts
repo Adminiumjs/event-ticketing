@@ -90,8 +90,8 @@ export interface BoxOfficePort {
   /** A show's pools: each type's, and the show's own. */
   counts(eventId: Id): Promise<PoolCount[]>;
 
-  /** A phone order or comps: made held; `staffKey` makes a retry land on the same order. */
-  newOrder(body: OrderBody, staffKey: string): Promise<OrderReply>;
+  /** A phone order or comps: made held; `clientKey` makes a retry land on the same order. */
+  newOrder(body: OrderBody, clientKey: string): Promise<OrderReply>;
   /** An order moved on by the box office (to the door, to waiting for a transfer, released, paid). */
   move(orderId: Id, status: string, values?: Record<string, unknown>): Promise<Row>;
   recordPayment(orderId: Id, amount: number, method: "bank_transfer" | "card" | "cash", note?: string | null): Promise<Row>;
