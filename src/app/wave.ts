@@ -231,6 +231,8 @@ export class WaveApp {
     } catch {
       this.setState({ loading: false, loadError: true });
     }
+    // A transfer checkout waiting on its email: the tab asks after the order every few seconds.
+    setInterval(() => void this.buyer.pollMail(), 3000);
     if (this.demo?.onClock) this.demo.onClock((now) => this.setClock(now));
     else {
       setInterval(() => this.setClock(Date.now() + this.skew), 30_000);

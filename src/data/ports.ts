@@ -60,9 +60,10 @@ export interface AudiencePort {
   /**
    * How the buyer pays (at the door, by transfer — then confirmed by email —,
    * at no charge), or letting it go. On a waitlist offer, `keep` claims fewer
-   * than offered: the rest go back to the waitlist.
+   * than offered: the rest go back to the waitlist. `orderId` names one of the
+   * signed-in person's orders; without it, the order the link opened.
    */
-  choose(status: "door" | "confirming" | "no_charge" | "let_go", keep?: number): Promise<Row>;
+  choose(status: "door" | "confirming" | "no_charge" | "let_go", keep?: number, orderId?: Id): Promise<Row>;
   /** The emailed confirm link: the transfer checkout goes on to waiting for the transfer. */
   confirmTransfer(token: string): Promise<Row>;
 
@@ -83,7 +84,7 @@ export interface AudiencePort {
   /** A ticket's name (and its answers) written: the ticket keeps its code. */
   nameTicket(ticketId: Id, name: string, answers?: Record<string, string> | null): Promise<Row>;
   /** The opened order's own details: the answers, the access note, the opt-in. */
-  updateOrder(values: { answers?: Record<string, string> | null; access_note?: string | null; opt_in?: boolean }): Promise<Row>;
+  updateOrder(values: { answers?: Record<string, string> | null; access_note?: string | null; opt_in?: boolean }, orderId?: Id): Promise<Row>;
   /** A moved show: the buyer keeps their tickets for the new date. */
   keep(orderId: Id): Promise<Row>;
   /** A transfer checkout's confirm link: the order it confirms, read before the press. */

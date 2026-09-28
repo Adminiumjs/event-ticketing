@@ -99,7 +99,8 @@ function checkoutVals(app: WaveApp, w: World): V {
   const p = poster(show.name, show.short, show.posterStyle, app.light());
   // What Adminium priced: the held order once there is one, the dry run of the choice before.
   const quote = co.order === null ? app.quoteFor(show) : null;
-  const total = co.order !== null ? n(co.order["total"]) : (quote?.total ?? null);
+  // A claim confirms only the places kept: their own figures, until the claim writes them.
+  const total = co.claim ? co.tickets.reduce((a, t) => a + n(t["due"]), 0) : co.order !== null ? n(co.order["total"]) : (quote?.total ?? null);
   const discount = co.order !== null ? n(co.order["discount"]) : (quote?.discount ?? 0);
   const count = co.tix.length;
   const free = show.types.filter((t) => co.lines.some((l) => l.typeId === t.id)).every((t) => t.price === 0);

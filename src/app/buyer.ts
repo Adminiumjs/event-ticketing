@@ -321,14 +321,16 @@ export class Buyer {
         const answers = Object.keys(co.tix[i]!.answers).length > 0 ? co.tix[i]!.answers : undefined;
         await this.port.nameTicket(t.id, co.tix[i]!.name.trim(), answers);
       }
+      // A checkout made here works through the order's own link; a claim from My tickets through the sign-in.
+      const via = co.claim && this.s.going?.via === "me" ? co.orderId ?? undefined : undefined;
       await this.port.updateOrder({
         opt_in: co.optIn,
         ...(co.access.trim() === "" ? {} : { access_note: co.access.trim() }),
         ...(Object.keys(co.orderAnswers).length > 0 ? { answers: co.orderAnswers } : {}),
-      });
+      }, via);
       const free = Number(co.order?.["total"] ?? 0) <= 0;
       if (co.claim) {
-        const moved = await this.port.choose(free ? "no_charge" : co.pay === "transfer" ? "confirming" : "door", co.tix.length);
+        const moved = await this.port.choose(free ? "no_charge" : co.pay === "transfer" ? "confirming" : "door", co.tix.length, via);
         return this.after(moved, co);
       }
       const moved = await this.port.choose(free ? "no_charge" : co.pay === "transfer" ? "confirming" : "door");
@@ -352,7 +354,8 @@ export class Buyer {
     }
     const sel = { ...this.s.sel };
     for (const l of co.lines) delete sel[`${String(co.evId)}:${String(l.typeId)}`];
-    this.app.go("going", { co: null, sel, going: { orderId: moved.id, via: "link" } });
+    const via = co.claim && this.s.going?.via === "me" ? "me" : "link";
+    this.app.go("going", { co: null, sel, going: { orderId: moved.id, via } });
   }
 
   /** "Use a different way to pay": back from the confirm email to the door, while the order is still held. */
@@ -364,6 +367,26 @@ export class Buyer {
       this.after(moved, { ...co, pay: "door" });
     } catch {
       this.expire();
+    }
+  }
+
+  /** While the confirm email waits: once its link has confirmed the order, this tab moves on to the order. */
+  async pollMail(): Promise<void> {
+    const co = this.s.co;
+    if (co === null || co.phase !== "mail") return;
+    try {
+      const o = await this.port.order();
+      if (this.s.co?.phase !== "mail") return;
+      const st = String(o.order["status"]);
+      if (st === "awaiting_transfer" || st === "overdue" || st === "paid") {
+        const sel = { ...this.s.sel };
+        for (const l of co.lines) delete sel[`${String(co.evId)}:${String(l.typeId)}`];
+        this.app.refresh("aud:");
+        this.app.go("going", { co: null, sel, going: { orderId: o.order.id, via: "link" } });
+        this.app.toast(tr("Order confirmed"), "badge-check");
+      } else if (st === "expired" || st === "let_go") this.expire();
+    } catch {
+      // Asked again on the next beat.
     }
   }
 

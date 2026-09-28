@@ -1355,9 +1355,11 @@ export function AudienceView({ v }: { v: any }) {
                           </span>
                         </span>
                         {" "}
+{v.co.notYouOn ? (
                         <button type="button" className="wv-gi" onClick={v.co.notYou} style={st(v.s.btnT)}>
                           {tr("Not you?")}
                         </button>
+                        ) : null}
                       </div>
                     </>
                   ) : null}
@@ -2481,7 +2483,7 @@ export function AudienceView({ v }: { v: any }) {
                                         {t.type}
                                         {t.codeOn ? (
                                           <>
-                                            {"· "}
+                                            {" · "}
                                             <span style={st("font-family:var(--mono);")}>
                                               {t.code}
                                             </span>

@@ -174,8 +174,16 @@ export class DemoAudience implements AudiencePort {
     return { order: copy(order), tickets: this.engine.world.where("tickets", (t) => t["order_id"] === order.id).map((t) => this.asBuyer(t)) };
   }
 
-  async choose(status: "door" | "confirming" | "no_charge" | "let_go", keep?: number): Promise<Row> {
-    const order = this.opened();
+  /** The order a write names: one of the signed-in person's, or the one this browser's link opened. */
+  private target(orderId?: Id): Row {
+    if (orderId === undefined) return this.opened();
+    const order = this.engine.world.get("orders", orderId);
+    if (order === undefined || this.signed === null || order["customer_id"] !== this.signed.customer) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
+    return order;
+  }
+
+  async choose(status: "door" | "confirming" | "no_charge" | "let_go", keep?: number, orderId?: Id): Promise<Row> {
+    const order = this.target(orderId);
     if (!["held", "confirming", "offered"].includes(String(order["status"]))) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
     const engine = this.engine;
     return engine.transaction(() => {
@@ -280,8 +288,8 @@ export class DemoAudience implements AudiencePort {
     return this.asBuyer(this.engine.update("tickets", ticketId, values, this.writer));
   }
 
-  async updateOrder(values: { answers?: Record<string, string> | null; access_note?: string | null; opt_in?: boolean }): Promise<Row> {
-    const order = this.opened();
+  async updateOrder(values: { answers?: Record<string, string> | null; access_note?: string | null; opt_in?: boolean }, orderId?: Id): Promise<Row> {
+    const order = this.target(orderId);
     return copy(this.engine.update("orders", order.id, { ...values }, this.writer));
   }
 
