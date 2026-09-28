@@ -29,6 +29,9 @@ export class ApiError extends Error {
   }
 }
 
+/** Whether a thrown value is a refusal from Adminium (or the demo's stand-in). */
+export const isApiError = (e: unknown): e is ApiError => e instanceof ApiError || (typeof e === "object" && e !== null && (e as { name?: unknown }).name === "ApiError");
+
 /** `/public/config` (and the staff surface's config): the venue's zone and money, and the server's clock. */
 export interface Config {
   timezone: string;

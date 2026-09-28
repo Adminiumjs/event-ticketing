@@ -119,7 +119,34 @@ function codeOf(reason: Error | null): string | null {
   return typeof code === "string" ? code : null;
 }
 
+/**
+ * The demo build: the venue's screens on the demo's own Adminium, in this
+ * browser. `?side=box` opens the box office (the demo card switches sides).
+ */
+async function bootDemo(mount: HTMLElement): Promise<void> {
+  const [{ DemoAdminium }, { WaveApp }, { WaveRoot }] = await Promise.all([import("./demo/adminium.ts"), import("./app/wave.ts"), import("./app/WaveRoot.tsx")]);
+  const demo = new DemoAdminium();
+  const params = new URLSearchParams(window.location.search);
+  const persona = params.get("side") === "box" ? "box" : "audience";
+  const lang = params.get("lang") ?? "en-US";
+  const theme = params.get("theme") === "light" ? "light" : "dark";
+  const frame = params.get("frame") === "phone" ? "phone" : "auto";
+  const app = new WaveApp({ audience: demo.audience, boxOffice: demo.boxOffice, door: demo.door }, persona, { lang, theme, frame });
+  app.demo = { onClock: (fn) => demo.onClock(fn) };
+  (window as unknown as { __wave?: unknown }).__wave = { app, demo };
+  await app.start();
+  createRoot(mount).render(
+    <StrictMode>
+      <WaveRoot app={app} />
+    </StrictMode>,
+  );
+}
+
 async function boot(): Promise<void> {
+  if (DEMO) {
+    await bootDemo(container as HTMLElement);
+    return;
+  }
   /*
    * A NON-DEMO BUILD NEVER RENDERS DEMO DATA.
    *

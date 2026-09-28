@@ -57,7 +57,9 @@ export class DemoAudience implements AudiencePort {
       events: published.map(copy),
       days: w.where("event_days", (d) => ids.has(d["event_id"] as Id)).map(copy),
       // Set times only once the show's are up.
-      acts: w.where("acts", (a) => ids.has(a["event_id"] as Id)).map((a) => (a["sets_published"] === true ? copy(a) : { ...copy(a), starts_at: null, ends_at: null })),
+      acts: w
+        .where("acts", (a) => ids.has(a["event_id"] as Id))
+        .map((a) => (w.get("events", a["event_id"] as Id)?.["sets_published"] === true ? copy(a) : { ...copy(a), starts_at: null, ends_at: null })),
       types: w.where("ticket_types", (t) => ids.has(t["event_id"] as Id) && t["visibility"] === "public").map(copy),
       questions: w.where("questions", (q) => ids.has(q["event_id"] as Id)).map(copy),
     };
