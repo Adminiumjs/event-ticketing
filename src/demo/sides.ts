@@ -8,11 +8,12 @@
  *
  * DEMO BUILD ONLY — nothing in a real build imports it.
  */
-import type { AudiencePort, BoxOfficePort, DoorPort, OrderWithTickets, Person, StaffPerson, Venue } from "../data/ports.ts";
-import { ApiError, type ClaimReply, type Config, type Id, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type TypeLeft } from "../data/wire.ts";
+import type { AudiencePort, BoxOfficePort, DoorPort, EventChildren, OrderWithTickets, Person, StaffPerson, Venue } from "../data/ports.ts";
+import { ApiError, type ClaimReply, type Config, type HistoryEntry, type Id, type ListQuery, type ListReply, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type TypeLeft, type Where } from "../data/wire.ts";
 import { venueDay, wallTime, toMs } from "../lib/venueTime.ts";
 import { normalizeCode } from "./codes.ts";
 import { holds, type Engine, type Writer } from "./engine.ts";
+import type { Table } from "./world.ts";
 import { MANIFEST_RULES } from "./rules.ts";
 
 type Withhold = { columns: string[]; when: { where: Parameters<typeof holds>[1][] } };
@@ -34,6 +35,26 @@ const hashOf = (s: string): number => {
   for (let i = 0; i < s.length; i += 1) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return h >>> 0;
 };
+
+/** Whether a row meets one condition of a staff read. */
+export function meets(row: Row, w: Where): boolean {
+  const value = row[w.column];
+  const num = (x: unknown) => (typeof x === "number" ? x : typeof x === "string" && x !== "" && !Number.isNaN(Number(x)) ? Number(x) : x);
+  const cmp = (bound: number | string) => {
+    const a = num(value);
+    const b = num(bound);
+    return typeof a === "number" && typeof b === "number" ? a - b : String(value ?? "").localeCompare(String(bound));
+  };
+  if (w.isNull !== undefined && (value === null || value === undefined) !== w.isNull) return false;
+  if (w.eq !== undefined && !(value === w.eq || (typeof w.eq === "boolean" && value === (w.eq ? 1 : 0)))) return false;
+  if (w.in !== undefined && !w.in.includes(value as never)) return false;
+  if (w.gte !== undefined && (value === null || value === undefined || cmp(w.gte) < 0)) return false;
+  if (w.lte !== undefined && (value === null || value === undefined || cmp(w.lte) > 0)) return false;
+  if (w.gt !== undefined && (value === null || value === undefined || cmp(w.gt) <= 0)) return false;
+  if (w.lt !== undefined && (value === null || value === undefined || cmp(w.lt) >= 0)) return false;
+  if (w.like !== undefined && !String(value ?? "").toLowerCase().includes(w.like.toLowerCase())) return false;
+  return true;
+}
 
 /** A buyer found by the address typed, or made (and never told which). */
 function identity(engine: Engine, email: string, name: string | null): Id {
@@ -450,8 +471,126 @@ export class DemoBoxOffice implements BoxOfficePort {
     return (this.engine.world.tables[table] ?? []).map(copy);
   }
 
+  async list(table: string, query: ListQuery = {}): Promise<ListReply> {
+    const rows = (this.engine.world.tables[table] ?? []).filter(
+      (row) => (query.where ?? []).every((w) => meets(row, w)) && (query.any === undefined || query.any.some((w) => meets(row, w))),
+    );
+    const sorted = [...rows];
+    for (const key of [...(query.sort ?? [])].reverse()) {
+      sorted.sort((a, b) => {
+        const x = a[key.column];
+        const y = b[key.column];
+        const c = typeof x === "number" && typeof y === "number" ? x - y : String(x ?? "").localeCompare(String(y ?? ""));
+        return key.desc === true ? -c : c;
+      });
+    }
+    const offset = query.offset ?? 0;
+    return { rows: sorted.slice(offset, query.limit === undefined ? undefined : offset + query.limit).map(copy), total: rows.length };
+  }
+
+  async count(table: string, where: Where[] = []): Promise<number> {
+    return (this.engine.world.tables[table] ?? []).filter((row) => where.every((w) => meets(row, w))).length;
+  }
+
+  async history(table: string, id: Id): Promise<HistoryEntry[]> {
+    const world = this.engine.world;
+    if (table !== "orders") return world.history((e) => e.table === table && e.id === id);
+    const tickets = new Set(world.where("tickets", (t) => t["order_id"] === id).map((t) => t.id));
+    const own = (t: string, rowId: Id): boolean => {
+      if (t === "tickets") return tickets.has(rowId);
+      const row = world.get(t as Table, rowId);
+      return row !== undefined && (row["order_id"] === id || tickets.has(row["ticket_id"] as Id));
+    };
+    return world.history((e) => (e.table === "orders" && e.id === id) || (e.table !== "orders" && (e.changes["order_id"] === id || own(e.table, e.id))));
+  }
+
   async counts(eventId: Id): Promise<PoolCount[]> {
     return this.engine.counts(eventId);
+  }
+
+  async create(table: string, values: Record<string, unknown>): Promise<Row> {
+    return this.engine.create(table as Table, values, this.writer).row;
+  }
+
+  async update(table: string, id: Id, values: Record<string, unknown>): Promise<Row> {
+    return this.engine.update(table as Table, id, values, this.writer);
+  }
+
+  async remove(table: string, id: Id): Promise<void> {
+    this.removeNow(table, id);
+  }
+
+  private removeNow(table: string, id: Id): void {
+    const engine = this.engine;
+    // Rows that others point at stay: a sold ticket type, a show with orders.
+    const pointed: Partial<Record<string, [Table, string][]>> = {
+      ticket_types: [["tickets", "ticket_type_id"]],
+      events: [["orders", "event_id"]],
+      rooms: [["events", "room_id"]],
+      devices: [["check_ins", "device_id"]],
+    };
+    for (const [t, column] of pointed[table] ?? []) {
+      if (engine.world.all(t).some((r) => r[column] === id)) throw new ApiError(409, "FOREIGN_KEY_VIOLATION", { table, referencedBy: t });
+    }
+    engine.remove(table as Table, id, this.writer);
+  }
+
+  async saveEvent(id: Id | null, values: Record<string, unknown>, children: EventChildren): Promise<Row> {
+    const engine = this.engine;
+    return engine.transaction(() => {
+      const event = id === null ? engine.create("events", values, this.writer).row : engine.update("events", id, values, this.writer);
+      for (const [table, rows] of Object.entries(children) as [Table, Record<string, unknown>[]][]) {
+        const kept = new Set<Id>();
+        for (const row of rows) {
+          const { id: rowId, ...rest } = row as { id?: Id } & Record<string, unknown>;
+          if (rowId === undefined || rowId === null) kept.add(engine.create(table, { ...rest, event_id: event.id }, this.writer).row.id);
+          else {
+            engine.update(table, rowId, rest, this.writer);
+            kept.add(rowId);
+          }
+        }
+        for (const gone of engine.world.where(table, (r) => r["event_id"] === event.id && !kept.has(r.id))) this.removeNow(table, gone.id);
+      }
+      engine.settleAll();
+      return copy(engine.world.get("events", event.id)!);
+    });
+  }
+
+  async mail(kind: string, rows: Record<string, unknown>[]): Promise<void> {
+    const engine = this.engine;
+    engine.transaction(() => {
+      for (const row of rows) engine.create("messages", { kind, status: "queued", approved_by: this.person.name, ...row }, this.writer);
+    });
+  }
+
+  async broadcast(values: Record<string, unknown>, to: Record<string, unknown>[], send: boolean): Promise<Row> {
+    const engine = this.engine;
+    return engine.transaction(() => {
+      const made = engine.create("broadcasts", { ...values, status: send ? "sent" : "waiting" }, this.writer).row;
+      if (send) this.queueBroadcast(made, to);
+      return copy(engine.world.get("broadcasts", made.id)!);
+    });
+  }
+
+  async sendBroadcast(id: Id, values: Record<string, unknown>, to: Record<string, unknown>[]): Promise<Row> {
+    const engine = this.engine;
+    return engine.transaction(() => {
+      const sent = engine.update("broadcasts", id, { ...values, status: "sent" }, this.writer);
+      this.queueBroadcast(sent, to);
+      return copy(engine.world.get("broadcasts", id)!);
+    });
+  }
+
+  /** One email an order: a moved show's own kind, or a message to its buyers. */
+  private queueBroadcast(b: Row, to: Record<string, unknown>[]): void {
+    const kind = b["template"] === "moved" ? "moved" : "broadcast";
+    for (const row of to) {
+      this.engine.create(
+        "messages",
+        { kind, status: "queued", event_id: b["event_id"], broadcast_id: b.id, subject_override: b["subject"], body_override: b["body"], approved_by: this.person.name, ...row },
+        this.writer,
+      );
+    }
   }
 
   async newOrder(body: OrderBody, clientKey: string): Promise<OrderReply> {

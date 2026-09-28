@@ -252,7 +252,9 @@ export class Engine {
     this.stamp(table, null, record, writer);
     const states = RULE_SET.states[table];
     if (states !== undefined && (record[states.column] === null || record[states.column] === undefined)) record[states.column] = states.initial;
-    return this.world.insert(table, record);
+    const row = this.world.insert(table, record);
+    this.world.note({ at: iso(this.judgedAt(writer)), by: writer.name, table, id: row.id, op: "insert", changes: { ...values } });
+    return row;
   }
 
   /** `orders.code_id` from `code_text`: an active code, in date, for this show or its room (or every show). */
@@ -302,6 +304,8 @@ export class Engine {
     // An order out of its hold into a state that counts for good (an offer claimed, a checkout confirmed).
     const leaving = table === "orders" && moving && this.holding(before) && COUNTED.includes(String(values["status"]));
     Object.assign(stored, values);
+    const changed = Object.fromEntries(Object.entries(values).filter(([k, v]) => before[k] !== v));
+    if (Object.keys(changed).length > 0) this.world.note({ at: iso(this.judgedAt(writer)), by: writer.name, table, id, op: "update", changes: changed });
     // A code drawn again when what it belongs to changes (a new holder, a new friend it is sent to).
     for (const [column, on] of Object.entries(RULE_SET.renewals[table] ?? {})) {
       if (before[on.column] !== stored[on.column] && values[column] === undefined) stored[column] = column === "code" ? randomCode(8, true) : randomCode(16);
@@ -318,10 +322,12 @@ export class Engine {
     return { ...after };
   }
 
-  /** A row deleted (a check-in undone). */
-  remove(table: Table, id: Id): void {
+  /** A row deleted (a check-in undone, a guest taken off the list). */
+  remove(table: Table, id: Id, writer: Writer | null = null): void {
     this.transaction(() => {
-      if (this.world.get(table, id) === undefined) throw new ApiError(404, "NOT_FOUND", { table, id });
+      const row = this.world.get(table, id);
+      if (row === undefined) throw new ApiError(404, "NOT_FOUND", { table, id });
+      this.world.note({ at: iso(this.now), by: writer?.name ?? null, table, id, op: "delete", changes: { ...row } });
       this.world.remove(table, id);
       this.settleAll();
     });

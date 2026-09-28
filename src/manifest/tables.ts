@@ -1110,9 +1110,13 @@ export const TABLES: Table[] = [
       }, { default: "other" }),
       text("subject", 200, "Subject"),
       text("body", 1000, "Message"),
-      worked("people", "Orders it went to", { rollup: { from: "messages", via: "broadcast_id", count: true } }),
-      at("sent_at", "Sent", { ...opt, rules: stamp("now", onCreate) }),
-      text("sent_by", 80, "Sent by", { ...opt, rules: stamp("user-name", onCreate) }),
+      // A postponement's message waits here until the box office sends it.
+      choice("status", "Status", { waiting: "Waiting to be sent", sent: "Sent" }, { default: "sent", tones: { waiting: "warn", sent: "pos" } }),
+      // Who it reached, counted as it went: one email an order, to each buyer's address.
+      int("people", "People", opt),
+      int("order_count", "Orders", opt),
+      at("sent_at", "Sent", { ...opt, rules: stamp("now", onStatus("sent")) }),
+      text("sent_by", 80, "Sent by", { ...opt, rules: stamp("user-name", onStatus("sent")) }),
     ],
   },
   {

@@ -64,6 +64,20 @@ const KIND: Record<string, string> = { early: "early", std: "standard", bal: "ba
 const CODE_KIND: Record<string, string> = { Place: "place", Presale: "presale", Standard: "standard", "Weekend pass": "pass" };
 const BROADCAST: Record<string, string> = { "Set times are up": "set_times", "Doors time changed": "doors", Cancelled: "cancelled", Postponed: "moved" };
 
+/** "Sat 15 Aug": a date as the venue's messages print it. */
+const dayWords = (at: Stamp): string => {
+  const d = new Date(`${at.slice(0, 10)}T12:00:00Z`);
+  const weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getUTCDay()]!;
+  const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getUTCMonth()]!;
+  return `${weekday} ${String(d.getUTCDate())} ${month}`;
+};
+
+/** A moved show's message, as the box office wrote it when the show moved. */
+function movedBody(s: LedgerShow, venue: string): string {
+  const refunds = s.refund_until === undefined ? "" : `\n\nIf you can't make it, ask for a refund until ${dayWords(s.refund_until)} from My tickets, or reply to this email.`;
+  return `Hi there,\n\n${s.name} has moved from ${dayWords(s.was ?? s.start)} to ${dayWords(s.start)}. Your tickets are valid for the new date — you don't need to do anything.${refunds}\n\nSorry for the change,\n${venue}`;
+}
+
 /** The festival's days: gates each day, last entry 21:30, curfew 22:00. */
 function daysOf(s: LedgerShow): Row[] {
   if (s.day2_doors === undefined) {
@@ -345,6 +359,8 @@ export function sampleBundle(ledger: Ledger = LEDGER): SampleBundle {
     list.map((r) => ({ event_id: ref(`event:${key}`), customer_id: ref(`customer:${r.email}`), email: r.email, target: "sale" })),
   );
 
+  const waiting = ledger.waiting_broadcast;
+  const moved = ledger.shows.find((s) => s.key === waiting.show)!;
   const broadcasts: Row[] = [
     ...ledger.broadcasts.map((b) => ({
       event_id: ref(`event:${b.show}`),
@@ -352,9 +368,25 @@ export function sampleBundle(ledger: Ledger = LEDGER): SampleBundle {
       template: BROADCAST[b.template] ?? "other",
       subject: b.subject,
       body: b.subject,
+      status: "sent",
+      people: b.people,
+      order_count: b.orders,
       sent_at: wall(b.sent_at),
       sent_by: b.by,
     })),
+    // Written when the show moved, waiting for the box office to send it.
+    {
+      event_id: ref(`event:${waiting.show}`),
+      audience: "everyone",
+      template: BROADCAST[waiting.template] ?? "other",
+      subject: waiting.subject,
+      body: movedBody(moved, ledger.venue.name),
+      status: "waiting",
+      people: waiting.people,
+      order_count: waiting.orders,
+      sent_at: null,
+      sent_by: null,
+    },
   ];
 
   const tables: { ref: string; rows: Row[] }[] = [

@@ -146,8 +146,10 @@ export interface Ledger {
   waitlist: { show: string; name: string; email: string; qty: number; joined: Stamp; status: "claimed" | "missed" | "offered" | "waiting" }[];
   reminders: Record<string, { name: string; email: string }[]>;
   acts: Record<string, { name: string; day: number; room: string; start: string; end: string }[]>;
-  broadcasts: { show: string; template: string; subject: string; sent_at: Stamp; by: string }[];
-  waiting_broadcast: { show: string; template: string; subject: string; by: string };
+  /** Each message to a show's buyers: who it reached as it went (buyers' addresses, and orders — one email an order). */
+  broadcasts: { show: string; template: string; subject: string; sent_at: Stamp; by: string; people: number; orders: number }[];
+  /** The postponement's message, written and not sent yet: who it would reach now. */
+  waiting_broadcast: { show: string; template: string; subject: string; by: string; people: number; orders: number };
   studio_questions: { text: string; kind: "choice" | "yes_no"; options?: string[]; per: "ticket" | "order"; required: boolean }[];
 }
 

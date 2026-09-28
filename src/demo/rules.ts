@@ -406,11 +406,21 @@ export const MANIFEST_RULES = {
     "broadcasts": {
       "sent_at": {
         "set": "now",
-        "on": "create"
+        "on": {
+          "column": "status",
+          "values": [
+            "sent"
+          ]
+        }
       },
       "sent_by": {
         "set": "user-name",
-        "on": "create"
+        "on": {
+          "column": "status",
+          "values": [
+            "sent"
+          ]
+        }
       }
     },
     "messages": {
@@ -694,6 +704,10 @@ export const MANIFEST_RULES = {
         "moved",
         "cancelled",
         "other"
+      ],
+      "status": [
+        "waiting",
+        "sent"
       ]
     },
     "messages": {

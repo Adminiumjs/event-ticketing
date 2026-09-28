@@ -7,9 +7,10 @@
 import { dirFor, isLocaleTag } from "../../i18n/locales.ts";
 import { tr } from "../../i18n/tr.ts";
 import { cssUrl, hexA, hsh, wave } from "../art.ts";
-import { AUDIENCE } from "../sides.ts";
+import { AUDIENCE, STAFF } from "../sides.ts";
 import type { WaveApp } from "../wave.ts";
 import { audienceVals } from "./audience.ts";
+import { boxVals } from "./box.ts";
 import { sheetVals } from "./sheets.ts";
 
 export type V = Record<string, unknown>;
@@ -164,6 +165,7 @@ export function renderVals(app: WaveApp): V {
     avatarOf: (email: string) => `oklch(${light ? "0.86 0.08" : "0.42 0.1"} ${String(hsh(email) % 360)})`,
   };
   if (AUDIENCE && app.persona === "audience") Object.assign(v, audienceVals(app, v));
+  if (STAFF && app.persona === "box") Object.assign(v, boxVals(app, v));
   Object.assign(v, sheetVals(app, v));
   return v;
 }

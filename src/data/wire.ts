@@ -108,3 +108,45 @@ export interface LiveFrame {
   id: Id;
   op: "insert" | "update" | "delete";
 }
+
+/**
+ * One condition of a staff read, as the records list's filter takes it: a
+ * column equal to a value, in a list, empty or not, above or below a bound,
+ * or containing some words (any case).
+ */
+export interface Where {
+  column: string;
+  eq?: unknown;
+  in?: unknown[];
+  isNull?: boolean;
+  gte?: number | string;
+  lte?: number | string;
+  gt?: number | string;
+  lt?: number | string;
+  like?: string;
+}
+
+/** A staff read of a table: every condition in `where`, and one of `any` when given; sorted, a page of it. */
+export interface ListQuery {
+  where?: Where[];
+  any?: Where[];
+  sort?: { column: string; desc?: boolean }[];
+  limit?: number;
+  offset?: number;
+}
+
+/** A page of rows, and how many match in all (an exact count). */
+export interface ListReply {
+  rows: Row[];
+  total: number;
+}
+
+/** One change to a row, as the record's history tells it: when, by whom, and what each column became. */
+export interface HistoryEntry {
+  at: string;
+  by: string | null;
+  table: string;
+  id: Id;
+  op: "insert" | "update" | "delete";
+  changes: Record<string, unknown>;
+}

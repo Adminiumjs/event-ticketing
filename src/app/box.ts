@@ -1,0 +1,434 @@
+/**
+ * The box office, as one controller beside the audience's: which screen and
+ * show are open, what Adminium answered (asked once through the app's cache,
+ * asked again after a write), and what each button does. Every figure, count
+ * and status is Adminium's — the staff reads, the counts and the show's own
+ * totals — and every write goes through the box office's port; a refusal
+ * comes back in Adminium's words.
+ *
+ * Only the box office's build carries this module (the audience site's
+ * leaves it out, `sides.ts`).
+ */
+import type { BoxOfficePort, StaffPerson } from "../data/ports.ts";
+import { isApiError, type HistoryEntry, type Id, type ListQuery, type ListReply, type PoolCount, type Row, type Where } from "../data/wire.ts";
+import { tr } from "../i18n/tr.ts";
+import { boxWorldOf, type BoxShow, type BoxWorld } from "./boxWorld.ts";
+import { day0, money, ms } from "./fmt.ts";
+import type { BoxScreen, WaveApp } from "./wave.ts";
+
+export type BoxScreenId = BoxScreen;
+
+/** The order states whose tickets count for good. */
+export const LIVE = ["door", "awaiting_transfer", "overdue", "no_charge", "paid"];
+/** A ticket still in someone's hands. */
+export const LIVE_TICKET = ["valid", "offered", "refund_asked"];
+
+export interface BoxState {
+  /** The show the event header and its tabs are about. */
+  bev: Id | null;
+  evF: "all" | "on" | "soon" | "sold" | "post" | "past" | "draft";
+  /** The search box over every screen. */
+  bq: string;
+  /** The order open in the drawer. */
+  drawer: Id | null;
+  ord: { ev: Id | "all"; tab: boolean; st: string; q: string; n: number };
+  gl: { ev: Id | null; name: string; plus: number; by: string; note: string; err: string | null };
+  wl: { ev: Id | null };
+  msg: { ev: Id | null; to: "everyone" | "type" | "not_in"; typeId: Id | null; tpl: string | null; subj: string | null; body: string | null; waiting: Id | null };
+  pc: {
+    ev: Id | null;
+    mode: "post" | "cancel";
+    date: string;
+    doors: string;
+    stage: string;
+    until: string;
+    msg: string | null;
+    tried: boolean;
+    rfTab: "to" | "done" | "none";
+    rfPage: number;
+  };
+  /** Settings being edited (null: as saved). */
+  set: { settings: Record<string, unknown>; rooms: Row[]; devices: Row[]; gone: Id[] } | null;
+  /** The editor's draft. */
+  ed: unknown;
+  edDirty: boolean;
+  edFull: boolean;
+  edPv: "desktop" | "phone";
+  /** When each order was last reminded here. */
+  reminded: Record<string, number>;
+}
+
+export function boxFresh(): BoxState {
+  return {
+    bev: null,
+    evF: "all",
+    bq: "",
+    drawer: null,
+    ord: { ev: "all", tab: false, st: "all", q: "", n: 50 },
+    gl: { ev: null, name: "", plus: 0, by: "", note: "", err: null },
+    wl: { ev: null },
+    msg: { ev: null, to: "everyone", typeId: null, tpl: null, subj: null, body: null, waiting: null },
+    pc: { ev: null, mode: "post", date: "", doors: "21:00", stage: "22:00", until: "", msg: null, tried: false, rfTab: "to", rfPage: 0 },
+    set: null,
+    ed: null,
+    edDirty: false,
+    edFull: false,
+    edPv: "desktop",
+    reminded: {},
+  };
+}
+
+const boxes = new WeakMap<WaveApp, Box>();
+/** The box office's controller of an app (made the first time the box office is drawn). */
+export function boxOf(app: WaveApp): Box {
+  let b = boxes.get(app);
+  if (b === undefined) {
+    b = new Box(app);
+    boxes.set(app, b);
+  }
+  return b;
+}
+
+/** The small tables the box office reads whole. */
+const WHOLE = ["settings", "rooms", "events", "event_days", "acts", "ticket_types", "questions"] as const;
+
+export class Box {
+  readonly app: WaveApp;
+  private memo: { key: unknown[]; w: BoxWorld } | null = null;
+
+  constructor(app: WaveApp) {
+    this.app = app;
+  }
+
+  get port(): BoxOfficePort {
+    return this.app.ports.boxOffice!;
+  }
+
+  // ── what is on screen ────────────────────────────────────────────────────
+
+  get s(): BoxState {
+    return (this.app.state.box as BoxState | null) ?? boxFresh();
+  }
+
+  set(p: Partial<BoxState> | ((s: BoxState) => Partial<BoxState>)): void {
+    const cur = this.s;
+    const patch = typeof p === "function" ? p(cur) : p;
+    this.app.setState({ box: { ...cur, ...patch } });
+  }
+
+  // ── Adminium's answers ───────────────────────────────────────────────────
+
+  me(): StaffPerson | undefined {
+    return this.app.get("box:me", () => this.port.me());
+  }
+  rows(table: string): Row[] | undefined {
+    return this.app.get(`box:rows:${table}`, () => this.port.rows(table));
+  }
+  list(table: string, query: ListQuery = {}): ListReply | undefined {
+    return this.app.get(`box:list:${table}:${JSON.stringify(query)}`, () => this.port.list(table, query));
+  }
+  count(table: string, where: Where[] = []): number | undefined {
+    return this.app.get(`box:count:${table}:${JSON.stringify(where)}`, () => this.port.count(table, where));
+  }
+  pools(eventId: Id): PoolCount[] | undefined {
+    return this.app.get(`box:pools:${String(eventId)}`, () => this.port.counts(eventId));
+  }
+  history(table: string, id: Id): HistoryEntry[] | undefined {
+    return this.app.get(`box:history:${table}:${String(id)}`, () => this.port.history(table, id));
+  }
+
+  /** The venue: every show, type, day, act and room (null until Adminium has answered). */
+  world(): BoxWorld | null {
+    const got = WHOLE.map((t) => this.rows(t));
+    if (got.some((r) => r === undefined)) return this.memo?.w ?? null;
+    if (this.memo !== null && this.memo.key.every((k, i) => k === got[i])) return this.memo.w;
+    const [settings, rooms, events, event_days, acts, ticket_types, questions] = got as Row[][];
+    const w = boxWorldOf({ settings: settings!, rooms: rooms!, events: events!, event_days: event_days!, acts: acts!, ticket_types: ticket_types!, questions: questions! });
+    this.memo = { key: got, w };
+    return w;
+  }
+
+  /** A show's own pool (its size, what is taken, held and left) and its types'. */
+  sold(show: BoxShow): { size: number; taken: number; held: number; left: number; reserved: number; byType: Map<Id, PoolCount> } | null {
+    const pools = this.pools(show.id);
+    if (pools === undefined) return null;
+    const own = pools.find((p) => p.ticket_type_id === null);
+    const byType = new Map(pools.filter((p) => p.ticket_type_id !== null).map((p) => [p.ticket_type_id!, p]));
+    const sum = (k: "size" | "taken" | "held" | "left" | "reserved") => [...byType.values()].reduce((a, p) => a + p[k], 0);
+    // A show holds the smaller of its types' sizes and its room's sale limit.
+    const types = byType.size > 0;
+    return {
+      size: own === undefined ? sum("size") : types ? Math.min(own.size, sum("size")) : own.size,
+      taken: own?.taken ?? sum("taken"),
+      held: own?.held ?? sum("held"),
+      left: own === undefined ? sum("left") : types ? Math.min(own.left, sum("left")) : own.left,
+      reserved: own?.reserved ?? sum("reserved"),
+      byType,
+    };
+  }
+
+  /** After a write, or the clock moving: every answer asked again (what is on screen stays until they come). */
+  refresh(): void {
+    this.app.refresh("box:");
+  }
+
+  // ── the venue's day and a show's state ───────────────────────────────────
+
+  /** The start of the venue day an instant falls in (the day starts at `day_starts_at`, 06:00). */
+  venueDayStart(t: number): number {
+    const w = this.world();
+    const [h, m] = String(w?.settingsRow["day_starts_at"] ?? "06:00").split(":").map(Number) as [number, number];
+    const shift = (h * 60 + (m || 0)) * 60_000;
+    return day0(t - shift) + shift;
+  }
+  isPast(show: BoxShow): boolean {
+    return this.app.now > show.ends;
+  }
+  /** The show's word on the box office's lists. */
+  status(show: BoxShow): { txt: string; k: "danger" | "muted" | "warn" | "info" | "pos"; id: "cancelled" | "past" | "post" | "draft" | "sold" | "soon" | "on" } {
+    if (show.status === "cancelled") return { txt: tr("Cancelled"), k: "danger", id: "cancelled" };
+    if (this.isPast(show)) return { txt: tr("Past"), k: "muted", id: "past" };
+    if (show.postponed) return { txt: tr("Postponed"), k: "warn", id: "post" };
+    if (show.status === "draft") return { txt: tr("Draft"), k: "muted", id: "draft" };
+    const pub = show.types.filter((t) => t.visibility === "public");
+    const sold = this.sold(show);
+    if (sold !== null && pub.length > 0 && pub.every((t) => (sold.byType.get(t.id)?.left ?? 1) <= 0)) return { txt: tr("Sold out"), k: "danger", id: "sold" };
+    const opens = pub.map((t) => t.salesStart ?? show.onSaleAt);
+    if (pub.length > 0 && opens.every((o) => o !== null && o > this.app.now)) return { txt: tr("On sale soon"), k: "info", id: "soon" };
+    return { txt: tr("On sale"), k: "pos", id: "on" };
+  }
+
+  /** The show the header is about: the one chosen, else tonight's, else the next. */
+  headShow(): BoxShow | null {
+    const w = this.world();
+    if (w === null) return null;
+    const s = this.s;
+    const id = this.app.state.bx === "orders" && s.ord.ev !== "all" ? s.ord.ev : this.app.state.bx === "pc" && s.pc.ev !== null ? s.pc.ev : s.bev;
+    return (id === null ? undefined : w.byId.get(id)) ?? this.nextShow() ?? w.shows[0] ?? null;
+  }
+  nextShow(): BoxShow | null {
+    const w = this.world();
+    return w?.shows.find((e) => e.status !== "cancelled" && e.ends > this.app.now) ?? null;
+  }
+
+  /** A show's places back for its waitlist and not yet offered to anyone (undefined until Adminium answers). */
+  back(eventId: Id): number | undefined {
+    const returned = this.count("tickets", [
+      { column: "event_id", eq: eventId },
+      { column: "status", eq: "returned" },
+    ]);
+    const offered = this.count("tickets", [
+      { column: "event_id", eq: eventId },
+      { column: "order_status", eq: "offered" },
+      { column: "status", in: LIVE_TICKET },
+    ]);
+    return returned === undefined || offered === undefined ? undefined : Math.max(0, returned - offered);
+  }
+
+  // ── the usual pace ───────────────────────────────────────────────────────
+
+  /** Every order and ticket of some shows (placing and cancel times, states): what a pace is worked out from. */
+  paceRows(ids: Id[]): { orders: Row[]; tickets: Row[] } | undefined {
+    const where = [{ column: "event_id", in: [...ids].sort((a, b) => a - b) }];
+    const orders = this.list("orders", { where, limit: 10_000 });
+    const tickets = this.list("tickets", { where, limit: 20_000 });
+    return orders === undefined || tickets === undefined ? undefined : { orders: orders.rows, tickets: tickets.rows };
+  }
+
+  /** How much of a show was sold at an instant: its live tickets then, over its size now. */
+  shareAt(show: BoxShow, t: number, rows: { orders: Row[]; tickets: Row[] }, size: number): number {
+    const orders = new Map(rows.orders.filter((o) => o["event_id"] === show.id).map((o) => [o.id, o]));
+    const liveThen = (o: Row) => {
+      const placed = ms(o["created_at"]) ?? Infinity;
+      if (placed > t) return false;
+      if (LIVE.includes(String(o["status"]))) return true;
+      const gone = ms(o["cancelled_at"]);
+      return o["status"] === "cancelled" && gone !== null && gone > t;
+    };
+    let n = 0;
+    for (const tk of rows.tickets) {
+      const o = orders.get(tk["order_id"] as Id);
+      if (o === undefined || !liveThen(o)) continue;
+      const gone = ms(tk["cancelled_at"]);
+      if (LIVE_TICKET.includes(String(tk["status"])) || (gone !== null && gone > t)) n += 1;
+    }
+    return size > 0 ? n / size : 0;
+  }
+
+  /**
+   * A show's pace against this season's shows in the same room: the shows (not cancelled, with sales) that
+   * have already been as close to their doors as this one is now. With three or more, this show's share sold
+   * now against theirs at the same lead: 5 points either way is ahead or behind, else on pace.
+   */
+  pace(show: BoxShow): { label: "ahead" | "behind" | "on" | null; peers: BoxShow[]; me: number; avg: number | null; rows: { orders: Row[]; tickets: Row[] } | undefined } | null {
+    const w = this.world();
+    const mine = this.sold(show);
+    if (w === null || mine === null) return null;
+    const lead = show.doors - this.app.now;
+    const peers = w.shows.filter((p) => {
+      if (p.id === show.id || p.room?.id !== show.room?.id || p.status === "cancelled" || p.doors - lead > this.app.now) return false;
+      const sold = this.sold(p);
+      return sold !== null && sold.taken > 0;
+    });
+    const me = mine.size > 0 ? mine.taken / mine.size : 0;
+    const rows = peers.length >= 3 ? this.paceRows([show.id, ...peers.map((p) => p.id)]) : undefined;
+    if (peers.length < 3 || rows === undefined) return { label: null, peers, me, avg: null, rows };
+    const avg = peers.reduce((a, p) => a + this.shareAt(p, p.doors - lead, rows, this.sold(p)!.size), 0) / peers.length;
+    const label = me >= avg + 0.05 ? "ahead" : me <= avg - 0.05 ? "behind" : "on";
+    return { label, peers, me, avg, rows };
+  }
+
+  // ── going places ─────────────────────────────────────────────────────────
+
+  go(bx: BoxScreenId, patch: Partial<BoxState> = {}, force = false): void {
+    const s = this.s;
+    if (!force && this.app.state.bx === "editor" && s.edDirty && bx !== "editor") {
+      this.app.openSheet("bxLeave", { to: bx, patch });
+      return;
+    }
+    const next: Partial<BoxState> = { drawer: null, bq: "", ...patch };
+    if (force && this.app.state.bx === "editor") next.edDirty = false;
+    if (bx === "orders" && patch.ord === undefined) next.ord = { ...s.ord, ev: "all", tab: false, st: "all", q: "", n: 50 };
+    this.app.setState({ bx, box: { ...s, ...next }, sheet: null });
+    if (typeof document !== "undefined") {
+      document.querySelector("[data-bo-scroll]")?.scrollTo?.({ top: 0 });
+      setTimeout(() => {
+        const h = document.querySelector<HTMLElement>("[data-bo-scroll] h1");
+        if (h !== null) {
+          if (!h.hasAttribute("tabindex")) h.setAttribute("tabindex", "-1");
+          h.focus({ preventScroll: true });
+        }
+      }, 30);
+    }
+  }
+
+  /** A show's own screen: its Sales, its editor, its orders, its guest list, postpone or cancel. */
+  goShow(id: Id, tab: "sales" | "editor" | "orders" | "guests" | "pc"): void {
+    const s = this.s;
+    if (tab === "orders") return this.go("orders", { bev: id, ord: { ...s.ord, ev: id, tab: true, st: "all", q: "", n: 50 } });
+    if (tab === "pc") return this.go("pc", { bev: id, pc: { ...s.pc, ev: id, tried: false, msg: null, rfPage: 0 } });
+    if (tab === "guests") return this.go("guests", { bev: id, gl: { ...s.gl, ev: id, err: null } });
+    this.go(tab, { bev: id });
+  }
+
+  openDrawer(orderId: Id): void {
+    this.app.remember();
+    this.set({ drawer: orderId, bq: "" });
+  }
+  closeDrawer(): void {
+    this.set({ drawer: null });
+    this.app.refocus();
+  }
+
+  /** A show's public page, in a new tab (a draft has none: its preview opens instead). */
+  openPublic(show: BoxShow): void {
+    if (show.status === "draft") {
+      this.goShow(show.id, "editor");
+      return;
+    }
+    if (typeof window === "undefined") return;
+    const base = `${window.location.origin}${(import.meta.env.BASE_URL ?? "/").replace(/\/staff\/?$/, "/customer/")}`;
+    window.open(`${base.replace(/\/$/, "")}/events/${show.slug}`, "_blank", "noopener");
+  }
+
+  /** The door's takings of this venue day's shows that have finished, by door; what was never collected. */
+  endOfNight(w: BoxWorld): string {
+    const now = this.app.now;
+    const start = this.venueDayStart(now);
+    const ended = w.shows.filter((e) => e.status === "published" && e.days.some((d) => d.doors >= start && d.doors < start + 86_400_000) && now >= e.ends);
+    if (ended.length === 0) return tr("The door's takings show here after the show.");
+    const devices = this.rows("devices") ?? [];
+    return ended
+      .map((e) => {
+        const orders = this.list("orders", { where: [{ column: "event_id", eq: e.id }], limit: 5000 })?.rows ?? [];
+        const ids = orders.map((o) => o.id);
+        const cols = ids.length === 0 ? [] : (this.list("door_collections", { where: [{ column: "order_id", in: ids }, { column: "state", eq: "taken" }], limit: 5000 })?.rows ?? []);
+        const byDoor = devices
+          .map((d) => {
+            const mine = cols.filter((c) => c["device_id"] === d.id);
+            const sum = (m: string) => mine.filter((c) => c["method"] === m).reduce((a, c) => a + Number(c["amount"] ?? 0), 0);
+            return mine.length === 0 ? null : tr("{door}: card {card}, cash {cash}", { door: String(d["name"] ?? ""), card: money(sum("card")), cash: money(sum("cash")) });
+          })
+          .filter((x): x is string => x !== null);
+        const missed = orders.filter((o) => o["status"] === "not_collected" || (o["status"] === "door" && Number(o["balance"] ?? 0) > 0));
+        const owed = missed.reduce((a, o) => a + Number(o["balance"] ?? 0), 0);
+        const parts = [...(byDoor.length > 0 ? byDoor : [tr("nothing taken at the door")]), ...(owed > 0 ? [tr("not collected {amount}", { amount: money(owed) })] : [])];
+        return `${e.name}: ${parts.join(" · ")}`;
+      })
+      .join("\n");
+  }
+
+  // ── writes ───────────────────────────────────────────────────────────────
+
+  /** A transfer reminder to the buyer, the deadline unchanged. */
+  async remind(order: Row): Promise<void> {
+    const ok = await this.write(
+      () => this.port.mail("transfer-reminder", [{ order_id: order.id, event_id: order["event_id"], to_address: order["email"] }]),
+      tr("Reminder sent to {email}", { email: String(order["email"] ?? "") }),
+      "mail",
+    );
+    if (ok) this.set((s) => ({ reminded: { ...s.reminded, [String(order.id)]: this.app.now } }));
+  }
+
+  /** An overdue (or awaiting) transfer's tickets back on sale now; the buyer is told. */
+  async release(orderId: Id, number: string): Promise<void> {
+    await this.write(() => this.port.move(orderId, "released"), tr("{number} released", { number }), "undo-2");
+  }
+
+  /** A message written earlier and waiting: into Messages, as it was written, to review and send. */
+  reviewWaiting(b: Row): void {
+    const to = b["audience"] === "type" || b["audience"] === "not_in" ? b["audience"] : "everyone";
+    this.go("msgs", {
+      msg: { ev: b["event_id"] as Id, to, typeId: (b["ticket_type_id"] as Id | null) ?? null, tpl: String(b["template"] ?? "other"), subj: String(b["subject"] ?? ""), body: String(b["body"] ?? ""), waiting: b.id },
+    });
+  }
+
+  /** A new show in the editor (the editor's own module fills the draft). */
+  newEvent(): void {
+    this.go("editor", { ed: null, edDirty: true, bev: null });
+  }
+
+  /** A write from a sheet: busy while Adminium answers, the sheet closed and a toast after; a refusal in the sheet. */
+  async write(run: () => Promise<unknown>, done: string, icon = "check", keepSheet = false): Promise<boolean> {
+    if (this.app.state.sheet !== null) this.app.patchSheet({ busy: true, refusal: null });
+    try {
+      await run();
+      this.refresh();
+      if (!keepSheet && this.app.state.sheet !== null) this.app.closeSheet();
+      if (done !== "") this.app.toast(done, icon);
+      return true;
+    } catch (error) {
+      const words = refusalOf(error);
+      if (this.app.state.sheet !== null) this.app.patchSheet({ busy: false, refusal: words });
+      else this.app.toast(words, "circle-alert");
+      this.refresh();
+      return false;
+    }
+  }
+}
+
+/** A refusal in the box office's words: what Adminium refused, and why when it says. */
+export function refusalOf(error: unknown): string {
+  if (!isApiError(error)) return tr("That didn't go through — check the connection and try again.");
+  const p = error.params;
+  switch (error.code) {
+    case "CAPACITY_FULL":
+      return tr("There aren't enough places left for that.");
+    case "UNIQUE_VIOLATION":
+      return tr("That's already there.");
+    case "FOREIGN_KEY_VIOLATION":
+      return tr("Other records still use this, so it stays.");
+    case "STATE_MOVE_REFUSED":
+      return p["requires"] === "time" ? tr("It's too late for that now.") : tr("Adminium didn't allow that move just now.");
+    case "FORBIDDEN":
+    case "COLUMN_FORBIDDEN":
+      return tr("Your role can't do that.");
+    case "VALIDATION":
+      return tr("Adminium didn't take that — check the values.");
+    default:
+      return tr("Adminium didn't take that.");
+  }
+}
+
+/** An instant from a stored value, or null. */
+export const at = (v: unknown): number | null => ms(v);

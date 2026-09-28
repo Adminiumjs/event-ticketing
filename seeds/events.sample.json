@@ -70514,6 +70514,9 @@
      "template": "set_times",
      "subject": "Waveform Weekender: set times are up",
      "body": "Waveform Weekender: set times are up",
+     "status": "sent",
+     "people": 162,
+     "order_count": 162,
      "sent_at": {
       "@day": -9,
       "@time": "16:02"
@@ -70528,6 +70531,9 @@
      "template": "doors",
      "subject": "Cinder: doors now 21:00",
      "body": "Cinder: doors now 21:00",
+     "status": "sent",
+     "people": 79,
+     "order_count": 79,
      "sent_at": {
       "@day": -6,
       "@time": "10:40"
@@ -70542,6 +70548,9 @@
      "template": "cancelled",
      "subject": "Dust Parade is cancelled",
      "body": "Dust Parade is cancelled",
+     "status": "sent",
+     "people": 79,
+     "order_count": 82,
      "sent_at": {
       "@day": -6,
       "@time": "11:02"
@@ -70556,11 +70565,26 @@
      "template": "set_times",
      "subject": "Neon Circuit: set times are up",
      "body": "Neon Circuit: set times are up",
+     "status": "sent",
+     "people": 145,
+     "order_count": 156,
      "sent_at": {
       "@day": 0,
       "@time": "12:05"
      },
      "sent_by": "Priya"
+    },
+    {
+     "event_id": {
+      "@ref": "event:hollow"
+     },
+     "audience": "everyone",
+     "template": "moved",
+     "subject": "Hollow Tide has moved to Fri 11 Sep",
+     "body": "Hi there,\n\nHollow Tide has moved from Sat 15 Aug to Fri 11 Sep. Your tickets are valid for the new date — you don't need to do anything.\n\nIf you can't make it, ask for a refund until Fri 4 Sep from My tickets, or reply to this email.\n\nSorry for the change,\nWaveform",
+     "status": "waiting",
+     "people": 88,
+     "order_count": 90
     }
    ]
   }

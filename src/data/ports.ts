@@ -16,7 +16,7 @@
  * carrying Adminium's code, so a screen has one path whoever answers: the
  * real server, or the demo's stand-in, which plays the same rules.
  */
-import type { ClaimReply, Config, Id, OrderBody, OrderReply, PoolCount, QuoteReply, Row, TypeLeft } from "./wire.ts";
+import type { ClaimReply, Config, HistoryEntry, Id, ListQuery, ListReply, OrderBody, OrderReply, PoolCount, QuoteReply, Row, TypeLeft, Where } from "./wire.ts";
 
 /** The venue and its shows, as the audience site reads them. */
 export interface Venue {
@@ -124,13 +124,42 @@ export interface StaffPerson {
   roles: string[];
 }
 
+/** A show's own rows saved with it: its days, ticket types, acts and questions (a row without an id is new; one left out goes). */
+export interface EventChildren {
+  event_days: Record<string, unknown>[];
+  ticket_types: Record<string, unknown>[];
+  acts: Record<string, unknown>[];
+  questions: Record<string, unknown>[];
+}
+
 export interface BoxOfficePort {
   me(): Promise<StaffPerson>;
   config(): Promise<Config>;
   /** Every row of a table the person may read. */
   rows(table: string): Promise<Row[]>;
+  /** A page of a table's rows, filtered and sorted, with how many match in all. */
+  list(table: string, query?: ListQuery): Promise<ListReply>;
+  /** How many rows of a table match. */
+  count(table: string, where?: Where[]): Promise<number>;
+  /** What happened to a row, oldest first — for an order, its tickets', payments', refunds' and door money's too. */
+  history(table: string, id: Id): Promise<HistoryEntry[]>;
   /** A show's pools: each type's, and the show's own. */
   counts(eventId: Id): Promise<PoolCount[]>;
+
+  /** A row added, changed or deleted: a guest, a waitlist place, a code, a setting, a room, a door, a note. */
+  create(table: string, values: Record<string, unknown>): Promise<Row>;
+  update(table: string, id: Id, values: Record<string, unknown>): Promise<Row>;
+  remove(table: string, id: Id): Promise<void>;
+  /** A show saved with its days, types, acts and questions in one write; a new one when `id` is null. */
+  saveEvent(id: Id | null, values: Record<string, unknown>, children: EventChildren): Promise<Row>;
+  /** Emails the box office writes into the outbox itself, one for each row given (a transfer reminder, tickets sent again). */
+  mail(kind: string, rows: Record<string, unknown>[]): Promise<void>;
+  /**
+   * A message to a show's buyers with its emails, one an order (`to`), in one write: sent now, or kept
+   * waiting in Messages; a waiting one (`id`) sent as it stands.
+   */
+  broadcast(values: Record<string, unknown>, to: Record<string, unknown>[], send: boolean): Promise<Row>;
+  sendBroadcast(id: Id, values: Record<string, unknown>, to: Record<string, unknown>[]): Promise<Row>;
 
   /** A phone order or comps: made held; `clientKey` makes a retry land on the same order. */
   newOrder(body: OrderBody, clientKey: string): Promise<OrderReply>;

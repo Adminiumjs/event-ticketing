@@ -251,7 +251,7 @@ const SPECS: PageSpec[] = [
     icon: "megaphone",
     order: 15,
     table: "broadcasts",
-    config: form([ref("event_id"), f("audience", { control: "segmented" }), ref("ticket_type_id"), f("template", { control: "select" }), wide("subject", "text"), wide("body")], [f("people"), when("sent_at"), f("sent_by")]),
+    config: form([ref("event_id"), f("audience", { control: "segmented" }), ref("ticket_type_id"), f("template", { control: "select" }), wide("subject", "text"), wide("body")], [f("status", { control: "segmented" }), f("people"), f("order_count"), when("sent_at"), f("sent_by")]),
   },
 
   // ── the venue ────────────────────────────────────────────────────────────────

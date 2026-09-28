@@ -11,7 +11,7 @@
  */
 import bundleJson from "../../seeds/events.sample.json";
 import { resolveSample, type SampleBundleRows } from "../data/sampleRows.ts";
-import type { Id, LiveFrame, Row } from "../data/wire.ts";
+import type { HistoryEntry, Id, LiveFrame, Row } from "../data/wire.ts";
 import { randomCode } from "./codes.ts";
 
 export const DEMO_BUNDLE = bundleJson as unknown as SampleBundleRows;
@@ -57,6 +57,8 @@ export class World {
   private nextIds: Record<Table, number>;
   private listeners = new Set<(frame: LiveFrame) => void>();
   private held: LiveFrame[] | null = null;
+  /** Every write since the sample was added, oldest first: what a record's history answers. */
+  private log: HistoryEntry[] = [];
 
   constructor(now = DEMO_START) {
     this.now = now;
@@ -100,6 +102,15 @@ export class World {
     this.announce({ table, id, op: "update" });
   }
 
+  /** A write noted in the history (kept or dropped with the rest of its write). */
+  note(entry: HistoryEntry): void {
+    this.log.push(entry);
+  }
+
+  history(test: (entry: HistoryEntry) => boolean): HistoryEntry[] {
+    return this.log.filter(test).map((e) => ({ ...e, changes: { ...e.changes } }));
+  }
+
   /** A write's frames go out together when it commits, and never when it is refused. */
   hold(): void {
     this.held = [];
@@ -115,9 +126,11 @@ export class World {
   snapshot(): () => void {
     const copy = Object.fromEntries(TABLES.map((t) => [t, this.rows[t].map((row) => ({ ...row }))])) as Record<Table, Row[]>;
     const ids = { ...this.nextIds };
+    const logged = this.log.length;
     return () => {
       this.rows = copy;
       this.nextIds = ids;
+      this.log = this.log.slice(0, logged);
       this.held = null;
     };
   }

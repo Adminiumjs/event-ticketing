@@ -192,7 +192,7 @@ export const COLUMNS: Record<string, Record<string, Fill>> = {
   guest_list: { event_id: REQUIRED, name: REQUIRED, plus: 0, people: null, on_behalf: null, note: null, arrived: 0, status: "not_in", in_at: null, in_by: null, added_by: null },
   waitlist: { event_id: REQUIRED, customer_id: null, email: REQUIRED, qty: 1, status: "waiting", order_id: null, joined_at: null, offered_at: null, offer_until: null },
   reminders: { event_id: REQUIRED, customer_id: null, email: REQUIRED, ticket_type_id: null, target: "sale", type_sales_start: null, on_sale_at: null, created_at: null, sent_at: null },
-  broadcasts: { event_id: REQUIRED, audience: "everyone", ticket_type_id: null, template: "other", subject: REQUIRED, body: REQUIRED, people: null, sent_at: null, sent_by: null },
+  broadcasts: { event_id: REQUIRED, audience: "everyone", ticket_type_id: null, template: "other", subject: REQUIRED, body: REQUIRED, status: "sent", people: null, order_count: null, sent_at: null, sent_by: null },
   messages: { kind: REQUIRED, status: "queued", to_address: null, language: null, order_id: null, ticket_id: null, customer_id: null, event_id: null, waitlist_id: null, reminder_id: null, refund_id: null, broadcast_id: null, due: null, created_at: null, sent_at: null, error: null, skip_reason: null, subject_override: null, body_override: null, approved_by: null, repeat_key: null },
   devices: { name: REQUIRED, active: true },
 };
@@ -281,7 +281,6 @@ export const RULES: Rules = {
     { table: "orders", column: "no_transfer", child: "tickets", via: "order_id", sum: "no_transfer", scale: 2 },
     { table: "tickets", column: "collected", child: "door_collections", via: "ticket_id", sum: "amount", scale: "currency", where: {"column":"state","eq":"taken"} },
     { table: "tickets", column: "times_in", child: "check_ins", via: "ticket_id", sum: null, scale: 2 },
-    { table: "broadcasts", column: "people", child: "messages", via: "broadcast_id", sum: null, scale: 2 },
   ],
   sequences: [
     { table: "orders", column: "number_seq", scope: null },

@@ -7,8 +7,9 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 
 import { AudienceView } from "../view/AudienceView.tsx";
 import { OverlaysView } from "../view/OverlaysView.tsx";
+import { StaffView } from "../view/StaffView.tsx";
 import { st } from "../view/dom.tsx";
-import { AUDIENCE } from "./sides.ts";
+import { AUDIENCE, STAFF } from "./sides.ts";
 import { renderVals } from "./vals/base.ts";
 import type { WaveApp } from "./wave.ts";
 
@@ -99,6 +100,7 @@ export function WaveRoot({ app }: { app: WaveApp }) {
             <AudienceView v={v} />
           </div>
         ) : null}
+        {STAFF && app.persona === "box" ? <StaffView v={v} /> : null}
         <OverlaysView v={v} />
         <div id="wv-said" className="wv-sr" role="status" aria-live="polite" />
       </div>

@@ -34,9 +34,10 @@ export function StaffView({ v }: { v: any }) {
                   </span>
                   {n.badgeOn ? (
                     <>
-                      <span style={st("min-width:20px; height:20px; padding:0 6px; border-radius:999px; background:var(--warn-soft); color:var(--warn); font-family:var(--mono); font-size:11px; font-weight:700; display:inline-flex; align-items:center; justify-content:center;")}>
+                      <span aria-hidden="true" style={st("min-width:20px; height:20px; padding:0 6px; border-radius:999px; background:var(--warn-soft); color:var(--warn); font-family:var(--mono); font-size:11px; font-weight:700; display:inline-flex; align-items:center; justify-content:center;")}>
                         {n.badge}
                       </span>
+                      <span className="wv-sr">{n.badgeLabel}</span>
                     </>
                   ) : null}
                 </button>
@@ -173,15 +174,15 @@ export function StaffView({ v }: { v: any }) {
                       </span>
                     </div>
                     {" "}
-                    {v.td.tonightOn ? (
-                      <>
-                        <section aria-labelledby="tn-h" style={st(`${v.bo.card}padding:20px; display:grid; grid-template-columns:${v.td.cols}; gap:20px; align-items:start;`)}>
-                          <span style={st(`display:block; width:100%; max-width:150px; aspect-ratio:4/5; border-radius:12px; overflow:hidden; position:relative; container-type:inline-size; ${v.td.p.bg}`)}>
-                            <span style={st(v.td.p.glyph)}>
-                              {v.td.p.letter}
+                    {(v.td.shows ?? []).map((sh: any, i_sh: number) => (
+                      <Fragment key={sh.id ?? i_sh}>
+                        <section aria-labelledby={`tn-h-${String(sh.id)}`} style={st(`${v.bo.card}padding:20px; display:grid; grid-template-columns:${v.td.cols}; gap:20px; align-items:start;`)}>
+                          <span style={st(`display:block; width:100%; max-width:150px; aspect-ratio:4/5; border-radius:12px; overflow:hidden; position:relative; container-type:inline-size; ${sh.p.bg}`)}>
+                            <span style={st(sh.p.glyph)}>
+                              {sh.p.letter}
                             </span>
-                            <span style={st(v.td.p.title)}>
-                              {v.td.name}
+                            <span style={st(sh.p.title)}>
+                              {sh.name}
                             </span>
                           </span>
                           {" "}
@@ -191,21 +192,21 @@ export function StaffView({ v }: { v: any }) {
                                 {tr("Tonight")}
                               </span>
                               <span style={st("display:inline-flex; align-items:center; gap:6px; min-height:26px; padding:0 10px; border-radius:999px; border:1px solid var(--border-strong); font-family:var(--mono); font-size:12px; font-weight:700;")}>
-                                {v.td.doorsIn}
+                                {sh.doorsIn}
                               </span>
                             </div>
                             {" "}
                             <div style={st("display:flex; flex-direction:column; gap:4px;")}>
-                              <h2 id="tn-h" style={st("margin:0; font-size:30px; font-weight:800; letter-spacing:-.05em; line-height:1;")}>
-                                {v.td.name}
+                              <h2 id={`tn-h-${String(sh.id)}`} style={st("margin:0; font-size:30px; font-weight:800; letter-spacing:-.05em; line-height:1;")}>
+                                {sh.name}
                               </h2>
                               <span style={st("font-family:var(--mono); font-size:13px; font-weight:600; color:var(--fg-muted);")}>
-                                {v.td.when}
+                                {sh.when}
                               </span>
                             </div>
                             {" "}
                             <div style={st("display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px;")}>
-                              {(v.td.kpis ?? []).map((k: any, i_k: number) => (
+                              {(sh.kpis ?? []).map((k: any, i_k: number) => (
                                 <Fragment key={k.k ?? i_k}>
                                   <div style={st(v.bo.kpi)}>
                                     <span style={st(`${v.s.eyebrow}font-size:10.5px;`)}>
@@ -228,23 +229,19 @@ export function StaffView({ v }: { v: any }) {
                             </div>
                             {" "}
                             <div style={st("display:flex; gap:8px; flex-wrap:wrap;")}>
-                              <button className="wv-btn" onClick={v.td.openDoor} style={st(`${v.s.btnP}min-height:42px;`)}>
+                              <button className="wv-btn" onClick={sh.openDoor} style={st(`${v.s.btnP}min-height:42px;`)}>
                                 <Icon name={"scan-line"} style={st("width:16px;height:16px;")} />
                                 {tr("Open the door")}
                               </button>
-                              <button className="wv-gi" onClick={v.td.message} style={st(`${v.s.btnG}min-height:42px;`)}>
+                              <button className="wv-gi" onClick={sh.message} style={st(`${v.s.btnG}min-height:42px;`)}>
                                 <Icon name={"send"} style={st("width:16px;height:16px;")} />
                                 {tr("Message ticket holders")}
                               </button>
                             </div>
                           </div>
                         </section>
-                        {" "}
-                        <span style={st(`${v.s.hint}margin-block-start:-10px;`)}>
-                          {tr("One card per show today. Two shows on one night get a card each.")}
-                        </span>
-                      </>
-                    ) : null}
+                      </Fragment>
+                    ))}
                     {" "}
                     <section aria-labelledby="nd-h" style={st(v.bo.card)}>
                       <div style={st("display:flex; align-items:baseline; gap:8px; padding:16px 20px 10px;")}>
@@ -283,6 +280,13 @@ export function StaffView({ v }: { v: any }) {
                                           <span style={st("flex:1; min-width:160px; font-size:13px; font-weight:700;")}>
                                             {it.txt}
                                           </span>
+                                          {it.remindedOn ? (
+                                            <>
+                                              <span style={st("font-family:var(--mono); font-size:11.5px; font-weight:600; color:var(--fg-subtle);")}>
+                                                {it.reminded}
+                                              </span>
+                                            </>
+                                          ) : null}
                                           {(it.acts ?? []).map((a: any, i_a: number) => (
                                             <Fragment key={a.id ?? i_a}>
                                               <button className="wv-gi" onClick={a.go} style={st(`${v.s.btnS}min-height:30px; padding:0 10px; font-size:12px;`)}>
@@ -1299,7 +1303,7 @@ export function StaffView({ v }: { v: any }) {
                             <span style={st(`${v.s.eyebrow}font-size:10.5px;`)}>
                               {k.k}
                             </span>
-                            <span style={st(`${v.bo.kpiV}font-size:22px;`)}>
+                            <span style={st(`${v.bo.kpiV}font-size:22px;${k.style}`)}>
                               {k.v}
                             </span>
                             <span style={st(v.bo.kpiS)}>
@@ -1310,6 +1314,15 @@ export function StaffView({ v }: { v: any }) {
                       ))}
                     </div>
                     {" "}
+                    {v.sa.cancelled ? (
+                      <>
+                        <button className="wv-gi" onClick={v.sa.toRefunds} style={st(`${v.s.btnS}align-self:flex-start;`)}>
+                          <Icon name={"undo-2"} style={st("width:14px;height:14px;")} />
+                          {tr("Open the refunds list")}
+                        </button>
+                      </>
+                    ) : null}
+                    {v.sa.paceOn ? (
                     <section aria-labelledby="sp-h" style={st(v.bo.sec)}>
                       <div style={st("display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;")}>
                         <h2 id="sp-h" style={st(`${v.bo.secH}flex:1;`)}>
@@ -1319,10 +1332,12 @@ export function StaffView({ v }: { v: any }) {
                           <span style={st("width:18px; height:3px; border-radius:2px; background:var(--accent);")}></span>
                           {tr("This show")}
                         </span>
-                        <span style={st("display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:var(--fg-muted);")}>
-                          <span style={st("width:18px; border-block-start:2px dashed var(--fg-subtle);")}></span>
-                          {tr("Waveform's usual pace")}
-                        </span>
+                        {v.sa.peersOn ? (
+                          <span style={st("display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:var(--fg-muted);")}>
+                            <span style={st("width:18px; border-block-start:2px dashed var(--fg-subtle);")}></span>
+                            {v.sa.usual}
+                          </span>
+                        ) : null}
                       </div>
                       {" "}
                       <div style={st("display:grid; grid-template-columns:44px minmax(0,1fr); gap:8px;")}>
@@ -1358,6 +1373,7 @@ export function StaffView({ v }: { v: any }) {
                         {v.sa.paceTxt}
                       </span>
                     </section>
+                    ) : null}
                     {" "}
                     <section aria-labelledby="st-h" style={st(v.bo.sec)}>
                       <h2 id="st-h" style={st(v.bo.secH)}>

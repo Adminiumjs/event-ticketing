@@ -16,6 +16,7 @@ import { setCurrency, setZone } from "./fmt.ts";
 import { Buyer, blankSi, type Co } from "./buyer.ts";
 import { worldOf, type Show, type World } from "./world.ts";
 import { focusLater } from "./focus.ts";
+import type { BoxState } from "./box.ts";
 
 /** What a code takes off, as the chip says it: a share of every ticket, or an amount off each of one kind. */
 function discountLabel(show: Show, code: string, data: Record<string, unknown>): string {
@@ -47,8 +48,9 @@ export interface Sheet {
 export function fresh() {
   return {
     scr: "home" as Screen,
-    /** The box office's screen. */
+    /** The box office's screen, and what is open on it (the box office's own module fills it). */
     bx: "today" as BoxScreen,
+    box: null as BoxState | null,
     /** The show on screen (its id). */
     evId: null as Id | null,
     /** A show's address opened before the venue answered: its slug, found once the shows are read. */
