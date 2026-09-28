@@ -134,7 +134,7 @@ export function boxVals(app: WaveApp, v: V): V {
     const more = extra.length === 0 ? { rows: [] as Row[], total: 0 } : box.list("orders", { where: [{ column: "id", in: extra }], limit: 8 });
     const found = [...(byOrder?.rows ?? []), ...(more?.rows ?? [])];
     qTotal = (byOrder?.total ?? 0) + extra.length;
-    qRes = found.slice(0, 8).map((o) => {
+    qRes = found.slice(0, 8).map((o, i) => {
       const st = orderState(o, app.now);
       const show = w?.byId.get(o["event_id"] as Id);
       return {
@@ -143,10 +143,32 @@ export function boxVals(app: WaveApp, v: V): V {
         sub: [show?.name ?? "", o["email"] === null || o["email"] === undefined || o["email"] === "" ? tr("No email") : String(o["email"])].join(" · "),
         st: st.txt,
         stStyle: pill(st.k),
+        id: `bo-q-${String(i)}`,
+        on: s.qAt === i,
         open: () => box.openDrawer(o.id),
       };
     });
   }
+  // The search as a combobox: arrows move through the results, Enter opens one, Escape clears.
+  const onQKey = (e: { key: string; preventDefault: () => void; stopPropagation: () => void }) => {
+    const n = qRes.length;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if (n === 0) return;
+      e.preventDefault();
+      const next = e.key === "ArrowDown" ? (s.qAt + 1) % n : (s.qAt - 1 + n) % n;
+      box.set({ qAt: next });
+    } else if (e.key === "Enter") {
+      const pick = qRes[s.qAt >= 0 ? s.qAt : 0] as { open?: () => void } | undefined;
+      if (pick?.open !== undefined) {
+        e.preventDefault();
+        pick.open();
+      }
+    } else if (e.key === "Escape" && s.bq !== "") {
+      e.preventDefault();
+      e.stopPropagation();
+      box.set({ bq: "", qAt: -1 });
+    }
+  };
 
   const person = me?.name ?? "";
   const role = door ? tr("Door") : tr("Box office");
@@ -156,7 +178,9 @@ export function boxVals(app: WaveApp, v: V): V {
     nav,
     searchOn: !door,
     q: s.bq,
-    onQ: (e: { target: { value: string } }) => box.set({ bq: e.target.value }),
+    onQ: (e: { target: { value: string } }) => box.set({ bq: e.target.value, qAt: -1 }),
+    onQKey,
+    qActive: s.qAt >= 0 && s.qAt < qRes.length ? `bo-q-${String(s.qAt)}` : undefined,
     qOn: q.length >= 2,
     qRes,
     qNone: q.length >= 2 && qRes.length === 0 && qTotal === 0,
@@ -173,7 +197,7 @@ export function boxVals(app: WaveApp, v: V): V {
     s: Object.fromEntries(["refunds", "today", "events", "editor", "sales", "orders", "guests", "waits", "codes", "msgs", "pc", "settings", "door"].map((k) => [k, bx === k])),
   };
 
-  const out: V = { bo, boRef: (el: HTMLElement | null) => el?.setAttribute("data-bo-scroll", "1") };
+  const out: V = { bo, boRef: (el: HTMLElement | null) => el?.setAttribute("data-bo-scroll", "1"), dd: { shows: [], tabs: [], recent: [], guests: [], sellTypes: [], nums: [], res: [], v: {} } };
   if (w === null) return { ...out, td: blankToday(), el: { rows: [], filters: [] }, eh: { tabs: [], p: {} }, sa: blankSales(), boLoading: true };
   Object.assign(out, headerVals(app, box, w, B));
   Object.assign(out, todayVals(app, box, w));

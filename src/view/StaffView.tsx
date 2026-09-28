@@ -52,14 +52,14 @@ export function StaffView({ v }: { v: any }) {
                   <div style={st("position:relative; flex:1; max-width:520px;")}>
                     <Icon name={"search"} style={st("position:absolute; inset-inline-start:12px; inset-block-start:12px; width:15px; height:15px; color:var(--fg-subtle);")} />
                     {" "}
-                    <input className="wv-fld" type="search" value={v.bo.q ?? ""} onChange={v.bo.onQ} aria-label={tr("Search orders")} placeholder={tr("Search orders by number, name, email or ticket code")} style={st("width:100%; height:40px; padding-inline:36px 12px; border-radius:11px; border:1px solid var(--border-strong); background:var(--surface-2); color:var(--fg); font-size:13.5px; font-weight:600;")} />
+                    <input className="wv-fld" type="search" role="combobox" aria-autocomplete="list" aria-expanded={v.bo.qOn} aria-controls="bo-q-list" aria-activedescendant={v.bo.qActive} value={v.bo.q ?? ""} onChange={v.bo.onQ} onKeyDown={v.bo.onQKey} aria-label={tr("Search orders")} placeholder={tr("Search orders by number, name, email or ticket code")} style={st("width:100%; height:40px; padding-inline:36px 12px; border-radius:11px; border:1px solid var(--border-strong); background:var(--surface-2); color:var(--fg); font-size:13.5px; font-weight:600;")} />
                     {" "}
                     {v.bo.qOn ? (
                       <>
-                        <div role="listbox" aria-label={tr("Matching orders")} style={st("position:absolute; inset-inline:0; inset-block-start:calc(100% + 6px); max-height:360px; overflow-y:auto; padding:6px; border-radius:14px; border:1px solid var(--border); background:var(--surface); box-shadow:0 20px 50px -18px rgba(0,0,0,.45);")}>
+                        <div id="bo-q-list" role="listbox" aria-label={tr("Matching orders")} style={st("position:absolute; inset-inline:0; inset-block-start:calc(100% + 6px); max-height:360px; overflow-y:auto; padding:6px; border-radius:14px; border:1px solid var(--border); background:var(--surface); box-shadow:0 20px 50px -18px rgba(0,0,0,.45);")}>
                           {(v.bo.qRes ?? []).map((r: any, i_r: number) => (
                             <Fragment key={r.no ?? i_r}>
-                              <button role="option" className="wv-gi" onClick={r.open} style={st("display:grid; grid-template-columns:78px minmax(0,1fr) auto; gap:10px; align-items:center; width:100%; min-height:44px; padding:6px 10px; border-radius:10px; border:0; background:transparent; text-align:start;")}>
+                              <button id={r.id} role="option" aria-selected={r.on} tabIndex={-1} className="wv-gi" onClick={r.open} style={st(`display:grid; grid-template-columns:78px minmax(0,1fr) auto; gap:10px; align-items:center; width:100%; min-height:44px; padding:6px 10px; border-radius:10px; border:0; background:${r.on ? "var(--surface-2)" : "transparent"}; text-align:start;`)}>
                                 <span style={st("font-family:var(--mono); font-size:12.5px; font-weight:700;")}>
                                   {r.no}
                                 </span>
@@ -84,6 +84,11 @@ export function StaffView({ v }: { v: any }) {
                                 {tr("No orders match that.")}
                               </p>
                             </>
+                          ) : null}
+                          {v.bo.qMoreOn ? (
+                            <button className="wv-gi" onClick={v.bo.toAllOrders} tabIndex={-1} style={st(`${v.s.btnT}width:100%; justify-content:center;`)}>
+                              {v.bo.qMore}
+                            </button>
                           ) : null}
                         </div>
                       </>
@@ -465,9 +470,9 @@ export function StaffView({ v }: { v: any }) {
                                   <div style={st("display:flex; align-items:center; gap:10px; min-width:200px;")}>
                                     <span style={st(`width:34px; aspect-ratio:4/5; border-radius:6px; flex-shrink:0; ${r.p.bg}`)}></span>
                                     <span style={st("display:flex; flex-direction:column; min-width:0;")}>
-                                      <span style={st("font-size:14px; font-weight:800;")}>
+                                      <button className="wv-gi" onClick={r.open} style={st("padding:0; border:0; background:transparent; color:var(--fg); font-size:14px; font-weight:800; text-align:start; cursor:pointer;")}>
                                         {r.name}
-                                      </span>
+                                      </button>
                                       <span style={st("font-size:12px; font-weight:600; color:var(--fg-subtle);")}>
                                         {r.kind}
                                       </span>

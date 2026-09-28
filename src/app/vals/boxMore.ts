@@ -14,6 +14,7 @@ import { posterOf } from "./audience.ts";
 import { palette, S, type V } from "./base.ts";
 import { orderState, pill, when } from "./box.ts";
 import { fromLocal, payHow } from "./boxOrders.ts";
+import { focusLater } from "../focus.ts";
 
 type Tpl = "doors" | "set_times" | "moved" | "cancelled" | "other";
 
@@ -236,7 +237,7 @@ function pcVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unknown>)
   const go = (later: boolean) => {
     set({ tried: true });
     if (errs.length > 0) {
-      setTimeout(() => document.getElementById(dateErr !== "" ? "pc-date" : timeErr !== "" ? "pc-doors" : "pc-until")?.focus(), 40);
+      focusLater(dateErr !== "" ? "pc-date" : timeErr !== "" ? "pc-doors" : "pc-until");
       return;
     }
     const curfewAt = startAt === null ? null : startAt + Math.max(3_600_000, show.curfew - show.start);
@@ -451,7 +452,7 @@ function settingsVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unk
         ] as [string, string][]
       ).map(([k, label]) => ({ k, label, ...F(k) })),
       dirty: box.s.set !== null,
-      save: () => (emailOk ? void box.saveSettings() : document.getElementById("st-email")?.focus()),
+      save: () => (emailOk ? void box.saveSettings() : focusLater("st-email", 0)),
       rooms: d.rooms.map((r, i) => ({
         k: `r${String(r.id)}`,
         capLabel: tr("Capacity of {room}", { room: String(r["name"] ?? "") }),

@@ -15,6 +15,7 @@ import { fD, fT, money, ms, num, venueZone } from "../fmt.ts";
 import type { WaveApp } from "../wave.ts";
 import type { V } from "./base.ts";
 import { fromLocal, localValue } from "./boxOrders.ts";
+import { focusLater } from "../focus.ts";
 
 // ── the draft ────────────────────────────────────────────────────────────────
 
@@ -826,7 +827,7 @@ export function editorVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string
       openFull: () => {
         app.remember();
         box.set({ edFull: true });
-        setTimeout(() => document.getElementById("pv-back")?.focus(), 60);
+        focusLater("pv-back", 60);
       },
       closeFull: () => {
         box.set({ edFull: false });
@@ -843,7 +844,7 @@ export function editorVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string
       save: () => {
         if (hasErrors(errs)) {
           box.set({ edTried: true });
-          setTimeout(() => document.getElementById(errs.first!)?.focus(), 40);
+          focusLater(errs.first!);
           return;
         }
         void box.saveEvent(draft, rowsOf(box, draft, zone));

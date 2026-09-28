@@ -31,8 +31,9 @@ export interface BoxState {
   /** The show the event header and its tabs are about. */
   bev: Id | null;
   evF: "all" | "on" | "soon" | "sold" | "post" | "past" | "draft";
-  /** The search box over every screen. */
+  /** The search box over every screen, and the result the arrow keys are on. */
   bq: string;
+  qAt: number;
   /** The order open in the drawer. */
   drawer: Id | null;
   ord: { ev: Id | "all"; tab: boolean; st: string; q: string; n: number };
@@ -69,6 +70,7 @@ export function boxFresh(): BoxState {
     bev: null,
     evF: "all",
     bq: "",
+    qAt: -1,
     drawer: null,
     ord: { ev: "all", tab: false, st: "all", q: "", n: 50 },
     gl: { ev: null, name: "", plus: 0, by: "", note: "", err: null },
