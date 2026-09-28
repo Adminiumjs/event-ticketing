@@ -25,7 +25,11 @@
      "send_hours": 48,
      "refund_days": 7,
      "check_in_minutes": 30,
-     "remind_lead_hours": 1
+     "remind_lead_hours": 1,
+     "getting_there": "Buses 12 and 40 stop outside on Foundry Lane.\nCanal Street station is a 6-minute walk.\nBike racks in the yard. No parking at the venue.",
+     "accessibility": "Level access through the main doors. A lift goes to the balcony. Accessible toilets on both floors.\nCompanion tickets are no charge. Tell us at checkout or email hello@waveform.example.",
+     "policies": "Bags and re-entry follow each show, shown on its page.\nCloakroom by the main doors, $2.00 per item.",
+     "faq": "Can I buy on the door?\nUsually, if there are tickets left. Pay-at-the-door tickets are card or cash.\n\nIs there a cloakroom?\nYes, by the main doors. $2.00 per item, card or cash."
     }
    ]
   },
@@ -38,6 +42,7 @@
      "capacity": 450,
      "kind": "room",
      "note": "70 seated on the balcony",
+     "access_text": "Level access through the main doors and a lift to the balcony. Companion tickets are no charge — tell us at checkout.",
      "position": 0
     },
     {
@@ -45,6 +50,7 @@
      "name": "The Annex",
      "capacity": 120,
      "kind": "room",
+     "access_text": "Level access; accessible toilet on the ground floor. Companion tickets are no charge — tell us at checkout.",
      "position": 1
     },
     {
@@ -52,6 +58,7 @@
      "name": "Main Hall + The Annex",
      "capacity": 570,
      "kind": "both",
+     "access_text": "Level access through the main doors and into The Annex; a lift goes to the balcony. Companion tickets are no charge — tell us at checkout.",
      "position": 2
     }
    ]
@@ -63,6 +70,11 @@
      "@label": "event:paper",
      "slug": "paper-moons",
      "name": "Paper Moons",
+     "support": "Juno Park",
+     "about": "A last loud night before Paper Moons go back into the studio.",
+     "poster_style": "stripes",
+     "bags": "Small bags only — nothing bigger than a sheet of A4. No large backpacks.",
+     "re_entry": "No re-entry after 22:00. Before that, get a stamp on the way out.",
      "kind": "gig",
      "room_id": {
       "@ref": "room:annex"
@@ -107,6 +119,11 @@
      "@label": "event:neon",
      "slug": "neon-circuit",
      "name": "Neon Circuit",
+     "support": "Kiri Vale · Tessellate",
+     "about": "Neon Circuit play long, patient sets that start as a hum and end with a room that won't sit still. It's their only club night here this summer. The system is loud, the room is warm, and the balcony is there if you'd rather watch.",
+     "poster_style": "rings",
+     "bags": "Small bags only — nothing bigger than a sheet of A4. No large backpacks.",
+     "re_entry": "No re-entry after 22:00. Before that, get a stamp on the way out.",
      "kind": "club",
      "room_id": {
       "@ref": "room:main"
@@ -155,6 +172,11 @@
      "@label": "event:velvet",
      "slug": "velvet-hour",
      "name": "Velvet Hour",
+     "support": "Juno Park",
+     "about": "An acoustic evening: two voices, one guitar and a cello, in the smaller room with the lights down.",
+     "poster_style": "grain",
+     "bags": "Small bags only — nothing bigger than a sheet of A4. No large backpacks.",
+     "re_entry": "No re-entry after 22:00. Before that, get a stamp on the way out.",
      "kind": "gig",
      "room_id": {
       "@ref": "room:annex"
@@ -195,6 +217,11 @@
      "@label": "event:dust",
      "slug": "dust-parade",
      "name": "Dust Parade",
+     "support": "Low Orbit",
+     "about": "Dust Parade have had to cancel their summer shows.",
+     "poster_style": "stripes",
+     "bags": "Small bags only — nothing bigger than a sheet of A4. No large backpacks.",
+     "re_entry": "No re-entry after 22:00. Before that, get a stamp on the way out.",
      "kind": "gig",
      "room_id": {
       "@ref": "room:main"
@@ -243,6 +270,12 @@
      "@label": "event:low",
      "slug": "low-ceiling-new-material-night",
      "name": "Low Ceiling: new material night",
+     "short_name": "Low Ceiling",
+     "support": "Bea Marsh (host) · Tom Idowu · Ruth Adeyemi · Dev Kalra",
+     "about": "Four comics trying out things that might not work yet. Some of it will be great. That's the deal.",
+     "poster_style": "glyph",
+     "bags": "Small bags only — nothing bigger than a sheet of A4. No large backpacks.",
+     "re_entry": "No re-entry after 22:00. Before that, get a stamp on the way out.",
      "kind": "comedy",
      "room_id": {
       "@ref": "room:annex"
@@ -287,6 +320,11 @@
      "@label": "event:listen",
      "slug": "first-listen-hollow-tide-s-new-record",
      "name": "First Listen: Hollow Tide's new record",
+     "short_name": "First Listen",
+     "about": "Played front to back, with the band in the room. Hollow Tide play their new record through the big speakers before anyone else hears it, then stay for questions.",
+     "poster_style": "dots",
+     "bags": "Small bags only — nothing bigger than a sheet of A4. No large backpacks.",
+     "re_entry": "Come and go as you like.",
      "kind": "gig",
      "room_id": {
       "@ref": "room:annex"
@@ -331,6 +369,11 @@
      "@label": "event:studio",
      "slug": "home-studio-basics",
      "name": "Home Studio Basics",
+     "support": "producer Lena Brandt",
+     "about": "A workshop. Four hours on getting a good recording at home: rooms, microphones, levels and a clean mix. Bring headphones. Laptops welcome but not needed.",
+     "poster_style": "rings",
+     "bags": "Small bags only.",
+     "re_entry": "Come and go as you like.",
      "kind": "talks",
      "room_id": {
       "@ref": "room:annex"
@@ -375,6 +418,11 @@
      "@label": "event:cinder",
      "slug": "cinder",
      "name": "Cinder",
+     "support": "Ossie Wren · Hana Kobe",
+     "about": "Six hours, three selectors, one very long build. Cinder close the summer season in the Main Hall.",
+     "poster_style": "stripes",
+     "bags": "Small bags only — nothing bigger than a sheet of A4. No large backpacks.",
+     "re_entry": "No re-entry after 22:00. Before that, get a stamp on the way out.",
      "kind": "club",
      "room_id": {
       "@ref": "room:main"
@@ -419,6 +467,11 @@
      "@label": "event:hollow",
      "slug": "hollow-tide",
      "name": "Hollow Tide",
+     "support": "Wren & Wire",
+     "about": "Hollow Tide bring the new record to the Main Hall with a full band and strings.",
+     "poster_style": "grain",
+     "bags": "Small bags only — nothing bigger than a sheet of A4. No large backpacks.",
+     "re_entry": "No re-entry after 22:00. Before that, get a stamp on the way out.",
      "kind": "gig",
      "room_id": {
       "@ref": "room:main"
@@ -471,6 +524,11 @@
      "@label": "event:static",
      "slug": "static-bloom",
      "name": "Static Bloom",
+     "support": "Maren · Soft Arcade",
+     "about": "Static Bloom play their first headline show in two years, with the new songs and the old loud ones.",
+     "poster_style": "glyph",
+     "bags": "Small bags only — nothing bigger than a sheet of A4. No large backpacks.",
+     "re_entry": "No re-entry after 22:00. Before that, get a stamp on the way out.",
      "kind": "gig",
      "room_id": {
       "@ref": "room:main"
@@ -515,6 +573,10 @@
      "@label": "event:fest",
      "slug": "waveform-weekender",
      "name": "Waveform Weekender",
+     "about": "Two days in both rooms: fourteen acts, short changeovers, and food in the yard.",
+     "poster_style": "dots",
+     "bags": "Small bags only — nothing bigger than a sheet of A4. No large backpacks.",
+     "re_entry": "Come and go as you like — keep your wristband on.",
      "kind": "festival",
      "room_id": {
       "@ref": "room:both"
@@ -559,6 +621,11 @@
      "@label": "event:quiet",
      "slug": "quiet-engines",
      "name": "Quiet Engines",
+     "support": "Sofie Lund",
+     "about": "Quiet Engines return with a record made in a lighthouse. It sounds like one.",
+     "poster_style": "rings",
+     "bags": "Small bags only — nothing bigger than a sheet of A4. No large backpacks.",
+     "re_entry": "No re-entry after 22:00. Before that, get a stamp on the way out.",
      "kind": "gig",
      "room_id": {
       "@ref": "room:main"
@@ -603,6 +670,12 @@
      "@label": "event:pale",
      "slug": "pale-harbour-stories-after-dark",
      "name": "Pale Harbour: stories after dark",
+     "short_name": "Pale Harbour",
+     "support": "hosted by Nell Achterberg",
+     "about": "Six people, ten minutes each, one true story. No notes allowed.",
+     "poster_style": "dots",
+     "bags": "Small bags only — nothing bigger than a sheet of A4. No large backpacks.",
+     "re_entry": "No re-entry after 22:00. Before that, get a stamp on the way out.",
      "kind": "talks",
      "room_id": {
       "@ref": "room:annex"
@@ -647,6 +720,11 @@
      "@label": "event:marrow",
      "slug": "marrow-and-salt",
      "name": "Marrow & Salt",
+     "support": "Tidal Tongue",
+     "about": "Marrow & Salt: close harmony, a double bass and a lot of stories between songs.",
+     "poster_style": "glyph",
+     "bags": "Small bags only — nothing bigger than a sheet of A4. No large backpacks.",
+     "re_entry": "No re-entry after 22:00. Before that, get a stamp on the way out.",
      "kind": "gig",
      "room_id": {
       "@ref": "room:annex"
@@ -1264,6 +1342,7 @@
       "@ref": "event:paper"
      },
      "name": "Standard",
+     "description": "General admission, standing.",
      "kind": "standard",
      "price": 16,
      "capacity": 120,
@@ -1281,6 +1360,7 @@
       "@ref": "event:neon"
      },
      "name": "Early entry",
+     "description": "In before 20:30, with a drink on us.",
      "kind": "early",
      "price": 22,
      "capacity": 80,
@@ -1298,6 +1378,7 @@
       "@ref": "event:neon"
      },
      "name": "Standard",
+     "description": "General admission, standing.",
      "kind": "standard",
      "price": 28,
      "capacity": 260,
@@ -1315,6 +1396,7 @@
       "@ref": "event:neon"
      },
      "name": "Balcony — seated, unreserved",
+     "description": "Upstairs seats, first come, first served.",
      "kind": "balcony",
      "price": 34,
      "capacity": 70,
@@ -1332,6 +1414,7 @@
       "@ref": "event:neon"
      },
      "name": "Comps",
+     "description": "Box office only — for the bands and crew, from the spare capacity.",
      "kind": "comp",
      "price": 0,
      "capacity": 4,
@@ -1349,6 +1432,7 @@
       "@ref": "event:velvet"
      },
      "name": "Standard",
+     "description": "General admission. A few chairs at the back.",
      "kind": "standard",
      "price": 20,
      "capacity": 120,
@@ -1366,6 +1450,7 @@
       "@ref": "event:dust"
      },
      "name": "Standard",
+     "description": "General admission, standing.",
      "kind": "standard",
      "price": 18,
      "capacity": 450,
@@ -1383,6 +1468,7 @@
       "@ref": "event:low"
      },
      "name": "Standard",
+     "description": "Unreserved seats in rows.",
      "kind": "standard",
      "price": 15,
      "capacity": 120,
@@ -1400,6 +1486,7 @@
       "@ref": "event:listen"
      },
      "name": "Register",
+     "description": "One place each. Up to 2 per person.",
      "kind": "register",
      "price": 0,
      "capacity": 120,
@@ -1417,6 +1504,7 @@
       "@ref": "event:studio"
      },
      "name": "Place",
+     "description": "A seat at the workshop, coffee and notes.",
      "kind": "place",
      "price": 45,
      "capacity": 20,
@@ -1434,6 +1522,7 @@
       "@ref": "event:cinder"
      },
      "name": "Early entry",
+     "description": "In before 22:30.",
      "kind": "early",
      "price": 18,
      "capacity": 100,
@@ -1451,6 +1540,7 @@
       "@ref": "event:cinder"
      },
      "name": "Standard",
+     "description": "General admission, standing.",
      "kind": "standard",
      "price": 24,
      "capacity": 280,
@@ -1468,6 +1558,7 @@
       "@ref": "event:cinder"
      },
      "name": "Balcony — seated, unreserved",
+     "description": "Upstairs seats, first come, first served.",
      "kind": "balcony",
      "price": 30,
      "capacity": 70,
@@ -1485,6 +1576,7 @@
       "@ref": "event:hollow"
      },
      "name": "Standard",
+     "description": "General admission, standing.",
      "kind": "standard",
      "price": 30,
      "capacity": 380,
@@ -1502,6 +1594,7 @@
       "@ref": "event:hollow"
      },
      "name": "Balcony — seated, unreserved",
+     "description": "Upstairs seats, first come, first served.",
      "kind": "balcony",
      "price": 36,
      "capacity": 70,
@@ -1519,6 +1612,7 @@
       "@ref": "event:static"
      },
      "name": "Presale",
+     "description": "Early tickets for the mailing list.",
      "kind": "presale",
      "price": 22,
      "capacity": 100,
@@ -1540,6 +1634,7 @@
       "@ref": "event:static"
      },
      "name": "Standard",
+     "description": "General admission, standing.",
      "kind": "standard",
      "price": 26,
      "capacity": 280,
@@ -1561,6 +1656,7 @@
       "@ref": "event:static"
      },
      "name": "Balcony — seated, unreserved",
+     "description": "Upstairs seats, first come, first served.",
      "kind": "balcony",
      "price": 32,
      "capacity": 70,
@@ -1582,6 +1678,7 @@
       "@ref": "event:fest"
      },
      "name": "Weekend pass",
+     "description": "Both days, both rooms.",
      "kind": "pass",
      "price": 85,
      "capacity": 350,
@@ -1599,6 +1696,7 @@
       "@ref": "event:fest"
      },
      "name": "Saturday",
+     "description": "Saturday, both rooms.",
      "kind": "day",
      "price": 48,
      "capacity": 110,
@@ -1616,6 +1714,7 @@
       "@ref": "event:fest"
      },
      "name": "Sunday",
+     "description": "Sunday, both rooms.",
      "kind": "day",
      "price": 48,
      "capacity": 110,
@@ -1633,6 +1732,7 @@
       "@ref": "event:quiet"
      },
      "name": "Standard",
+     "description": "General admission, standing.",
      "kind": "standard",
      "price": 25,
      "capacity": 380,
@@ -1650,6 +1750,7 @@
       "@ref": "event:quiet"
      },
      "name": "Balcony — seated, unreserved",
+     "description": "Upstairs seats, first come, first served.",
      "kind": "balcony",
      "price": 31,
      "capacity": 70,
@@ -1667,6 +1768,7 @@
       "@ref": "event:pale"
      },
      "name": "Standard",
+     "description": "Unreserved seats.",
      "kind": "standard",
      "price": 12,
      "capacity": 120,
@@ -1688,6 +1790,7 @@
       "@ref": "event:marrow"
      },
      "name": "Standard",
+     "description": "General admission, standing.",
      "kind": "standard",
      "price": 18,
      "capacity": 120,

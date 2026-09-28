@@ -18,6 +18,8 @@
  * gives only what a person would have typed or chosen, and when.
  */
 import { LEDGER, type Ledger, type LedgerOrder, type LedgerShow, type Stamp } from "./ledger.ts";
+import { ROOM_ACCESS, SHOW_WORDS, TYPE_WORDS, VENUE_WORDS } from "./words.ts";
+
 
 type Value = string | number | boolean | null | Record<string, unknown> | unknown[];
 type Row = Record<string, Value>;
@@ -115,6 +117,7 @@ export function sampleBundle(ledger: Ledger = LEDGER): SampleBundle {
     refund_days: v.refund_days,
     check_in_minutes: v.check_in_minutes,
     remind_lead_hours: v.remind_lead_hours,
+    ...VENUE_WORDS,
   };
 
   const rooms: Row[] = ledger.rooms.map((r, i) => ({
@@ -123,6 +126,7 @@ export function sampleBundle(ledger: Ledger = LEDGER): SampleBundle {
     capacity: r.capacity,
     kind: r.key === "both" ? "both" : "room",
     note: r.note ?? null,
+    access_text: ROOM_ACCESS[r.key] ?? null,
     position: i,
   }));
 
@@ -130,6 +134,12 @@ export function sampleBundle(ledger: Ledger = LEDGER): SampleBundle {
     "@label": `event:${s.key}`,
     slug: slug(s.name),
     name: s.name,
+    short_name: SHOW_WORDS[s.key]?.short_name ?? null,
+    support: SHOW_WORDS[s.key]?.support ?? null,
+    about: SHOW_WORDS[s.key]?.about ?? null,
+    poster_style: SHOW_WORDS[s.key]?.poster_style ?? null,
+    bags: SHOW_WORDS[s.key]?.bags ?? null,
+    re_entry: SHOW_WORDS[s.key]?.re_entry ?? null,
     kind: s.kind,
     room_id: ref(`room:${s.room}`),
     doors_at: wall(s.doors),
@@ -175,6 +185,7 @@ export function sampleBundle(ledger: Ledger = LEDGER): SampleBundle {
       "@label": `type:${s.key}:${t.key}`,
       event_id: ref(`event:${s.key}`),
       name: t.name,
+      description: TYPE_WORDS[`${s.key}:${t.key}`] ?? null,
       kind: s.key === "studio" ? "place" : (KIND[t.key] ?? "other"),
       price: t.price,
       capacity: t.cap,
