@@ -427,8 +427,16 @@ export class Buyer {
   /** The clock moved (the demo card, or time passing): a hold that ran out, and its last minutes said aloud. */
   tick(): void {
     const co = this.s.co;
-    if (co === null || co.claim || (co.phase !== "held" && co.phase !== "mail") || co.heldUntil === null) return;
+    if (co === null || (co.phase !== "held" && co.phase !== "mail") || co.heldUntil === null) return;
     const left = co.heldUntil - this.app.now;
+    // A claim runs to its offer's end: then the offer's own page says it ran out.
+    if (co.claim) {
+      if (left <= 0) {
+        this.app.refresh("aud:");
+        this.app.go("offer", { co: null });
+      }
+      return;
+    }
     if (left <= 0) return this.expire();
     for (const [at, words] of [
       [120_000, tr("2 minutes left — confirm to keep your tickets.")],

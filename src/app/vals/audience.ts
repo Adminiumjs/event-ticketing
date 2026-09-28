@@ -410,7 +410,8 @@ export function audienceVals(app: WaveApp, v: V): V {
       if (show === null) scr["404"] = true;
       else if (show.festival) scr["festival"] = true;
       else scr["event"] = true;
-    } else scr[s.scr] = true;
+    } else if ((s.scr === "signin" || s.scr === "tickets") && !w.settings.accountsOn) scr["404"] = true;
+    else scr[s.scr] = true;
   }
   out["scr"] = scr;
   const accountsOn = w?.settings.accountsOn ?? false;
