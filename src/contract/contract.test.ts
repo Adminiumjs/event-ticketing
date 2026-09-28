@@ -185,7 +185,10 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         const owner = new Caller(server.base, { authorization: `Bearer ${linkKey!}`, origin: server.base });
         const session = ok(await owner.post<{ data: { session: string } }>("/api/v1/public/claim/token", { token: made.link!.token })).data.session;
         const free = await owner.patch(`/api/v1/public/records/${real["orders"]!}_claimed/${String(made.data.id)}`, { values: { status: "no_charge" } }, { "x-adminium-public-session": session });
-        expect([free.status, free.code, free.details["requires"]]).toEqual([409, "STATE_MOVE_REFUSED", "total"]);
+        // The public door never names the rule that refused it (staff get 409 STATE_MOVE_REFUSED {requires: total}).
+        expect([free.status, free.code, free.details]).toEqual([400, "PUBLIC_WRITE_REFUSED", {}]);
+        const order = (await rows("orders")).find((o) => o.id === made.data.id)!;
+        expect(order["status"]).toBe("held");
         const tickets = (await rows("tickets")).filter((t) => t["order_id"] === made.data.id);
         expect(tickets.map((t) => Number(t["settled"]))).toEqual([0, 0]);
       }, 120_000);
