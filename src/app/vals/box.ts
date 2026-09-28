@@ -725,7 +725,7 @@ function salesVals(app: WaveApp, box: Box, w: BoxWorld): V {
   const line = (p: [number, number][]) => p.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const accent = palette(light)["accent"]!;
   const chart = svgData(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 200" preserveAspectRatio="none"><path d="M0 ${(200 - 0.5 * 190).toFixed(0)}H600M0 10H600" stroke="${light ? "#e2e2e8" : "#2a2a33"}" stroke-width="1" vector-effect="non-scaling-stroke"/>${
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 200" preserveAspectRatio="none"><path d="M 0 ${(200 - 0.5 * 190).toFixed(0)} H 600 M 0 10 H 600" stroke="${light ? "#e2e2e8" : "#2a2a33"}" stroke-width="1" vector-effect="non-scaling-stroke"/>${
       peersOn ? `<polyline points="${line(peerPts)}" fill="none" stroke="${light ? "#8a8a95" : "#7a7a86"}" stroke-width="1.6" stroke-dasharray="6 5" vector-effect="non-scaling-stroke"/>` : ""
     }<polyline points="${line(pts)}" fill="none" stroke="${accent}" stroke-width="2.4" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`,
   );
