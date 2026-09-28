@@ -88,7 +88,7 @@ details[open] .wv-chev{transform:rotate(180deg);}
 .wv-pulse{animation:wv-pulse 1.3s ease-in-out infinite;}
 .wv-breathe{animation:wv-breathe 2.4s ease-in-out infinite;}
 .wv-verdict{animation:wv-fill .32s cubic-bezier(.2,.8,.3,1);}
-[dir="rtl"] [style*="--mono"],[dir="rtl"] [style*="JetBrains"]{direction:ltr;unicode-bidi:isolate;}
+[dir="rtl"] [style*="--mono"]:not([data-wv-root]),[dir="rtl"] [style*="JetBrains"]:not([data-wv-root]){direction:ltr;unicode-bidi:isolate;}
 .wv-hide{scrollbar-width:none;} .wv-hide::-webkit-scrollbar{display:none;}
 .wv-snap{scroll-snap-type:x mandatory;} .wv-snap>*{scroll-snap-align:center;}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important;}}

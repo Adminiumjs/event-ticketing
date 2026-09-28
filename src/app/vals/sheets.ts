@@ -187,6 +187,7 @@ export function sheetVals(app: WaveApp, v: V): V {
   o["iconWrap"] = `width:38px; height:38px; flex-shrink:0; border-radius:11px; display:flex; align-items:center; justify-content:center; background:${tone[0]}; color:${tone[1]};`;
   o["subOn"] = o["sub"] !== "";
   o["fieldsOn"] = o.fields.length > 0 || o["qtyOn"] === true || o.groups.length > 0 || o["areaOn"] === true;
+  o["groupsAfter"] = o["groupsAfter"] ?? [];
   o["summaryOn"] = o["summary"] !== undefined && o["summary"] !== "";
   o["doneOn"] = o["done"] !== undefined && o["done"] !== "";
   o["bodyOn"] = o["body"] !== undefined && o["body"] !== "";

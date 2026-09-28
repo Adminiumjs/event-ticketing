@@ -87,8 +87,10 @@ function msgVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unknown>
   const cancelled = show.status === "cancelled";
   // Only the words that fit the show: a cancelled show's, a moved show's, set times once they are up.
   const fits: Tpl[] = cancelled ? ["cancelled"] : [...(show.postponed ? (["moved"] as Tpl[]) : []), "doors", ...(show.setsPublished && show.acts.length > 0 ? (["set_times"] as Tpl[]) : [])];
-  const tpl: Tpl = m.tpl !== null && (fits as string[]).includes(m.tpl) ? (m.tpl as Tpl) : m.tpl === "other" ? "other" : fits[0]!;
-  const [tSubj, tBody] = tplText(tpl, show, w);
+  // "" is no words chosen yet; null is the show's own (moved, cancelled, else doors).
+  const none = m.tpl === "";
+  const tpl: Tpl = m.tpl !== null && (fits as string[]).includes(m.tpl) ? (m.tpl as Tpl) : m.tpl === "other" || none ? "other" : fits[0]!;
+  const [tSubj, tBody] = none ? ["", ""] : tplText(tpl, show, w);
   const subj = m.subj ?? tSubj;
   const body = m.body ?? tBody;
   const setM = (p: Partial<typeof m>) => box.set({ msg: { ...m, ev: show.id, ...p } });
@@ -131,7 +133,7 @@ function msgVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unknown>
       type: String(m.typeId ?? show.types[0]?.id ?? ""),
       onType: (e: { target: { value: string } }) => setM({ typeId: Number(e.target.value) as Id }),
       typeOpts: show.types.map((t) => ({ id: String(t.id), label: t.name })),
-      tpls: fits.map((k) => ({ id: k, label: TPL_WORDS()[k], on: tpl === k, style: chip(tpl === k), go: () => setM({ tpl: k, subj: null, body: null }) })),
+      tpls: fits.map((k) => ({ id: k, label: TPL_WORDS()[k], on: !none && tpl === k, style: chip(!none && tpl === k), go: () => setM({ tpl: k, subj: null, body: null }) })),
       subj,
       body,
       onSubj: (e: { target: { value: string } }) => setM({ subj: e.target.value }),
@@ -139,7 +141,7 @@ function msgVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unknown>
       langNote: tr("Everyone gets these words, whatever language they chose."),
       paras: body.split(/\n\n+/).map((t, i) => ({ k: `p${String(i)}`, t })),
       countTxt: who === undefined ? "…" : tr("{who} will get this", { who: countTxt }),
-      sendOff: who === undefined || who.orders === 0,
+      sendOff: who === undefined || who.orders === 0 || subj.trim() === "" || body.trim() === "",
       sendLabel: who === undefined ? tr("Send") : plural(who.people, "Send to {n} person", "Send to {n} people"),
       test: () => void box.testMessage(show, subj, body),
       autoTxt: !tonightOn ? tr('"See you tonight" is switched off in Settings.') : eve ? tr('"See you tomorrow" goes by itself at 18:00 the evening before.') : tr('"See you tonight" goes by itself at noon on the show day.'),

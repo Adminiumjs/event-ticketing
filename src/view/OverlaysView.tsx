@@ -85,6 +85,11 @@ export function OverlaysView({ v }: { v: any }) {
               <span style={st("font-size:13px; font-weight:600; color:var(--fg-muted);")}>
                 {v.dr.show}
               </span>
+              {v.dr.noteOn ? (
+                <span style={st("font-size:12.5px; font-weight:700; color:var(--accent);")}>
+                  {v.dr.note}
+                </span>
+              ) : null}
             </div>
             {" "}
             <button className="wv-gi" onClick={v.dr.close} aria-label={tr("Close")} style={st("width:34px; height:34px; border-radius:10px; border:0; background:var(--surface-2); display:flex; align-items:center; justify-content:center;")}>
@@ -393,6 +398,30 @@ export function OverlaysView({ v }: { v: any }) {
                             {v.sh.stepsErr}
                           </span>
                         ) : null}
+                  {(v.sh.groupsAfter ?? []).map((g: any, i_g: number) => (
+                    <Fragment key={g.k ?? i_g}>
+                      <div style={st("display:flex; flex-direction:column; gap:6px;")}>
+                        <span style={st(v.s.lbl)}>
+                          {g.k}
+                        </span>
+                        <div role={g.role} aria-label={g.k} style={st("display:flex; flex-wrap:wrap; gap:6px;")}>
+                          {(g.opts ?? []).map((o: any, i_o: number) => (
+                            <Fragment key={o.id ?? i_o}>
+                              <button type="button" role={g.itemRole} aria-checked={o.on} aria-disabled={o.off ? true : undefined} onClick={o.go} style={st(o.style)}>
+                                {o.label}
+                              </button>
+                            </Fragment>
+                          ))}
+                        </div>
+                        {g.hintOn ? (
+                          <span style={st(v.s.hint)}>
+                            {g.hint}
+                          </span>
+                        ) : null}
+                      </div>
+                    </Fragment>
+                  ))}
+
                       </div>
                     </>
                   ) : null}

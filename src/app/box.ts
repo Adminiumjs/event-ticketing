@@ -453,6 +453,15 @@ export class Box {
     );
   }
 
+  /** A transfer checkout's confirm link sent again, while it waits for the buyer. */
+  async resendConfirm(order: Row): Promise<void> {
+    await this.write(
+      () => this.port.mail("transfer-confirm", [{ order_id: order.id, event_id: order["event_id"], to_address: order["email"], repeat_key: `again-${String(this.app.now)}` }]),
+      tr("Resent to {email}", { email: String(order["email"] ?? "") }),
+      "mail",
+    );
+  }
+
   // ── guest lists, waitlists, codes ────────────────────────────────────────
 
   async addGuests(eventId: Id, guests: { name: string; plus: number; on_behalf: string; note: string }[]): Promise<boolean> {

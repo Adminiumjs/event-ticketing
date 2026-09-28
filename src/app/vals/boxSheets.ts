@@ -638,7 +638,12 @@ function newOrderSheet(app: WaveApp, box: Box, o: V & { fields: unknown[] }, sh:
     title: tr("New order"),
     sub: tr("For walk-ins, comps and phone bookings."),
     groups: [
-      grp(tr("Show"), selling.map((e) => [String(e.id), `${e.short} · ${fD(e.start)}`] as Opt), String(ev.id), "evPick"),
+      {
+        ...(grp(tr("Show"), [], String(ev.id), "evPick") as object),
+        opts: selling.map((e) => ({ id: String(e.id), label: `${e.short} · ${fD(e.start)}`, on: e.id === ev.id, off: false, style: chipSt(e.id === ev.id), go: () => set({ ev: e.id, q: {}, names: {}, err: {}, refusal: null }) })),
+      },
+    ],
+    groupsAfter: [
       grp(
         tr("How they pay"),
         hows,
@@ -660,14 +665,7 @@ function newOrderSheet(app: WaveApp, box: Box, o: V & { fields: unknown[] }, sh:
             ),
           ]
         : []),
-    ].map((g) =>
-      (g as { k: string }).k === tr("Show")
-        ? {
-            ...(g as object),
-            opts: selling.map((e) => ({ id: String(e.id), label: `${e.short} · ${fD(e.start)}`, on: e.id === ev.id, off: false, style: chipSt(e.id === ev.id), go: () => set({ ev: e.id, q: {}, names: {}, err: {}, refusal: null }) })),
-          }
-        : g,
-    ),
+    ],
     stepsOn: true,
     stepsLabel: tr("Tickets"),
     steps,

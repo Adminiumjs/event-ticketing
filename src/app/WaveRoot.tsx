@@ -76,6 +76,21 @@ export function WaveRoot({ app }: { app: WaveApp }) {
     const onResize = () => app.setState({ width: window.innerWidth });
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") app.escape();
+      if (e.defaultPrevented) return;
+      // A radio group: the arrows move to the next choice and take it.
+      const radio = (e.target as HTMLElement | null)?.closest?.('[role="radio"]');
+      const group = radio?.closest('[role="radiogroup"]');
+      if (radio instanceof HTMLElement && group !== null && group !== undefined && ["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp"].includes(e.key)) {
+        const items = [...group.querySelectorAll<HTMLElement>('[role="radio"]')].filter((x) => x.getAttribute("aria-disabled") !== "true");
+        const i = items.indexOf(radio);
+        if (i < 0 || items.length < 2) return;
+        const rtl = getComputedStyle(group).direction === "rtl";
+        const fwd = e.key === "ArrowDown" || (e.key === "ArrowRight" && !rtl) || (e.key === "ArrowLeft" && rtl);
+        const next = items[(i + (fwd ? 1 : -1) + items.length) % items.length]!;
+        e.preventDefault();
+        next.focus();
+        next.click();
+      }
     };
     // The editor's unsaved changes: closing or reloading the tab asks first.
     const onLeave = (e: BeforeUnloadEvent) => {

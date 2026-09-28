@@ -351,7 +351,8 @@ function todayVals(app: WaveApp, box: Box, w: BoxWorld): V {
           : { k: tr("Check-in"), v: plural(inN + gIn, "{n} in", "{n} in"), sub: tr("of {n}", { n: num((sold?.taken ?? 0) + gPeople) }), waveOn: false, wave: "", waveAlt: "" },
       ],
       openDoor: () => box.go("door"),
-      message: () => box.go("msgs", { msg: { ev: e.id, to: "everyone", typeId: null, tpl: null, subj: null, body: null, waiting: null } }),
+      // Messages for this show, with no words chosen yet.
+      message: () => box.go("msgs", { msg: { ev: e.id, to: "everyone", typeId: null, tpl: "", subj: null, body: null, waiting: null } }),
     };
   });
 

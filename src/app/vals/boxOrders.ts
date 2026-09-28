@@ -291,6 +291,7 @@ function drawerVals(app: WaveApp, box: Box, w: BoxWorld): V {
   const acts = [
     ...(hasEmail && liveOrder && !past ? [act("rs", tr("Resend"), "mail", () => void box.resend(order))] : []),
     ...(waiting && hasEmail ? [act("rm", tr("Remind"), "bell", () => void box.remind(order))] : []),
+    ...(status === "confirming" && hasEmail ? [act("rc", tr("Send the confirm email again"), "mail", () => void box.resendConfirm(order))] : []),
     ...(liveOrder && !past && liveTickets.length > 0 ? [act("nm", tr("Change a name"), "user-pen", () => app.openSheet("bxName", { o: id, t: liveTickets[0]!.id, name: String(liveTickets[0]!["holder_name"] ?? ""), err: {} }))] : []),
     ...(bal > 0 && (["door", "awaiting_transfer", "overdue", "not_collected"].includes(status) || status === "released")
       ? [act("mp", tr("Mark as paid"), "badge-check", () => app.openSheet("bxPaid", { o: id, amt: bal.toFixed(2), method: status === "door" ? "card" : "bank_transfer", note: "", err: {} }))]
@@ -309,6 +310,18 @@ function drawerVals(app: WaveApp, box: Box, w: BoxWorld): V {
 
   const answers = w.settings.questionsOn ? answerRows(order, tickets, w) : [];
   const due = ms(order["pay_by"]);
+  // An order still waiting on someone: until when.
+  const holdEnd = ms(order["offer_until"]) ?? ms(order["held_until"]);
+  const note =
+    holdEnd === null
+      ? ""
+      : status === "offered"
+        ? tr("Offered from the waitlist · until {when}", { when: when(holdEnd) })
+        : status === "confirming"
+          ? tr("Waiting for {name} to confirm by email · until {when}", { name: String(order["buyer_name"] ?? "") || tr("the buyer"), when: when(holdEnd) })
+          : status === "held"
+            ? tr("In checkout · until {when}", { when: when(holdEnd) })
+            : "";
   return {
     dr: {
       on: true,
@@ -326,6 +339,8 @@ function drawerVals(app: WaveApp, box: Box, w: BoxWorld): V {
       total: total === 0 && paid === 0 ? tr("No charge") : money(total),
       how: payHow(order),
       balTxt,
+      noteOn: note !== "",
+      note,
       dueOn: waiting && due !== null,
       due: due === null ? "" : when(due),
       ans: answers,
