@@ -122,6 +122,8 @@ export interface Person {
 export interface StaffPerson {
   name: string;
   roles: string[];
+  /** Where a test of a message goes. */
+  email?: string | null;
 }
 
 /** A show's own rows saved with it: its days, ticket types, acts and questions (a row without an id is new; one left out goes). */

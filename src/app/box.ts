@@ -488,6 +488,132 @@ export class Box {
     return this.write(() => (id === null ? this.port.create("codes", values) : this.port.update("codes", id, values)), tr("{code} saved", { code: String(values["code"]) }), "ticket-percent");
   }
 
+  // ── messages, postponing and cancelling ─────────────────────────────────
+
+  /**
+   * Who a message to a show's buyers reaches: one email an order (to its buyer's address), and one to each
+   * friend holding a ticket of it. Everyone with a live order; one ticket type's; or those not in yet.
+   */
+  audience(show: BoxShow, to: "everyone" | "type" | "not_in", typeId: Id | null): { rows: Record<string, unknown>[]; people: number; orders: number; holders: number } | undefined {
+    const cancelled = show.status === "cancelled";
+    const orders = this.list("orders", { where: [{ column: "event_id", eq: show.id }, cancelled ? { column: "cancel_cause", eq: "show" } : { column: "status", in: LIVE }], limit: 5000 });
+    const tickets = this.list("tickets", { where: [{ column: "event_id", eq: show.id }], limit: 10_000 });
+    const ins = to === "not_in" ? this.list("check_ins", { where: [{ column: "door_event_id", eq: show.id }], limit: 10_000 }) : { rows: [] as Row[], total: 0 };
+    if (orders === undefined || tickets === undefined || ins === undefined) return undefined;
+    const seen = new Set(ins.rows.map((c) => c["ticket_id"]));
+    const live = (t: Row) => cancelled || LIVE_TICKET.includes(String(t["status"]));
+    const keep = orders.rows.filter((o) => {
+      const mine = tickets.rows.filter((t) => t["order_id"] === o.id && live(t));
+      if (to === "type") return mine.some((t) => t["ticket_type_id"] === typeId);
+      if (to === "not_in") return mine.some((t) => !seen.has(t.id));
+      return true;
+    }).filter((o) => typeof o["email"] === "string" && o["email"] !== "");
+    const holders = tickets.rows.filter((t) => keep.some((o) => o.id === t["order_id"]) && live(t) && t["holder_customer_id"] !== null && t["holder_customer_id"] !== undefined && typeof t["holder_email"] === "string" && t["holder_email"] !== keep.find((o) => o.id === t["order_id"])?.["email"]);
+    const rows = [
+      ...keep.map((o) => ({ order_id: o.id, to_address: o["email"] })),
+      ...holders.map((t) => ({ order_id: t["order_id"], ticket_id: t.id, to_address: t["holder_email"] })),
+    ];
+    return { rows, people: new Set(keep.map((o) => String(o["email"]).toLowerCase())).size, orders: keep.length, holders: holders.length };
+  }
+
+  /** A message sent to a show's buyers now (or a waiting one, as it stands now). */
+  async sendMessage(show: BoxShow, values: Record<string, unknown>, waiting: Id | null): Promise<void> {
+    const to = values["audience"] as "everyone" | "type" | "not_in";
+    const who = this.audience(show, to, (values["ticket_type_id"] as Id | null) ?? null);
+    if (who === undefined) return;
+    const counts = { people: who.people, order_count: who.orders };
+    await this.write(
+      async () => {
+        if (waiting !== null) await this.port.sendBroadcast(waiting, { ...values, ...counts }, who.rows);
+        else await this.port.broadcast({ ...values, ...counts, event_id: show.id }, who.rows, true);
+      },
+      plural(who.people, "Sent to {n} person", "Sent to {n} people"),
+      "send",
+    );
+    this.set((s) => ({ msg: { ...s.msg, subj: null, body: null, waiting: null } }));
+  }
+
+  /** A test of the message, to the signed-in person's own address. */
+  async testMessage(show: BoxShow, subject: string, body: string): Promise<void> {
+    const me = this.me();
+    if (me?.email === undefined || me.email === null) return;
+    await this.write(
+      () => this.port.mail("broadcast", [{ event_id: show.id, to_address: me.email, subject_override: subject, body_override: body }]),
+      tr("Test sent to {email}", { email: me.email ?? "" }),
+      "mail",
+    );
+  }
+
+  /**
+   * A show moved: its times and its days, the date it was, the refund window; its message sent now, or kept
+   * waiting in Messages.
+   */
+  async postpone(show: BoxShow, at: { doors: string; start: string; curfew: string; refundUntil: string }, message: { subject: string; body: string }, send: boolean, newWords: string): Promise<void> {
+    const who = this.audience(show, "everyone", null);
+    if (who === undefined) return;
+    const ok = await this.write(
+      async () => {
+        await this.port.update("events", show.id, {
+          doors_at: at.doors,
+          starts_at: at.start,
+          curfew_at: at.curfew,
+          ends_at: at.curfew,
+          refund_until: at.refundUntil,
+          ...(show.was === null ? { was_starts_at: new Date(show.start).toISOString() } : {}),
+        });
+        const day = show.days[0];
+        if (show.days.length === 1 && day !== undefined) await this.port.update("event_days", day.id, { doors_at: at.doors, curfew_at: at.curfew });
+        await this.port.broadcast(
+          { event_id: show.id, audience: "everyone", template: "moved", subject: message.subject, body: message.body, people: who.people, order_count: who.orders },
+          who.rows,
+          send,
+        );
+      },
+      tr("{name} moved to {when}", { name: show.name, when: newWords }),
+      "calendar-clock",
+    );
+    if (ok) this.set((s) => ({ pc: { ...s.pc, tried: false, msg: null, date: "", until: "" } }));
+  }
+
+  /** A show cancelled: the show, then each live order (one write each); its held emails go with the words typed. */
+  async cancelShow(show: BoxShow, message: { subject: string; body: string }): Promise<void> {
+    await this.write(
+      async () => {
+        await this.port.cancelShow(show.id);
+        const orders = await this.port.list("orders", { where: [{ column: "event_id", eq: show.id }, { column: "cancel_cause", eq: "show" }], limit: 5000 });
+        const ids = orders.rows.map((o) => o.id);
+        const held = ids.length === 0 ? { rows: [] as Row[] } : await this.port.list("messages", { where: [{ column: "order_id", in: ids }, { column: "status", eq: "held" }], limit: 10_000 });
+        for (const m of held.rows) await this.port.update("messages", m.id, { status: "queued", subject_override: message.subject, body_override: message.body, approved_by: this.me()?.name ?? null });
+        const people = new Set(orders.rows.map((o) => String(o["email"] ?? "").toLowerCase()).filter((e) => e !== "")).size;
+        await this.port.broadcast({ event_id: show.id, audience: "everyone", template: "cancelled", subject: message.subject, body: message.body, people, order_count: orders.rows.length }, [], true);
+      },
+      tr("{name} cancelled", { name: show.name }),
+      "calendar-x",
+    );
+    this.set((s) => ({ pc: { ...s.pc, tried: false, msg: null, rfTab: "to", rfPage: 0 } }));
+  }
+
+  /** Settings saved: the venue's, its rooms and its doors. */
+  async saveSettings(): Promise<void> {
+    const d = this.s.set;
+    const w = this.world();
+    if (d === null || w === null) return;
+    const ok = await this.write(async () => {
+      await this.port.update("settings", w.settingsRow.id, d.settings);
+      for (const r of d.rooms) {
+        const values = { name: r["name"], capacity: Number(r["capacity"]), note: r["note"] ?? null };
+        if (r.id > 0) await this.port.update("rooms", r.id, values);
+        else await this.port.create("rooms", { ...values, kind: "room" });
+      }
+      for (const dev of d.devices) {
+        if (dev.id > 0) await this.port.update("devices", dev.id, { name: dev["name"] });
+        else await this.port.create("devices", { name: dev["name"] });
+      }
+      for (const id of d.gone) await this.port.remove("devices", id);
+    }, tr("Settings saved"), "check");
+    if (ok) this.set({ set: null });
+  }
+
   /** A message written earlier and waiting: into Messages, as it was written, to review and send. */
   reviewWaiting(b: Row): void {
     const to = b["audience"] === "type" || b["audience"] === "not_in" ? b["audience"] : "everyone";

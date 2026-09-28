@@ -450,7 +450,7 @@ export class DemoBoxOffice implements BoxOfficePort {
   private readonly person: StaffPerson;
   private retries = new Map<string, Id>();
 
-  constructor(engine: Engine, person: StaffPerson = { name: "Priya", roles: ["box-office"] }) {
+  constructor(engine: Engine, person: StaffPerson = { name: "Priya", roles: ["box-office"], email: "priya@waveform.example" }) {
     this.engine = engine;
     this.person = person;
   }

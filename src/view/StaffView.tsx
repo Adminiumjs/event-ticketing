@@ -2205,7 +2205,10 @@ export function StaffView({ v }: { v: any }) {
                           <span style={st(v.s.lbl)}>
                             {tr("Message")}
                           </span>
-                          <textarea className="wv-fld" rows={9} value={v.ms.body} onChange={v.ms.onBody} style={st(`${v.bo.fld}padding-block:10px; line-height:1.6; font-weight:500; resize:vertical;`)}></textarea>
+                          <textarea className="wv-fld" rows={9} value={v.ms.body} onChange={v.ms.onBody} aria-describedby="ms-lang" style={st(`${v.bo.fld}padding-block:10px; line-height:1.6; font-weight:500; resize:vertical;`)}></textarea>
+                          <span id="ms-lang" style={st(v.s.hint)}>
+                            {v.ms.langNote}
+                          </span>
                         </label>
                         {" "}
                         <div style={st("display:flex; align-items:center; gap:10px; flex-wrap:wrap;")}>
@@ -2237,7 +2240,7 @@ export function StaffView({ v }: { v: any }) {
                           {" "}
                           <div style={st("padding:20px; display:flex; flex-direction:column; gap:12px;")}>
                             <span style={st("font-size:12px; font-weight:700; color:#5a5a65;")}>
-                              {tr("From Waveform · hello@waveform.example")}
+                              {v.ms.from}
                             </span>
                             {" "}
                             <span style={st("font-size:19px; font-weight:800; letter-spacing:-.03em;")}>
@@ -2257,7 +2260,7 @@ export function StaffView({ v }: { v: any }) {
                             </span>
                             {" "}
                             <span style={st("font-size:11.5px; font-weight:500; color:#5a5a65;")}>
-                              {tr("Waveform · 14 Foundry Lane. You're getting this because you have tickets for this show.")}
+                              {v.ms.foot}
                             </span>
                           </div>
                         </div>
@@ -2342,6 +2345,11 @@ export function StaffView({ v }: { v: any }) {
                           ))}
                         </tbody>
                       </table>
+                      {v.ms.histEmpty ? (
+                        <p style={st("margin:0; padding:20px; text-align:center; font-size:14px; font-weight:600; color:var(--fg-muted);")}>
+                          {tr("Nothing sent yet.")}
+                        </p>
+                      ) : null}
                     </section>
                   </div>
                 </>
@@ -2502,7 +2510,7 @@ export function StaffView({ v }: { v: any }) {
                                 {" "}
                                 <div style={st("padding:18px; display:flex; flex-direction:column; gap:10px;")}>
                                   <span style={st("font-size:12px; font-weight:700; color:#5a5a65;")}>
-                                    {tr("From Waveform · hello@waveform.example")}
+                                    {v.pc.from}
                                   </span>
                                   {" "}
                                   <span style={st("font-size:18px; font-weight:800; letter-spacing:-.03em;")}>
@@ -2732,9 +2740,25 @@ export function StaffView({ v }: { v: any }) {
                           <span style={st(v.s.lbl)}>
                             {tr("Contact email")}
                           </span>
-                          <input className="wv-fld" type="email" value={v.st.email.v ?? ""} onChange={v.st.email.on} style={st(`${v.bo.fld}font-family:var(--mono); font-size:13px;`)} />
+                          <input id="st-email" className="wv-fld" type="email" value={v.st.email.v ?? ""} onChange={v.st.email.on} aria-invalid={v.st.email.errOn} aria-describedby={v.st.email.errOn ? "st-email-e" : undefined} style={st(`${v.bo.fld}font-family:var(--mono); font-size:13px;`)} />
+                          {v.st.email.errOn ? (
+                            <span id="st-email-e" role="alert" style={st(v.s.err)}>
+                              <Icon name={"circle-alert"} style={st("width:14px;height:14px;flex-shrink:0;")} />
+                              {v.st.email.err}
+                            </span>
+                          ) : null}
                         </label>
                       </div>
+                      {(v.st.texts ?? []).map((t: any, i_t: number) => (
+                        <Fragment key={t.k ?? i_t}>
+                          <label style={st(v.bo.fl)}>
+                            <span style={st(v.s.lbl)}>
+                              {t.label}
+                            </span>
+                            <textarea className="wv-fld" rows={3} value={t.v ?? ""} onChange={t.on} style={st(`${v.bo.fld}padding-block:8px; line-height:1.55; font-weight:500; resize:vertical;`)}></textarea>
+                          </label>
+                        </Fragment>
+                      ))}
                       {" "}
                       <span style={st(v.s.lbl)}>
                         {tr("Rooms")}
@@ -2757,6 +2781,10 @@ export function StaffView({ v }: { v: any }) {
                           </div>
                         </Fragment>
                       ))}
+                      <button className="wv-gi" onClick={v.st.addRoom} style={st(`${v.s.btnS}align-self:flex-start;`)}>
+                        <Icon name={"plus"} style={st("width:14px;height:14px;")} />
+                        {tr("Add a room")}
+                      </button>
                     </section>
                     {" "}
                     <section aria-labelledby="spy-h" style={st(v.bo.sec)}>
@@ -2793,7 +2821,7 @@ export function StaffView({ v }: { v: any }) {
                           </span>
                           {" "}
                           <span style={st(`${v.s.hint}margin-block-start:-8px;`)}>
-                            {tr("Only shown to a buyer who opened their order or signed in.")}
+                            {v.st.bankHint}
                           </span>
                           {" "}
                           <div style={st("display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px;")}>
@@ -2831,6 +2859,10 @@ export function StaffView({ v }: { v: any }) {
                           </Fragment>
                         ))}
                       </dl>
+                      <button className="wv-gi" onClick={v.st.editRules} style={st(`${v.s.btnS}align-self:flex-start;`)}>
+                        <Icon name={"square-pen"} style={st("width:14px;height:14px;")} />
+                        {tr("Edit the rules")}
+                      </button>
                       {" "}
                       <button role="switch" aria-checked={v.st.tonight.on} onClick={v.st.tonight.go} className="wv-gi" style={st("display:flex; align-items:center; gap:12px; min-height:44px; padding:0 10px; border-radius:11px; border:1px solid var(--border); background:transparent; text-align:start;")}>
                         <span style={st(v.st.tonight.track)}>

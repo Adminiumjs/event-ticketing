@@ -430,6 +430,141 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
   }
 
   if (k === "bxCode") codeSheet(app, box, o, sh, kit, grp);
+
+  if (k === "bxMsg") {
+    const ev = w.byId.get(sh["ev"] as Id);
+    const n = Number(sh["n"] ?? 0);
+    const to = String(sh["to"]);
+    const typeName = ev?.types.find((t) => t.id === sh["typeId"])?.name ?? "";
+    const subj = String(sh["subj"] ?? "");
+    const whom =
+      to === "not_in"
+        ? tr('"{subj}" goes to everyone not yet in with tickets for {name}. You can\'t unsend it.', { subj, name: ev?.name ?? "" })
+        : to === "type"
+          ? tr('"{subj}" goes to everyone with {type} tickets for {name}. You can\'t unsend it.', { subj, type: typeName, name: ev?.name ?? "" })
+          : tr('"{subj}" goes to everyone with tickets for {name}. You can\'t unsend it.', { subj, name: ev?.name ?? "" });
+    Object.assign(o, {
+      icon: "send",
+      title: plural(n, "Send to {n} person?", "Send to {n} people?"),
+      body: whom,
+      btns: [
+        P(plural(n, "Send to {n} person", "Send to {n} people"), () => {
+          if (ev === undefined || busy) return;
+          void box.sendMessage(
+            ev,
+            { audience: to, ticket_type_id: to === "type" ? (sh["typeId"] ?? null) : null, template: sh["tpl"], subject: subj, body: String(sh["body"] ?? "") },
+            (sh["waiting"] ?? null) as Id | null,
+          );
+        }),
+        P(tr("Not yet"), () => app.closeSheet(), "g"),
+      ],
+    });
+  }
+
+  if (k === "bxPost") {
+    const ev = w.byId.get(sh["ev"] as Id);
+    const n = Number(sh["n"] ?? 0);
+    const later = sh["later"] === true;
+    const newTxt = String(sh["newTxt"] ?? "");
+    const untilTxt = String(sh["untilTxt"] ?? "");
+    Object.assign(o, {
+      icon: "calendar-clock",
+      tone: "warn",
+      title: tr("Postpone {name} to {when}?", { name: ev?.name ?? "", when: newTxt.split(" ").slice(0, 3).join(" ") }),
+      body: [
+        tr("Tickets stay valid for the new date."),
+        later ? tr("Your message waits in Messages until you send it.") : plural(n, "{n} person gets your message now.", "{n} people get your message now."),
+        untilTxt === "" ? "" : tr("They can ask for a refund until {day}.", { day: untilTxt }),
+      ]
+        .filter((x) => x !== "")
+        .join(" "),
+      btns: [
+        P(later ? tr("Postpone, send later") : tr("Postpone and send"), () => {
+          if (ev === undefined || busy) return;
+          void box.postpone(ev, sh["at"] as { doors: string; start: string; curfew: string; refundUntil: string }, { subject: String(sh["subj"] ?? ""), body: String(sh["body"] ?? "") }, !later, newTxt.split(" ").slice(0, 3).join(" "));
+        }),
+        P(tr("Not yet"), () => app.closeSheet(), "g"),
+      ],
+    });
+  }
+
+  if (k === "bxCancelShow") {
+    const ev = w.byId.get(sh["ev"] as Id);
+    const n = Number(sh["n"] ?? 0);
+    Object.assign(o, {
+      icon: "calendar-x",
+      tone: "danger",
+      title: tr("Cancel {name}?", { name: ev?.name ?? "" }),
+      body: plural(n, "Every ticket stops working and {n} person gets your message. Then you'll see the list of refunds to make.", "Every ticket stops working and {n} people get your message. Then you'll see the list of refunds to make."),
+      btns: [
+        P(tr("Cancel the show"), () => ev !== undefined && !busy && void box.cancelShow(ev, { subject: String(sh["subj"] ?? ""), body: String(sh["body"] ?? "") }), "d"),
+        P(tr("Keep the show"), () => app.closeSheet(), "g"),
+      ],
+    });
+  }
+
+  if (k === "bxDevice") {
+    const name = String(sh["name"] ?? "");
+    Object.assign(o, {
+      icon: "smartphone",
+      tone: "danger",
+      title: tr("Remove {door}?", { door: name }),
+      body: tr("The door on that phone stops working until it is added again."),
+      btns: [
+        P(tr("Remove"), () => {
+          const d = box.s.set;
+          const devices = d?.devices ?? (box.rows("devices") ?? []).map((x) => ({ ...x }));
+          const id = sh["d"] as Id;
+          box.set({ set: { settings: d?.settings ?? {}, rooms: d?.rooms ?? w.roomRows.filter((r) => r["kind"] !== "both").map((r) => ({ ...r })), devices: devices.filter((x) => x.id !== id), gone: id > 0 ? [...(d?.gone ?? []), id] : (d?.gone ?? []) } });
+          app.closeSheet();
+        }, "d"),
+        P(tr("Keep"), () => app.closeSheet(), "g"),
+      ],
+    });
+  }
+
+  if (k === "bxRules") {
+    const num2 = (key: string, label: string) => fld(`rl-${key}`, label, key, "text", { im: "numeric", style: `${errs[key] ? S.fldErr : S.fld}font-family:var(--mono);` });
+    Object.assign(o, {
+      icon: "settings",
+      title: tr("Edit the rules"),
+      sub: tr("New checkouts, offers and deadlines follow these; what is already running keeps its times."),
+      fields: [
+        num2("transfer_days", tr("Days to pay by transfer")),
+        fld("rl-transfer_time", tr("Transfers due by"), "transfer_time", "time", { style: `${S.fld}font-family:var(--mono);` }),
+        num2("transfer_cutoff_days", tr("No transfers in the last days before a show")),
+        num2("release_after_hours", tr("Hours of grace before unpaid tickets go back on sale")),
+        num2("hold_minutes", tr("Minutes a checkout holds tickets")),
+        num2("offer_hours", tr("Hours a waitlist offer lasts")),
+        num2("send_hours", tr("Hours a friend has to accept a ticket")),
+        num2("refund_days", tr("Refunds close this many days before a show")),
+        num2("check_in_minutes", tr("Check-in opens this many minutes before doors")),
+        fld("rl-day_starts_at", tr("The venue day starts at"), "day_starts_at", "time", { style: `${S.fld}font-family:var(--mono);` }),
+      ],
+      noteOn: true,
+      note: tr("Shows that run past midnight stay on tonight's door and on Today until then."),
+      submitLabel: tr("Use these rules"),
+      submit: (e?: { preventDefault: () => void }) => {
+        e?.preventDefault();
+        const bounds: Record<string, [number, number]> = { transfer_days: [1, 14], transfer_cutoff_days: [0, 30], release_after_hours: [0, 168], hold_minutes: [2, 60], offer_hours: [1, 72], send_hours: [1, 168], refund_days: [0, 60], check_in_minutes: [0, 240] };
+        const err: Record<string, string> = {};
+        const values: Record<string, unknown> = {};
+        for (const [key, [lo, hi]] of Object.entries(bounds)) {
+          const v = Number(sh[key]);
+          if (!Number.isInteger(v) || v < lo || v > hi) err[key] = tr("Enter a whole number from {lo} to {hi}", { lo, hi });
+          else values[key] = v;
+        }
+        for (const key of ["transfer_time", "day_starts_at"]) {
+          if (!/^\d{2}:\d{2}$/.test(String(sh[key] ?? ""))) err[key] = tr("Enter a time, like 18:00");
+          else values[key] = sh[key];
+        }
+        if (Object.keys(err).length > 0) return set({ err });
+        const d = box.s.set;
+        box.set({ set: { settings: { ...(d?.settings ?? {}), ...values }, rooms: d?.rooms ?? w.roomRows.filter((r) => r["kind"] !== "both").map((r) => ({ ...r })), devices: d?.devices ?? (box.rows("devices") ?? []).map((x) => ({ ...x })), gone: d?.gone ?? [] } });
+        app.closeSheet();
+      },
+    });
+  }
 }
 
 // ── New order ────────────────────────────────────────────────────────────────
