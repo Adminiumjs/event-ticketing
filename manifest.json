@@ -3521,7 +3521,17 @@
                   ]
                 }
               },
-              "no_charge",
+              {
+                "to": "no_charge",
+                "requires": {
+                  "where": [
+                    {
+                      "column": "total",
+                      "lte": 0
+                    }
+                  ]
+                }
+              },
               {
                 "to": "awaiting_transfer",
                 "requires": {
@@ -3580,7 +3590,17 @@
                   ]
                 }
               },
-              "no_charge",
+              {
+                "to": "no_charge",
+                "requires": {
+                  "where": [
+                    {
+                      "column": "total",
+                      "lte": 0
+                    }
+                  ]
+                }
+              },
               "expired",
               {
                 "to": "cancelled",
@@ -3619,7 +3639,17 @@
                   ]
                 }
               },
-              "no_charge",
+              {
+                "to": "no_charge",
+                "requires": {
+                  "where": [
+                    {
+                      "column": "total",
+                      "lte": 0
+                    }
+                  ]
+                }
+              },
               "expired",
               {
                 "to": "cancelled",
@@ -13886,7 +13916,8 @@
           "name",
           "opt_in"
         ],
-        "stamp": "forgotten_at"
+        "stamp": "forgotten_at",
+        "links": true
       }
     },
     {

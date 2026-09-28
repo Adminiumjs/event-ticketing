@@ -951,7 +951,17 @@ export const MANIFEST_RULES = {
               ]
             }
           },
-          "no_charge",
+          {
+            "to": "no_charge",
+            "requires": {
+              "where": [
+                {
+                  "column": "total",
+                  "lte": 0
+                }
+              ]
+            }
+          },
           {
             "to": "awaiting_transfer",
             "requires": {
@@ -1010,7 +1020,17 @@ export const MANIFEST_RULES = {
               ]
             }
           },
-          "no_charge",
+          {
+            "to": "no_charge",
+            "requires": {
+              "where": [
+                {
+                  "column": "total",
+                  "lte": 0
+                }
+              ]
+            }
+          },
           "expired",
           {
             "to": "cancelled",
@@ -1049,7 +1069,17 @@ export const MANIFEST_RULES = {
               ]
             }
           },
-          "no_charge",
+          {
+            "to": "no_charge",
+            "requires": {
+              "where": [
+                {
+                  "column": "total",
+                  "lte": 0
+                }
+              ]
+            }
+          },
           "expired",
           {
             "to": "cancelled",
@@ -1508,7 +1538,8 @@ export const MANIFEST_RULES = {
           "name",
           "opt_in"
         ],
-        "stamp": "forgotten_at"
+        "stamp": "forgotten_at",
+        "links": true
       }
     },
     {

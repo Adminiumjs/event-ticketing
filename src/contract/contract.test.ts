@@ -12,7 +12,8 @@
  *   3. the box office's counts: Neon Circuit's pools;
  *   4. a buyer orders two Neon Standard tickets through the public API:
  *      priced by the dry run, written once with its tickets, the venue's
- *      first number, a retry replayed without the link;
+ *      first number, a retry replayed without the link — and through the
+ *      order's own link cannot mark it "no charge";
  *   5. the door: a check-in for an uncollected pay-at-the-door ticket is
  *      refused, a collected one is let in once;
  *   6. the sample removed.
@@ -177,6 +178,16 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         expect(made.link?.token).toBeDefined();
         const again = ok(await buyer.post<{ data: Row; replayed?: boolean; link?: unknown }>(`/api/v1/public/records/${door}`, { ...body, expect: { total: "56.00" } }, await proof()));
         expect([again.data.id, again.replayed, again.link]).toEqual([made.data.id, true, undefined]);
+
+        // Through the order's own link, the buyer cannot mark a priced order "no charge": its tickets stay unpaid.
+        const linkKey = (config as { publicKeys?: Record<string, string> }).publicKeys?.["link"];
+        expect(linkKey).toBeDefined();
+        const owner = new Caller(server.base, { authorization: `Bearer ${linkKey!}`, origin: server.base });
+        const session = ok(await owner.post<{ data: { session: string } }>("/api/v1/public/claim/token", { token: made.link!.token })).data.session;
+        const free = await owner.patch(`/api/v1/public/records/${real["orders"]!}_claimed/${String(made.data.id)}`, { values: { status: "no_charge" } }, { "x-adminium-public-session": session });
+        expect([free.status, free.code, free.details["requires"]]).toEqual([409, "STATE_MOVE_REFUSED", "total"]);
+        const tickets = (await rows("tickets")).filter((t) => t["order_id"] === made.data.id);
+        expect(tickets.map((t) => Number(t["settled"]))).toEqual([0, 0]);
       }, 120_000);
 
       it("refuses a check-in for an uncollected pay-at-the-door ticket, and lets it in once its money is taken", async (ctx) => {

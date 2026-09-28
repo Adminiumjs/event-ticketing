@@ -182,7 +182,8 @@ const WITH_ORDER = { level: "verified", visibleWith: { table: "orders", via: "or
 function orderEntry(keyed: Record<string, unknown>, who: Record<string, unknown>) {
   return {
     // Choosing how to pay, letting a checkout go, keeping tickets after a move. Never on to waiting for a
-    // transfer: the emailed confirm does that. Which move is allowed from where is the order's own rule.
+    // transfer: the emailed confirm does that. "No charge" is for a free show's places only: the order's own
+    // rule refuses it while anything is to pay. Which move is allowed from where is the order's own rule.
     table: "orders",
     ...keyed,
     methods: ["GET", "PATCH"],
@@ -240,7 +241,8 @@ export const PUBLIC_ACCESS = [
     writable: ["name", "opt_in"],
     claim: { verify: "email-link", email: "email" },
     humanCheck: true,
-    forget: { columns: ["email", "name", "opt_in"], stamp: "forgotten_at" },
+    // Deleting their details also stops their orders' own links: an old email no longer opens a name and an address.
+    forget: { columns: ["email", "name", "opt_in"], stamp: "forgotten_at", links: true },
   },
   orderEntry({}, SIGNED_IN),
   ...ticketEntries({}),

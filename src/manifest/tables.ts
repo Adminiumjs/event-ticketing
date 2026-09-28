@@ -293,6 +293,11 @@ const AWAITING_BY_STAFF = {
   requires: { setting: [{ table: "settings", column: "transfer_on", eq: true }], where: [{ column: "email", isNull: false }] },
 };
 const CANCELLED = { to: "cancelled", requires: { where: [{ column: "cancel_cause", isNull: false }] } };
+/**
+ * At no charge: only an order with nothing to pay (a free show's places, comps). Its tickets count as paid at
+ * the door, so a priced order may never be moved here — by its buyer or by anyone.
+ */
+const NO_CHARGE = { to: "no_charge", requires: { where: [{ column: "total", lte: 0 }] } };
 
 const ORDER_STATES = {
   column: "status",
@@ -300,10 +305,10 @@ const ORDER_STATES = {
   // "Paid by card at 14:30 by Priya": a second screen's tap is refused, naming the first.
   strict: true,
   moves: {
-    held: [DOOR, CONFIRMING, "no_charge", AWAITING_BY_STAFF, PAID, "offered", "let_go", "expired", CANCELLED],
+    held: [DOOR, CONFIRMING, NO_CHARGE, AWAITING_BY_STAFF, PAID, "offered", "let_go", "expired", CANCELLED],
     // The only way on to waiting is the confirm link in the email: no key the page holds lists it.
-    confirming: ["awaiting_transfer", DOOR, "no_charge", "expired", CANCELLED],
-    offered: [DOOR, CONFIRMING, "no_charge", "expired", CANCELLED],
+    confirming: ["awaiting_transfer", DOOR, NO_CHARGE, "expired", CANCELLED],
+    offered: [DOOR, CONFIRMING, NO_CHARGE, "expired", CANCELLED],
     door: [PAID, { to: "not_collected", requires: { where: [{ column: "balance", gt: 0 }] } }, CANCELLED],
     awaiting_transfer: [PAID, "overdue", CANCELLED],
     overdue: [PAID, "released", CANCELLED],

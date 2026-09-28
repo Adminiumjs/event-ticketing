@@ -105,6 +105,23 @@ describe("a checkout", () => {
   });
 });
 
+describe("no charge", () => {
+  it("is refused on a priced order, and its tickets stay unpaid", async () => {
+    const demo = new DemoAdminium();
+    const reply = await demo.audience.buy(neonBody(4)(demo), "free-ride");
+    expect(await refused(() => demo.audience.choose("no_charge"))).toMatchObject({ code: "STATE_MOVE_REFUSED", params: { requires: "total" } });
+    expect(demo.world.get("orders", reply.data.id)!["status"]).toBe("held");
+    expect(demo.world.where("tickets", (t) => t["order_id"] === reply.data.id).map((t) => t["settled"])).toEqual([0, 0, 0, 0]);
+  });
+
+  it("confirms a free show's places", async () => {
+    const demo = new DemoAdminium();
+    const listen = byName(demo, "First Listen: Hollow Tide's new record");
+    await demo.audience.buy({ values: { event_id: listen.id, buyer_name: "Lee Tan", email: "lee.tan@example.com" }, tickets: [{ ticket_type_id: typeOf(demo, listen["name"] as string, "Register").id }] }, "free-show");
+    expect((await demo.audience.choose("no_charge"))["status"]).toBe("no_charge");
+  });
+});
+
 describe("codes", () => {
   it("gives CREW5's $5 off each Standard on a Main Hall show, nothing off a Balcony, and is unknown on The Annex", async () => {
     const demo = new DemoAdminium();

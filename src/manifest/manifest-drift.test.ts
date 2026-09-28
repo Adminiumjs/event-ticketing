@@ -130,6 +130,17 @@ describe("Adminium decides the money", () => {
     }
   });
 
+  it("reaches no charge only with nothing to pay: a priced order's tickets never count as paid for nothing", () => {
+    const into = Object.entries(states("orders").moves).flatMap(([from, moves]) => moves.filter((m) => (typeof m === "string" ? m : m.to) === "no_charge").map((m) => [from, m] as const));
+    expect(into.map(([from]) => from).sort()).toEqual(["confirming", "held", "offered"]);
+    for (const [from, move] of into) expect(typeof move === "string" ? null : move.requires, `${from} → no_charge`).toEqual({ where: [{ column: "total", lte: 0 }] });
+  });
+
+  it("stops a person's own order links when they delete their details", () => {
+    const identity = manifest.publicAccess.find((e) => e.table === "customers" && e["forget"] !== undefined)!;
+    expect((identity["forget"] as Json)["links"]).toBe(true);
+  });
+
   it("never lets a buyer write a price, a total, a number, a code or a status the order does not allow", () => {
     const decided = ["price", "discount", "due", "total", "subtotal", "balance", "paid_in", "collected", "refunded", "number", "code", "held_until", "pay_by", "offer_until"];
     const writes = manifest.publicAccess.flatMap((e) => ((e["writable"] as string[] | undefined) ?? []).filter((c) => decided.includes(c)).map((c) => `${e.table}.${c}`));
