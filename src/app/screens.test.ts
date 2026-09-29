@@ -276,7 +276,8 @@ describe("signing out on every device", () => {
   });
 });
 
-describe("the confirm email's Send it again", () => {
+// Each case builds the demo world and checks out through it: seconds apiece on a shared runner.
+describe("the confirm email's Send it again", { timeout: 30_000 }, () => {
   /** A Cinder checkout by transfer, on the "One more step" screen. */
   async function waiting() {
     const o = await open();
