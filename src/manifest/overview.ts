@@ -78,8 +78,8 @@ function card(i: string, widget: string, [x, y, w, h]: Place, en: string, config
   };
 }
 
-/** A list column, its label in every language. */
-const col = (name: string, en: string, rest: Json = {}): Json => ({ name, label: en, labels: titles(en), ...rest });
+/** A list column. Its header is in English: a list column has no translated label yet. */
+const col = (name: string, en: string, rest: Json = {}): Json => ({ name, label: en, ...rest });
 
 export const OVERVIEW_LAYOUT = {
   version: 1,
@@ -137,7 +137,7 @@ export const OVERVIEW_LAYOUT = {
       "Tonight",
       {
         limit: 3,
-        columns: [col("name", "Show"), col("doors_at", "Doors", { logicalType: "time" }), col("sold", "Sold", { semantic: "capacity-bar" })],
+        columns: [col("name", "Show"), col("doors_at", "Doors", { logicalType: "timestamptz" }), col("sold", "Sold", { semantic: "capacity-bar" })],
         secondary: ["room"],
         viewAllHref: page("shows", "f.doors_at=gte:today", "f.doors_at=lte:today"),
         binding: list("events", {
@@ -199,7 +199,7 @@ export const OVERVIEW_LAYOUT = {
       "Refund requests",
       {
         limit: 6,
-        columns: [col("holder_name", "Ticket holder"), col("refund_asked_at", "Asked", { logicalType: "datetime" })],
+        columns: [col("holder_name", "Ticket holder"), col("refund_asked_at", "Asked", { logicalType: "timestamptz" })],
         secondary: ["order", "show"],
         viewAllHref: page("tickets", "f.status=eq:refund_asked"),
         binding: list("tickets", {
@@ -239,7 +239,7 @@ export const OVERVIEW_LAYOUT = {
       "Going on sale",
       {
         limit: 6,
-        columns: [col("name", "Show"), col("on_sale_at", "On sale", { logicalType: "datetime" }), col("reminder_count", "Reminders", { logicalType: "integer" })],
+        columns: [col("name", "Show"), col("on_sale_at", "On sale", { logicalType: "timestamptz" }), col("reminder_count", "Reminders", { logicalType: "integer" })],
         viewAllHref: page("reminders"),
         binding: list("events", {
           select: ["id", "name", "on_sale_at", "reminder_count"],
@@ -259,7 +259,7 @@ export const OVERVIEW_LAYOUT = {
       "Coming shows",
       {
         limit: 20,
-        columns: [col("doors_at", "Date", { logicalType: "date" }), col("name", "Show"), col("sold", "Sold", { semantic: "capacity-bar" })],
+        columns: [col("doors_at", "Date", { logicalType: "timestamptz" }), col("name", "Show"), col("sold", "Sold", { semantic: "capacity-bar" })],
         secondary: ["room"],
         viewAllHref: page("shows", "f.status=eq:published", "f.curfew_at=gte:today"),
         binding: list("events", {

@@ -18,6 +18,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildManifest, manifestText } from "./build.ts";
 import { emailWords } from "./emails.ts";
+import { OVERVIEW_LAYOUT } from "./overview.ts";
 import { LOCALES, untranslated } from "./labels.ts";
 
 const FILE = join(__dirname, "..", "..", "manifest.json");
@@ -212,5 +213,17 @@ describe("a cancellation email follows who cancelled, never the status alone", (
       expect(p["hold"]).toBe(true);
       expect(((p["onChange"] as Json)["to"])).toBe("show");
     }
+  });
+});
+
+describe("the Overview is drawn as written", () => {
+  // A list column's type must be one the dashboard's lists know, or the card's whole setup is refused and it
+  // falls back to plain columns (a moment of a show is `timestamptz`: a `date` would print the UTC day).
+  const TYPES = ["text", "varchar", "integer", "bigint", "decimal", "float", "boolean", "date", "time", "timestamp", "timestamptz", "interval", "uuid", "json", "binary", "enum", "geometry", "inet", "unknown"];
+  it("names only list column types the dashboard draws, and no moment of a show as a bare date", () => {
+    const columns = OVERVIEW_LAYOUT.items.flatMap((item) => ((item.config as Json)["columns"] as Json[] | undefined) ?? []);
+    expect(columns.length).toBeGreaterThan(0);
+    expect(columns.filter((c) => c["logicalType"] !== undefined && !TYPES.includes(String(c["logicalType"])))).toEqual([]);
+    expect(columns.filter((c) => String(c["name"]).endsWith("_at") && c["logicalType"] !== "timestamptz")).toEqual([]);
   });
 });

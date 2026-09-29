@@ -12370,43 +12370,16 @@
                 "columns": [
                   {
                     "name": "name",
-                    "label": "Show",
-                    "labels": {
-                      "de-DE": "Show",
-                      "fr-FR": "Spectacle",
-                      "da-DK": "Arrangement",
-                      "cs-CZ": "Akce",
-                      "ar-EG": "الحفل",
-                      "zh-CN": "演出",
-                      "zh-TW": "演出"
-                    }
+                    "label": "Show"
                   },
                   {
                     "name": "doors_at",
                     "label": "Doors",
-                    "labels": {
-                      "de-DE": "Einlass",
-                      "fr-FR": "Ouverture des portes",
-                      "da-DK": "Dørene åbner",
-                      "cs-CZ": "Otevření",
-                      "ar-EG": "فتح الأبواب",
-                      "zh-CN": "开门",
-                      "zh-TW": "入場時間"
-                    },
-                    "logicalType": "time"
+                    "logicalType": "timestamptz"
                   },
                   {
                     "name": "sold",
                     "label": "Sold",
-                    "labels": {
-                      "de-DE": "Verkauft",
-                      "fr-FR": "Vendus",
-                      "da-DK": "Solgt",
-                      "cs-CZ": "Prodáno",
-                      "ar-EG": "المبيع",
-                      "zh-CN": "已售",
-                      "zh-TW": "已售出"
-                    },
                     "semantic": "capacity-bar"
                   }
                 ],
@@ -12621,29 +12594,11 @@
                 "columns": [
                   {
                     "name": "buyer_name",
-                    "label": "Buyer",
-                    "labels": {
-                      "de-DE": "Käufer",
-                      "fr-FR": "Acheteur",
-                      "da-DK": "Køber",
-                      "cs-CZ": "Kupující",
-                      "ar-EG": "المشتري",
-                      "zh-CN": "购票人",
-                      "zh-TW": "購票人"
-                    }
+                    "label": "Buyer"
                   },
                   {
                     "name": "balance",
                     "label": "Owed",
-                    "labels": {
-                      "de-DE": "Offen",
-                      "fr-FR": "Reste dû",
-                      "da-DK": "Skyldigt",
-                      "cs-CZ": "K úhradě",
-                      "ar-EG": "المبلغ المستحق",
-                      "zh-CN": "待付",
-                      "zh-TW": "待付"
-                    },
                     "logicalType": "decimal",
                     "semantic": "money"
                   }
@@ -12721,30 +12676,12 @@
                 "columns": [
                   {
                     "name": "holder_name",
-                    "label": "Ticket holder",
-                    "labels": {
-                      "de-DE": "Ticketinhaber",
-                      "fr-FR": "Titulaire du billet",
-                      "da-DK": "Billetindehaver",
-                      "cs-CZ": "Držitel vstupenky",
-                      "ar-EG": "حامل التذكرة",
-                      "zh-CN": "持票人",
-                      "zh-TW": "持票人"
-                    }
+                    "label": "Ticket holder"
                   },
                   {
                     "name": "refund_asked_at",
                     "label": "Asked",
-                    "labels": {
-                      "de-DE": "Gefragt",
-                      "fr-FR": "Demandé",
-                      "da-DK": "Anmodet",
-                      "cs-CZ": "Vyžádáno",
-                      "ar-EG": "طُلب",
-                      "zh-CN": "申请时间",
-                      "zh-TW": "提出時間"
-                    },
-                    "logicalType": "datetime"
+                    "logicalType": "timestamptz"
                   }
                 ],
                 "secondary": [
@@ -12830,29 +12767,11 @@
                 "columns": [
                   {
                     "name": "subject",
-                    "label": "Message",
-                    "labels": {
-                      "de-DE": "Nachricht",
-                      "fr-FR": "Message",
-                      "da-DK": "Besked",
-                      "cs-CZ": "Zpráva",
-                      "ar-EG": "الرسالة",
-                      "zh-CN": "消息",
-                      "zh-TW": "訊息"
-                    }
+                    "label": "Message"
                   },
                   {
                     "name": "people",
                     "label": "People",
-                    "labels": {
-                      "de-DE": "Personen",
-                      "fr-FR": "Personnes",
-                      "da-DK": "Personer",
-                      "cs-CZ": "Lidé",
-                      "ar-EG": "الأشخاص",
-                      "zh-CN": "人数",
-                      "zh-TW": "人數"
-                    },
                     "logicalType": "integer"
                   }
                 ],
@@ -12936,43 +12855,16 @@
                 "columns": [
                   {
                     "name": "name",
-                    "label": "Show",
-                    "labels": {
-                      "de-DE": "Show",
-                      "fr-FR": "Spectacle",
-                      "da-DK": "Arrangement",
-                      "cs-CZ": "Akce",
-                      "ar-EG": "الحفل",
-                      "zh-CN": "演出",
-                      "zh-TW": "演出"
-                    }
+                    "label": "Show"
                   },
                   {
                     "name": "on_sale_at",
                     "label": "On sale",
-                    "labels": {
-                      "de-DE": "Im Verkauf",
-                      "fr-FR": "En vente",
-                      "da-DK": "Til salg",
-                      "cs-CZ": "V prodeji",
-                      "ar-EG": "معروضة للبيع",
-                      "zh-CN": "售票中",
-                      "zh-TW": "販售中"
-                    },
-                    "logicalType": "datetime"
+                    "logicalType": "timestamptz"
                   },
                   {
                     "name": "reminder_count",
                     "label": "Reminders",
-                    "labels": {
-                      "de-DE": "Erinnerungen",
-                      "fr-FR": "Rappels",
-                      "da-DK": "Påmindelser",
-                      "cs-CZ": "Připomínky",
-                      "ar-EG": "التذكيرات",
-                      "zh-CN": "提醒",
-                      "zh-TW": "提醒"
-                    },
                     "logicalType": "integer"
                   }
                 ],
@@ -13063,42 +12955,15 @@
                   {
                     "name": "doors_at",
                     "label": "Date",
-                    "labels": {
-                      "de-DE": "Datum",
-                      "fr-FR": "Date",
-                      "da-DK": "Dato",
-                      "cs-CZ": "Datum",
-                      "ar-EG": "التاريخ",
-                      "zh-CN": "日期",
-                      "zh-TW": "日期"
-                    },
-                    "logicalType": "date"
+                    "logicalType": "timestamptz"
                   },
                   {
                     "name": "name",
-                    "label": "Show",
-                    "labels": {
-                      "de-DE": "Show",
-                      "fr-FR": "Spectacle",
-                      "da-DK": "Arrangement",
-                      "cs-CZ": "Akce",
-                      "ar-EG": "الحفل",
-                      "zh-CN": "演出",
-                      "zh-TW": "演出"
-                    }
+                    "label": "Show"
                   },
                   {
                     "name": "sold",
                     "label": "Sold",
-                    "labels": {
-                      "de-DE": "Verkauft",
-                      "fr-FR": "Vendus",
-                      "da-DK": "Solgt",
-                      "cs-CZ": "Prodáno",
-                      "ar-EG": "المبيع",
-                      "zh-CN": "已售",
-                      "zh-TW": "已售出"
-                    },
                     "semantic": "capacity-bar"
                   }
                 ],
