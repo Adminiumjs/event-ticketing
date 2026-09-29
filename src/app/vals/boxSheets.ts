@@ -546,7 +546,9 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
       Object.assign(o, {
         noteOn: true,
         note:
-          run.stage === "orders"
+          typeof run.waitUntil === "number"
+            ? tr("Adminium asks this sign-in to slow down: going on at {time}. Keep this page open.", { time: fT(run.waitUntil) })
+            : run.stage === "orders"
             ? tr("Cancelling orders: {done} of {total}. Keep this page open.", { done: num(run.done), total: num(run.total) })
             : tr("Sending the cancellation emails: {done} of {total}. Keep this page open.", { done: num(run.done), total: num(run.total) }),
       });

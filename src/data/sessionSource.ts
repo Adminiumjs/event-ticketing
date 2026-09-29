@@ -141,9 +141,13 @@ const RATE_WAIT_DEFAULT_MS = 5_000;
 
 /** How long a 429 asks to wait, from `Retry-After` in seconds; a default when it says nothing usable. */
 export function rateLimitWait(retryAfter: string | null): number {
-  const seconds = retryAfter === null ? Number.NaN : Number(retryAfter);
-  if (!Number.isFinite(seconds) || seconds < 0) return RATE_WAIT_DEFAULT_MS;
-  return Math.min(Math.ceil(seconds * 1000), RATE_WAIT_CAP_MS);
+  return Math.min(retryAfterMs(retryAfter) ?? RATE_WAIT_DEFAULT_MS, RATE_WAIT_CAP_MS);
+}
+
+/** `Retry-After` in seconds, as milliseconds, uncapped; null when it says nothing usable. */
+export function retryAfterMs(retryAfter: string | null): number | null {
+  const seconds = retryAfter === null || retryAfter.trim() === "" ? Number.NaN : Number(retryAfter);
+  return !Number.isFinite(seconds) || seconds < 0 ? null : Math.ceil(seconds * 1000);
 }
 
 /*
@@ -246,13 +250,19 @@ export class SessionPortError extends Error {
   readonly code: string;
   /** What the server said beyond the message — a refused write's column issues. */
   readonly details: unknown;
+  /**
+   * On a 429, how long `Retry-After` asks to wait, uncapped — counted from the answer, so a clock set wrong on
+   * this device (or a server whose clock is not this device's) does not matter. Null when it says nothing usable.
+   */
+  readonly retryAfterMs: number | null;
 
-  constructor(message: string, status: number, code: string, details?: unknown) {
+  constructor(message: string, status: number, code: string, details?: unknown, retryAfterMs: number | null = null) {
     super(message);
     this.name = "SessionPortError";
     this.status = status;
     this.code = code;
     this.details = details;
+    this.retryAfterMs = retryAfterMs;
   }
 }
 
@@ -353,6 +363,7 @@ function buildTransport(opts: SessionPortOptions): SessionTransport {
         response.status,
         envelope?.error?.code ?? "INTERNAL",
         envelope?.error?.details,
+        response.status === 429 ? retryAfterMs(response.headers.get("retry-after")) : null,
       );
     }
     return body as T;

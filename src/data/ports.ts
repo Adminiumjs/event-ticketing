@@ -152,6 +152,11 @@ export interface EventChildren {
 }
 
 export interface BoxOfficePort {
+  /**
+   * Hear when a request waits out the person's rate limit, and until when (null: going again) — a long run
+   * says so while it waits. Returns how to stop hearing. A port that never waits need not have it.
+   */
+  onRateWait?(hear: (until: number | null) => void): () => void;
   me(): Promise<StaffPerson>;
   config(): Promise<Config>;
   /** Every row of a table the person may read. */

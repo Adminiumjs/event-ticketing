@@ -17,11 +17,12 @@ const ALL = 20_000;
 /** How many ids one `in` condition carries. */
 const PART = 150;
 
-/** How far a run has got: its stage, and how many of the stage's rows are done. */
+/** How far a run has got: its stage, and how many of the stage's rows are done; while it waits out the rate limit, until when. */
 export interface RunProgress {
   stage: "orders" | "emails";
   done: number;
   total: number;
+  waitUntil?: number | null;
 }
 
 async function allIn(port: BoxOfficePort, table: string, column: string, ids: Id[], where: Where[]): Promise<Row[]> {
@@ -83,6 +84,27 @@ export async function cancelRun(
   eventId: Id,
   words: { subject: string; body: string },
   opts: { progress?: (p: RunProgress) => void; stopAfter?: number } = {},
+): Promise<{ orders: number; emails: number }> {
+  // Every request of the run goes at the pace Adminium allows (the port waits a 429 out): while it waits, the
+  // progress says until when.
+  let last: RunProgress = { stage: "orders", done: 0, total: 0 };
+  const report = (p: RunProgress) => {
+    last = p;
+    opts.progress?.(p);
+  };
+  const stopHearing = port.onRateWait?.((until) => opts.progress?.({ ...last, waitUntil: until }));
+  try {
+    return await cancelSteps(port, eventId, words, { ...opts, progress: report });
+  } finally {
+    stopHearing?.();
+  }
+}
+
+async function cancelSteps(
+  port: BoxOfficePort,
+  eventId: Id,
+  words: { subject: string; body: string },
+  opts: { progress?: (p: RunProgress) => void; stopAfter?: number },
 ): Promise<{ orders: number; emails: number }> {
   let writes = 0;
   const wrote = () => {
