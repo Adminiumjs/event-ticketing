@@ -2501,10 +2501,10 @@ export function AudienceView({ v }: { v: any }) {
                                       {t.st}
                                     </span>
                                     {" "}
-                                    <div style={st("display:flex; gap:6px;")}>
+                                    <div style={st("display:flex; flex-wrap:wrap; gap:6px;")}>
                                       {t.showOn ? (
                                         <>
-                                          <button className="wv-btn" onClick={t.show} style={st(`${v.s.btnP}min-height:36px; padding:0 12px; font-size:13px; flex:1;`)}>
+                                          <button className="wv-btn" onClick={t.show} style={st(`${v.s.btnP}min-height:36px; padding:0 12px; font-size:13px; flex:1; white-space:nowrap;`)}>
                                             <Icon name={"qr-code"} style={st("width:14px;height:14px;")} />
                                             {tr("Show ticket")}
                                           </button>
@@ -2513,7 +2513,7 @@ export function AudienceView({ v }: { v: any }) {
                                       {" "}
                                       {t.moreOn ? (
                                         <>
-                                          <button className="wv-gi" onClick={t.more} aria-label={t.moreLabel} style={st(`${v.s.btnS}min-height:36px;`)}>
+                                          <button className="wv-gi" onClick={t.more} aria-label={t.moreLabel} style={st(`${v.s.btnS}min-height:36px; white-space:nowrap;`)}>
                                             <Icon name={"ellipsis"} style={st("width:15px;height:15px;")} />
                                             {tr("More")}
                                           </button>
