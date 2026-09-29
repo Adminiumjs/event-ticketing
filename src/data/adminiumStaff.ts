@@ -19,7 +19,7 @@ import { cancelShowOrders, offerPlan, recipientKey } from "./boxSteps.ts";
 import { SessionPortError, type CallOptions, type SessionTransport } from "./sessionSource.ts";
 import type { StaffConfig } from "../staffConnection.ts";
 import { zoneOffsetMs } from "../lib/venueTime.ts";
-import { ApiError, yes, type Config, type HistoryEntry, type Id, type ListQuery, type ListReply, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type Where } from "./wire.ts";
+import { ApiError, yes, type Config, type HistoryEntry, type Id, type ListQuery, type ListReply, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type Where, ticketRows } from "./wire.ts";
 
 /** The app's key: its roles are named `events-<role>`, its tables `events_<table>` when the server does not say. */
 const APP_KEY = "events";
@@ -418,7 +418,7 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
     const rel = await this.t.relation(this.real("tickets"), "order_id");
     return {
       values: { channel: "box_office", ...body.values, room_id: event["room_id"] ?? null },
-      children: { [rel]: body.tickets.map((t) => ({ values: { ...t } })) },
+      children: { [rel]: ticketRows(body).map((t) => ({ values: { ...t } })) },
     };
   }
 

@@ -19,7 +19,7 @@ import { createPublicClient, PublicApiError, type HeldSession, type PublicClient
 
 import type { AudiencePort, BankDoor, OrderWithTickets, Person, Venue } from "./ports.ts";
 import { publicRefs, type Refs } from "./publicRefs.ts";
-import { ApiError, type ClaimReply, type Config, type Id, type OrderBody, type OrderReply, type QuoteReply, type Row, type TypeLeft } from "./wire.ts";
+import { ApiError, type ClaimReply, type Config, type Id, type OrderBody, type OrderReply, type QuoteReply, type Row, type TypeLeft, ticketRows } from "./wire.ts";
 
 export interface AudienceConfig {
   /** Where the public API is: `""` for this same origin. */
@@ -243,7 +243,7 @@ export class AdminiumAudience implements AudiencePort {
   // ── buying ────────────────────────────────────────────────────────────────
 
   private tree(body: OrderBody) {
-    return { values: body.values as ClientRow, children: { tickets: body.tickets.map((t) => ({ values: t as unknown as ClientRow })) } };
+    return { values: body.values as ClientRow, children: { tickets: ticketRows(body).map((t) => ({ values: t as unknown as ClientRow })) } };
   }
 
   quote(body: OrderBody): Promise<QuoteReply> {

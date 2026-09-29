@@ -60,6 +60,50 @@ describe("a show that is not on sale", () => {
   });
 });
 
+describe("a ticket's show", () => {
+  it("is sent with every ticket, and the show's doors, waitlist and reminder are copied from it", async () => {
+    const demo = new DemoAdminium();
+    const order = await buy(demo, "Marrow & Salt", "Standard", 1);
+    const show = byName(demo, "Marrow & Salt");
+    const ticket = demo.world.all("tickets").find((t) => t["order_id"] === order.id)!;
+    expect([ticket["show_id"], ticket["event_id"], ticket["right_show"]]).toEqual([show.id, show.id, 1]);
+    expect([ticket["doors_at"], ticket["waitlist_on"], ticket["eve_email"]]).toEqual([show["doors_at"], show["waitlist_on"], show["eve_email"]]);
+    // Every sample ticket carries its show too.
+    expect(demo.world.all("tickets").filter((t) => t["show_id"] !== t["event_id"] || t["doors_at"] === null)).toEqual([]);
+  });
+
+  it("refuses a ticket of one show's type made on another show's order, or sent with another show", async () => {
+    const demo = new DemoAdminium();
+    const neon = byName(demo, "Neon Circuit");
+    const cinder = byName(demo, "Cinder");
+    const orders = demo.world.all("orders").length;
+    // The box office's order for Neon Circuit, with Cinder's type.
+    const mixed = { values: { event_id: neon.id, buyer_name: "Lee Tan", email: "lee.tan@example.com", language: "en-US" }, tickets: [{ ticket_type_id: typeOf(demo, "Cinder", "Standard").id }] };
+    const r = await refused(() => demo.boxOffice.newOrder(mixed, key()));
+    expect([r.code, r.params["requires"]]).toEqual(["STATE_MOVE_REFUSED", "right_show"]);
+    // A write that sends Cinder as the show of a Neon Circuit ticket.
+    const writer = { origin: "staff" as const, name: "Priya", roles: ["box-office"] };
+    const sent = await refused(async () =>
+      demo.engine.create("orders", { event_id: neon.id, room_id: neon["room_id"], channel: "box_office", buyer_name: "Lee Tan" }, writer, {
+        table: "tickets",
+        via: "order_id",
+        rows: [{ ticket_type_id: typeOf(demo, "Neon Circuit", "Standard").id, show_id: cinder.id }],
+      }),
+    );
+    expect([sent.code, sent.params["requires"]]).toEqual(["STATE_MOVE_REFUSED", "right_show"]);
+    // Or none at all.
+    const none = await refused(async () =>
+      demo.engine.create("orders", { event_id: neon.id, room_id: neon["room_id"], channel: "box_office", buyer_name: "Lee Tan" }, writer, {
+        table: "tickets",
+        via: "order_id",
+        rows: [{ ticket_type_id: typeOf(demo, "Neon Circuit", "Standard").id }],
+      }),
+    );
+    expect(none.params["requires"]).toBe("right_show");
+    expect(demo.world.all("orders").length).toBe(orders);
+  });
+});
+
 describe("how an order is paid", () => {
   it("never goes by transfer when a ticket's type is door-only (Low Ceiling's Standard)", async () => {
     const demo = new DemoAdminium();

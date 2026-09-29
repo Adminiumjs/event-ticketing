@@ -297,6 +297,8 @@ export function sampleBundle(ledger: Ledger = LEDGER): SampleBundle {
         "@label": `ticket:${t.code}`,
         order_id: ref(`order:${String(o.no)}`),
         ticket_type_id: ref(`type:${o.show}:${t.type}`),
+        // The show, sent as every ticket's maker sends it: its doors, waitlist and reminder are copied through it.
+        show_id: ref(`event:${o.show}`),
         status,
         holder_name: t.holder ?? null,
         code: t.code,

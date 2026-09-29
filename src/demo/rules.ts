@@ -1588,6 +1588,12 @@ export const MANIFEST_RULES = {
       ],
       "create": {
         "requires": {
+          "where": [
+            {
+              "column": "right_show",
+              "eq": 1
+            }
+          ],
           "linked": [
             {
               "via": "ticket_type_id",
@@ -2713,9 +2719,13 @@ export const MANIFEST_RULES = {
         "tickets": {
           "via": "order_id",
           "writable": [
+            "show_id",
             "ticket_type_id",
             "holder_name",
             "answers"
+          ],
+          "requires": [
+            "show_id"
           ],
           "select": [
             "id",
@@ -2735,6 +2745,12 @@ export const MANIFEST_RULES = {
               "path": [
                 "event_id"
               ],
+              "eq": {
+                "parent": "event_id"
+              }
+            },
+            {
+              "column": "show_id",
               "eq": {
                 "parent": "event_id"
               }

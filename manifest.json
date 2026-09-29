@@ -6629,6 +6629,12 @@
           ],
           "create": {
             "requires": {
+              "where": [
+                {
+                  "column": "right_show",
+                  "eq": 1
+                }
+              ],
               "linked": [
                 {
                   "via": "ticket_type_id",
@@ -6705,6 +6711,139 @@
                 "via": "ticket_type_id",
                 "from": "event_id",
                 "mode": "always"
+              }
+            }
+          },
+          {
+            "ref": "show_id",
+            "type": "fk",
+            "references": "events",
+            "label": {
+              "en-US": "Show as sent",
+              "de-DE": "Show laut Anfrage",
+              "fr-FR": "Spectacle transmis",
+              "da-DK": "Arrangement som sendt",
+              "cs-CZ": "Akce podle zadání",
+              "ar-EG": "الحفل كما أُرسل",
+              "zh-CN": "提交时的演出",
+              "zh-TW": "送出時的演出"
+            },
+            "nullable": true
+          },
+          {
+            "ref": "show_no",
+            "type": "int",
+            "nullable": true,
+            "label": {
+              "en-US": "Show number",
+              "de-DE": "Shownummer",
+              "fr-FR": "Numéro du spectacle",
+              "da-DK": "Arrangementsnummer",
+              "cs-CZ": "Číslo akce",
+              "ar-EG": "رقم الحفل",
+              "zh-CN": "演出编号",
+              "zh-TW": "演出編號"
+            },
+            "rules": {
+              "copy": {
+                "via": "show_id",
+                "from": "id",
+                "mode": "always"
+              }
+            }
+          },
+          {
+            "ref": "type_show_no",
+            "type": "int",
+            "nullable": true,
+            "label": {
+              "en-US": "Type's show number",
+              "de-DE": "Shownummer der Ticketart",
+              "fr-FR": "Numéro du spectacle du type de billet",
+              "da-DK": "Billettypens arrangementsnummer",
+              "cs-CZ": "Číslo akce typu vstupenky",
+              "ar-EG": "رقم حفل نوع التذكرة",
+              "zh-CN": "票种对应的演出编号",
+              "zh-TW": "票種的演出編號"
+            },
+            "rules": {
+              "copy": {
+                "via": "ticket_type_id",
+                "from": "event_id",
+                "mode": "always"
+              }
+            }
+          },
+          {
+            "ref": "order_show_no",
+            "type": "int",
+            "nullable": true,
+            "label": {
+              "en-US": "Order's show number",
+              "de-DE": "Shownummer der Bestellung",
+              "fr-FR": "Numéro du spectacle de la commande",
+              "da-DK": "Ordrens arrangementsnummer",
+              "cs-CZ": "Číslo akce objednávky",
+              "ar-EG": "رقم حفل الطلب",
+              "zh-CN": "订单对应的演出编号",
+              "zh-TW": "訂單的演出編號"
+            },
+            "rules": {
+              "copy": {
+                "via": "order_id",
+                "from": "event_id",
+                "mode": "always"
+              }
+            }
+          },
+          {
+            "ref": "right_show",
+            "type": "int",
+            "nullable": true,
+            "label": {
+              "en-US": "Right show",
+              "de-DE": "Richtige Show",
+              "fr-FR": "Bon spectacle",
+              "da-DK": "Rigtigt arrangement",
+              "cs-CZ": "Správná akce",
+              "ar-EG": "الحفل الصحيح",
+              "zh-CN": "场次正确",
+              "zh-TW": "場次正確"
+            },
+            "rules": {
+              "formula": {
+                "if": [
+                  {
+                    "and": [
+                      {
+                        "gte": [
+                          "show_no",
+                          "type_show_no"
+                        ]
+                      },
+                      {
+                        "lte": [
+                          "show_no",
+                          "type_show_no"
+                        ]
+                      },
+                      {
+                        "gte": [
+                          "show_no",
+                          "order_show_no"
+                        ]
+                      },
+                      {
+                        "lte": [
+                          "show_no",
+                          "order_show_no"
+                        ]
+                      }
+                    ]
+                  },
+                  1,
+                  0
+                ]
               }
             }
           },
@@ -7088,7 +7227,7 @@
             "nullable": true,
             "rules": {
               "copy": {
-                "via": "event_id",
+                "via": "show_id",
                 "from": "doors_at",
                 "mode": "always",
                 "follow": true
@@ -7111,7 +7250,7 @@
             },
             "rules": {
               "copy": {
-                "via": "event_id",
+                "via": "show_id",
                 "from": "waitlist_on",
                 "mode": "always",
                 "follow": true
@@ -7134,7 +7273,7 @@
             },
             "rules": {
               "copy": {
-                "via": "event_id",
+                "via": "show_id",
                 "from": "eve_email",
                 "mode": "always",
                 "follow": true
@@ -16734,9 +16873,13 @@
         "tickets": {
           "via": "order_id",
           "writable": [
+            "show_id",
             "ticket_type_id",
             "holder_name",
             "answers"
+          ],
+          "requires": [
+            "show_id"
           ],
           "select": [
             "id",
@@ -16756,6 +16899,12 @@
               "path": [
                 "event_id"
               ],
+              "eq": {
+                "parent": "event_id"
+              }
+            },
+            {
+              "column": "show_id",
               "eq": {
                 "parent": "event_id"
               }

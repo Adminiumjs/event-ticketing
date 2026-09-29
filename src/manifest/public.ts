@@ -370,11 +370,16 @@ export const PUBLIC_ACCESS = [
     children: {
       tickets: {
         via: "order_id",
-        writable: ["ticket_type_id", "holder_name", "answers"],
+        // Each ticket names its show, the order's own: Adminium checks it is the type's too.
+        writable: ["show_id", "ticket_type_id", "holder_name", "answers"],
+        requires: ["show_id"],
         select: ["id", "ticket_type_id", "name", "price", "discount", "due", "holder_name", "position"],
         min: 1,
         max: 12,
-        agrees: [{ column: "ticket_type_id", path: ["event_id"], eq: { parent: "event_id" } }],
+        agrees: [
+          { column: "ticket_type_id", path: ["event_id"], eq: { parent: "event_id" } },
+          { column: "show_id", eq: { parent: "event_id" } },
+        ],
         // Of each type, no fewer than its "At least" and no more than its "At most in one order" (either left empty: no bound).
         counts: [{ by: ["ticket_type_id"], min: "min_per_order", max: "max_per_order" }],
       },
