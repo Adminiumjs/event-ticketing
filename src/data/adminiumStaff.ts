@@ -13,6 +13,7 @@
  * balance from the row after the write, a show's pools from its counts. A write
  * that Adminium refuses reaches the screens with its code and what it said.
  */
+import { broadcastKind } from "./messageKinds.ts";
 import type { BoxOfficePort, DoorPort, EventChildren, StaffPerson } from "./ports.ts";
 import { SessionPortError, type SessionTransport } from "./sessionSource.ts";
 import type { StaffConfig } from "../staffConnection.ts";
@@ -296,12 +297,14 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
     });
   }
 
-  /** The emails of a message to a show's buyers, one an order: written after the message, a few at a time. */
+  /**
+   * The emails of a message to a show's buyers, one an order and one to each friend holding a ticket (a row that
+   * names its ticket: the friend's own kind): written after the message, a few at a time.
+   */
   private async queueBroadcast(b: Row, to: Record<string, unknown>[]): Promise<void> {
-    const kind = b["template"] === "moved" ? "moved" : "broadcast";
     for (let i = 0; i < to.length; i += 8) {
       await Promise.all(
-        to.slice(i, i + 8).map((row) => this.insert("messages", { kind, event_id: b["event_id"], broadcast_id: b.id, ...row })),
+        to.slice(i, i + 8).map((row) => this.insert("messages", { kind: broadcastKind(b, row), event_id: b["event_id"], broadcast_id: b.id, ...row })),
       );
     }
   }

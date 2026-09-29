@@ -8,6 +8,7 @@
  *
  * DEMO BUILD ONLY — nothing in a real build imports it.
  */
+import { broadcastKind } from "../data/messageKinds.ts";
 import type { AudiencePort, BoxOfficePort, DoorPort, EventChildren, OrderWithTickets, Person, StaffPerson, Venue } from "../data/ports.ts";
 import { ApiError, type ClaimReply, type Config, type HistoryEntry, type Id, type ListQuery, type ListReply, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type TypeLeft, type Where } from "../data/wire.ts";
 import { toMs } from "../lib/venueTime.ts";
@@ -612,13 +613,14 @@ export class DemoBoxOffice implements BoxOfficePort {
     });
   }
 
-  /** One email an order: a moved show's own kind, or a message to its buyers. */
+  /** One email an order (a moved show's own kind, or a message to its buyers), and a friend's own to each holder. */
   private queueBroadcast(b: Row, to: Record<string, unknown>[]): void {
-    const kind = b["template"] === "moved" ? "moved" : "broadcast";
     for (const row of to) {
+      // A friend's copy goes to the friend's own address, which the server reads from their customer row.
+      const friend = row["customer_id"] === undefined || row["customer_id"] === null ? undefined : this.engine.world.get("customers", row["customer_id"] as Id);
       this.engine.create(
         "messages",
-        { kind, status: "queued", event_id: b["event_id"], broadcast_id: b.id, approved_by: this.person.name, ...row },
+        { kind: broadcastKind(b, row), status: "queued", event_id: b["event_id"], broadcast_id: b.id, approved_by: this.person.name, ...(friend === undefined ? {} : { to_address: friend["email"] }), ...row },
         this.writer,
       );
     }
