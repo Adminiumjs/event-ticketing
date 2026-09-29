@@ -738,10 +738,10 @@ export class DemoDoor implements DoorPort {
     return { ticket: copy(ticket), order: copy(w.get("orders", ticket["order_id"] as Id)!), checkIn: checkIn === null ? null : copy(checkIn) };
   }
 
-  async collect(ticketId: Id, method: "card" | "cash", deviceId: Id | null): Promise<Row> {
+  async collect(ticketId: Id, method: "card" | "cash", deviceId: Id | null, occurredAt?: number): Promise<Row> {
     const engine = this.engine;
     return engine.transaction(() => {
-      const made = engine.create("door_collections", { ticket_id: ticketId, method, device_id: deviceId }, this.writer()).row;
+      const made = engine.create("door_collections", { ticket_id: ticketId, method, device_id: deviceId }, this.writer(occurredAt)).row;
       const order = engine.world.get("orders", engine.world.get("tickets", ticketId)!["order_id"] as Id)!;
       // Nothing owed any more: the door moves the order to paid itself.
       if (order["status"] === "door" && Number(order["balance"] ?? 0) <= 0) engine.update("orders", order.id, { status: "paid" }, this.writer());

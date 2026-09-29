@@ -18,6 +18,8 @@ import { isLocaleTag } from "./i18n/locales.ts";
 export interface DemoClock {
   readonly now: number;
   advanceTo(at: number): void;
+  /** On to the doors, with what happens at the door on the way (the demo's Adminium makes the early scans). */
+  toDoors?(): void;
 }
 
 const cardPersona = (app: WaveApp): CardPersona => (app.persona === "box" ? "box" : "aud");
@@ -131,7 +133,10 @@ export function applyDemoMessage(message: DemoMessage, app: WaveApp, clock: Demo
       return;
     case "adminium:demo:clock":
       // The demo's Adminium never moves back: "Advance to doors" after "+1 day" does nothing.
-      if (message.advance === "doors") clock.advanceTo(DEMO_DOORS_AT);
+      if (message.advance === "doors") {
+        if (clock.toDoors !== undefined) clock.toDoors();
+        else clock.advanceTo(DEMO_DOORS_AT);
+      }
       else if (message.advance === "next-day") clock.advanceTo(clock.now + 24 * 3_600_000);
       return;
     case "adminium:demo:reset":

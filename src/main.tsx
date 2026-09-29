@@ -134,7 +134,7 @@ async function bootDemo(mount: HTMLElement): Promise<void> {
   const theme = params.get("theme") === "light" ? "light" : "dark";
   const frame = params.get("frame") === "phone" ? "phone" : "auto";
   const app = new WaveApp({ audience: demo.audience, boxOffice: demo.boxOffice, door: demo.door }, persona, { lang, theme, frame });
-  app.demo = { onClock: (fn) => demo.onClock(fn) };
+  app.demo = { onClock: (fn) => demo.onClock(fn), doorDevice: "Door 1", nextScan: (dayId) => demo.nextInQueue(dayId) };
   (window as unknown as { __wave?: unknown }).__wave = { app, demo };
   await app.start();
   await app.arrive(window.location.pathname, window.location.hash);

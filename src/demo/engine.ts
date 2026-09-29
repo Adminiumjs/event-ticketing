@@ -219,6 +219,25 @@ export class Engine {
     });
   }
 
+  /**
+   * Many rows of one table at once (the demo's early door scans), each by its
+   * own writer and judged as its own create would be — the venue settled once,
+   * not once a row. All of them or none.
+   */
+  createMany(table: Table, items: { values: Record<string, unknown>; writer: Writer }[]): Row[] {
+    return this.transaction(() => {
+      const made = items.map((it) => ({ it, usage: this.usage(it.writer, []), row: this.insertOne(table, it.values, it.writer) }));
+      this.settleAll();
+      for (const m of made) {
+        this.judgeCreate(table, this.world.get(table, m.row.id)!, m.it.writer);
+        this.judgeLimits([{ table, row: m.row }], m.it.writer, true, m.usage);
+      }
+      this.judgeUniques(table);
+      for (const m of made) this.produce(table, null, this.world.get(table, m.row.id)!);
+      return made.map((m) => ({ ...this.world.get(table, m.row.id)! }));
+    });
+  }
+
   private insertOne(table: Table, values: Record<string, unknown>, writer: Writer): Row {
     const shape = COLUMNS[table] ?? {};
     const record: Record<string, unknown> = {};

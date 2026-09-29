@@ -193,8 +193,8 @@ export interface DoorPort {
   tonight(): Promise<{ events: Row[]; days: Row[] }>;
   /** A code scanned or typed: its ticket, order and any check-in today; null for no such ticket. */
   find(code: string, eventDayId: Id): Promise<{ ticket: Row; order: Row; checkIn: Row | null } | null>;
-  /** A ticket's door money taken (and the order paid when nothing is owed any more). */
-  collect(ticketId: Id, method: "card" | "cash", deviceId: Id | null): Promise<Row>;
+  /** A ticket's door money taken (and the order paid when nothing is owed any more); a replay from the phone's offline list carries its time. */
+  collect(ticketId: Id, method: "card" | "cash", deviceId: Id | null, occurredAt?: number): Promise<Row>;
   checkIn(ticketId: Id, eventDayId: Id, deviceId: Id | null, occurredAt?: number): Promise<Row>;
   undo(checkInId: Id): Promise<void>;
 }
