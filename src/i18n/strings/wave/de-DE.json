@@ -1383,5 +1383,20 @@
  "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "{who} werden storniert und {amount} wird zur Erstattung fällig. {buyer} wird informiert.",
  "Receipt downloaded": "Beleg heruntergeladen",
  "The receipt couldn't be made just now. Try again in a minute.": "Der Beleg konnte gerade nicht erstellt werden. Versuch es in einer Minute noch einmal.",
- "Signed out here. We couldn't sign you out on your other devices — sign in and try again.": "Hier abgemeldet. Auf deinen anderen Geräten konnten wir dich nicht abmelden – melde dich an und versuch es noch einmal."
+ "Signed out here. We couldn't sign you out on your other devices — sign in and try again.": "Hier abgemeldet. Auf deinen anderen Geräten konnten wir dich nicht abmelden – melde dich an und versuch es noch einmal.",
+ "Nothing to offer right now: the places back are already held or taken.": "Gerade nichts anzubieten: Die zurückgegebenen Plätze sind schon reserviert oder vergeben.",
+ "That offer has already ended.": "Dieses Angebot ist bereits abgelaufen.",
+ "That order was let go when it failed, so nothing was made. Press Create again to make it afresh.": "Diese Bestellung wurde beim Fehler freigegeben, es wurde also nichts angelegt. Tippe noch einmal auf „Bestellung anlegen“, um sie neu anzulegen.",
+ "The price changed to {total}. Check it with them, then press Create again.": "Der Preis hat sich auf {total} geändert. Kläre das mit ihnen und tippe dann noch einmal auf „Bestellung anlegen“.",
+ "Too many requests from this sign-in just now. Wait a minute, then try again — nothing was written.": "Gerade zu viele Anfragen von dieser Anmeldung. Warte eine Minute und versuche es dann erneut – es wurde nichts gespeichert.",
+ "There are too many rows to read at once here.": "Hier sind zu viele Zeilen, um sie auf einmal zu lesen.",
+ "Save the show first, then add its poster.": "Speichere zuerst das Event und füge dann sein Plakat hinzu.",
+ "This show isn't there any more.": "Dieses Event gibt es nicht mehr.",
+ "Someone else changed the same parts of this show since you opened it. Discard your changes to see theirs, then make yours again.": "Jemand anderes hat seit dem Öffnen dieselben Stellen dieses Events geändert. Verwirf deine Änderungen, um ihre zu sehen, und nimm deine dann erneut vor.",
+ "Cancelling orders: {done} of {total}. Keep this page open.": "Bestellungen werden storniert: {done} von {total}. Lass diese Seite offen.",
+ "Sending the cancellation emails: {done} of {total}. Keep this page open.": "Absage-E-Mails werden gesendet: {done} von {total}. Lass diese Seite offen.",
+ "{name} is cancelled, but cancelling stopped part-way: {orders} still to cancel. Finish it — nobody is told twice.": "{name} ist abgesagt, aber das Stornieren brach mittendrin ab: noch {orders} zu stornieren. Schließe es ab – niemand wird doppelt benachrichtigt.",
+ "{name} is cancelled, but not everyone has been told yet. Finish it — nobody is told twice.": "{name} ist abgesagt, aber noch nicht alle wurden benachrichtigt. Schließe es ab – niemand wird doppelt benachrichtigt.",
+ "Finish cancelling": "Absage abschließen",
+ "Tell ticket holders": "Ticketinhaber informieren"
 }

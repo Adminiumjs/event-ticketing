@@ -4,9 +4,10 @@
  * cancelled show's refunds to make), Settings. The words a message starts
  * from are the venue's own, from its settings and the show.
  */
-import type { Id, Row } from "../../data/wire.ts";
+import { yes, type Id, type Row } from "../../data/wire.ts";
 import { tr } from "../../i18n/tr.ts";
 import { LIVE, plural, type Box } from "../box.ts";
+import { CANCELS } from "../../data/boxSteps.ts";
 import type { BoxShow, BoxWorld } from "../boxWorld.ts";
 import { fD, fT, money, ms, num } from "../fmt.ts";
 import type { WaveApp } from "../wave.ts";
@@ -99,7 +100,8 @@ function msgVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unknown>
     who === undefined
       ? "…"
       : [people(who.people), plural(who.orders, "{n} order", "{n} orders"), ...(who.holders > 0 ? [plural(who.holders, "{n} sent-on ticket", "{n} sent-on tickets")] : [])].join(" · ");
-  const waiting = (box.list("broadcasts", { where: [{ column: "status", eq: "waiting" }], sort: [{ column: "id" }], limit: 50 })?.rows ?? []).filter((b) => w.byId.get(b["event_id"] as Id)?.status !== "cancelled").map((b) => {
+  // Waiting to be sent, and any that stopped part-way (sending one again finishes it).
+  const waiting = (box.list("broadcasts", { where: [{ column: "status", in: ["waiting", "sending"] }], sort: [{ column: "id" }], limit: 50 })?.rows ?? []).filter((b) => w.byId.get(b["event_id"] as Id)?.status !== "cancelled" && b["template"] !== "cancelled").map((b) => {
     const e = w.byId.get(b["event_id"] as Id);
     return {
       id: b.id,
@@ -113,9 +115,9 @@ function msgVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unknown>
   const audienceWord = (b: Row) => (b["audience"] === "type" ? (w.typeRows.find((t) => t.id === b["ticket_type_id"])?.["name"] as string | undefined) ?? tr("One ticket type") : b["audience"] === "not_in" ? tr("Not yet checked in") : tr("Everyone"));
   const f = frame(w);
   // Doors before 16:00: the reminder goes the evening before.
-  const eve = show.row["eve_email"] === true;
+  const eve = yes(show.row["eve_email"]);
   const st = w.settingsRow;
-  const tonightOn = st["tonight_email_on"] !== false;
+  const tonightOn = st["tonight_email_on"] === null || st["tonight_email_on"] === undefined || yes(st["tonight_email_on"]);
   return {
     ms: {
       cols: nar ? "1fr" : "minmax(0,1fr) minmax(0,420px)",
@@ -212,7 +214,7 @@ function pcVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unknown>)
   const untilAt = p.until === "" ? null : ms(fromLocal(`${p.until}T23:59`, zone));
   const newTxt = startAt === null ? "" : fD(startAt);
   const untilTxt = untilAt === null ? "" : fD(untilAt);
-  const todayEnd = box.venueDayStart(now) + 86_400_000;
+  const todayEnd = box.venueDayEnd(now);
   const dateErr = startAt === null || startAt < todayEnd ? tr("Pick a date after today") : "";
   const timeErr = p.doors !== "" && p.stage !== "" && hm(p.doors) >= hm(p.stage) ? tr("Doors must be before on stage") : "";
   const untilErr =
@@ -255,10 +257,35 @@ function pcVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unknown>)
     });
   };
 
-  const waitingMsg = (box.list("broadcasts", { where: [{ column: "event_id", eq: show.id }, { column: "status", eq: "waiting" }], limit: 5 })?.rows ?? [])[0];
-  const sentMoved = (box.list("broadcasts", { where: [{ column: "event_id", eq: show.id }, { column: "template", eq: "moved" }, { column: "status", eq: "sent" }], sort: [{ column: "sent_at", desc: true }], limit: 1 })?.rows ?? [])[0];
+  const pending = box.list("broadcasts", { where: [{ column: "event_id", eq: show.id }, { column: "status", in: ["waiting", "sending"] }], limit: 5 });
+  const sent = box.list("broadcasts", { where: [{ column: "event_id", eq: show.id }, { column: "template", eq: "moved" }, { column: "status", eq: "sent" }], sort: [{ column: "sent_at", desc: true }], limit: 1 });
+  const waitingMsg = (pending?.rows ?? []).find((b) => b["template"] !== "cancelled");
+  const sentMoved = sent?.rows[0];
+  // A postponement whose message never got written (its write failed after the move): offered here.
+  const noMessage = show.postponed && !past && pending !== undefined && sent !== undefined && waitingMsg === undefined && sentMoved === undefined;
+  // A cancel that stopped part-way: orders still live, or its message not yet marked sent.
+  const cancelMsg = cancelled ? box.list("broadcasts", { where: [{ column: "event_id", eq: show.id }, { column: "template", eq: "cancelled" }], sort: [{ column: "id", desc: true }], limit: 1 })?.rows[0] : undefined;
+  const stillLive = cancelled ? box.count("orders", [{ column: "event_id", eq: show.id }, { column: "status", in: CANCELS }]) : 0;
+  const run = s.pc.run;
+  const unfinished = cancelled && run === null && ((stillLive ?? 0) > 0 || (cancelMsg !== undefined && cancelMsg["status"] !== "sent"));
+  const [cSubj, cBody] = tplText("cancelled", show, w);
   const out: V = {
-    formOn: !cancelled && !show.postponed && !past,
+    runOn: run !== null,
+    runTxt:
+      run === null
+        ? ""
+        : run.stage === "orders"
+          ? tr("Cancelling orders: {done} of {total}. Keep this page open.", { done: num(run.done), total: num(run.total) })
+          : tr("Sending the cancellation emails: {done} of {total}. Keep this page open.", { done: num(run.done), total: num(run.total) }),
+    finishOn: unfinished,
+    finishTxt:
+      (stillLive ?? 0) > 0
+        ? tr("{name} is cancelled, but cancelling stopped part-way: {orders} still to cancel. Finish it — nobody is told twice.", { name: show.name, orders: plural(stillLive ?? 0, "{n} order", "{n} orders") })
+        : tr("{name} is cancelled, but not everyone has been told yet. Finish it — nobody is told twice.", { name: show.name }),
+    finish: () => void box.cancelShow(show, { subject: String(cancelMsg?.["subject"] ?? cSubj), body: String(cancelMsg?.["body"] ?? cBody) }),
+    doneWriteOn: noMessage,
+    write: () => box.go("msgs", { msg: { ev: show.id, to: "everyone", typeId: null, tpl: "moved", subj: null, body: null, waiting: null } }),
+    formOn: !cancelled && !show.postponed && !past && box.can("events", "update"),
     doneOn: show.postponed || past,
     refundsOn: cancelled,
     name: show.name,
@@ -415,7 +442,10 @@ function settingsVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unk
     track: `position:relative; display:inline-block; width:36px; height:21px; flex-shrink:0; border-radius:999px; background:${on ? "var(--accent)" : "var(--surface-3)"};`,
     knob: `position:absolute; inset-block-start:3px; inset-inline-start:${on ? "18px" : "3px"}; width:15px; height:15px; border-radius:50%; background:${on ? "var(--accent-fg)" : "var(--fg-subtle)"};`,
   });
-  const onOf = (k: string) => val(k) !== false;
+  const onOf = (k: string) => {
+    const v = val(k);
+    return v === null || v === undefined || yes(v);
+  };
   const days = Number(val("transfer_days") ?? 3);
   const cutoff = Number(val("transfer_cutoff_days") ?? 3);
   const release = Number(val("release_after_hours") ?? 24);

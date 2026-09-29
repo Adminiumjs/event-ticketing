@@ -32,6 +32,13 @@ export class ApiError extends Error {
 /** Whether a thrown value is a refusal from Adminium (or the demo's stand-in). */
 export const isApiError = (e: unknown): e is ApiError => e instanceof ApiError || (typeof e === "object" && e !== null && (e as { name?: unknown }).name === "ApiError");
 
+/**
+ * A yes/no column as a yes: Postgres answers `true`, MySQL and SQLite a `1`
+ * (a TINYINT or an integer), and a text copy `"1"` or `"true"`. Every
+ * comparison of a stored yes/no goes through here, never `=== true`.
+ */
+export const yes = (v: unknown): boolean => v === true || v === 1 || v === "1" || v === "true" || v === "t";
+
 /** `/public/config` (and the staff surface's config): the venue's zone and money, and the server's clock. */
 export interface Config {
   timezone: string;

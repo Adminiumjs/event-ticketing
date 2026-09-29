@@ -1383,5 +1383,20 @@
  "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "{who} 將取消，應退還 {amount}。會通知 {buyer}。",
  "Receipt downloaded": "收據已下載",
  "The receipt couldn't be made just now. Try again in a minute.": "暫時無法產生收據，請一分鐘後再試。",
- "Signed out here. We couldn't sign you out on your other devices — sign in and try again.": "已在這台裝置登出。無法在你的其他裝置上登出——請登入後再試一次。"
+ "Signed out here. We couldn't sign you out on your other devices — sign in and try again.": "已在這台裝置登出。無法在你的其他裝置上登出——請登入後再試一次。",
+ "Nothing to offer right now: the places back are already held or taken.": "現在沒有可提供的：退回的名額已被保留或售出。",
+ "That offer has already ended.": "這個名額邀請已經結束。",
+ "That order was let go when it failed, so nothing was made. Press Create again to make it afresh.": "這筆訂單在出錯時已釋出，所以沒有建立任何內容。請再按一次「建立訂單」重新建立。",
+ "The price changed to {total}. Check it with them, then press Create again.": "價格已變為 {total}。請與對方確認，再按一次「建立訂單」。",
+ "Too many requests from this sign-in just now. Wait a minute, then try again — nothing was written.": "此登入目前的請求過多。請等一分鐘再試——沒有寫入任何內容。",
+ "There are too many rows to read at once here.": "這裡的資料列太多，無法一次讀取。",
+ "Save the show first, then add its poster.": "請先儲存演出，再加入海報。",
+ "This show isn't there any more.": "這場演出已不存在。",
+ "Someone else changed the same parts of this show since you opened it. Discard your changes to see theirs, then make yours again.": "自你開啟後，其他人修改了這場演出的相同部分。請捨棄你的變更以查看對方的變更，然後重新修改。",
+ "Cancelling orders: {done} of {total}. Keep this page open.": "正在取消訂單：{done} / {total}。請保持此頁面開啟。",
+ "Sending the cancellation emails: {done} of {total}. Keep this page open.": "正在寄出取消通知郵件：{done} / {total}。請保持此頁面開啟。",
+ "{name} is cancelled, but cancelling stopped part-way: {orders} still to cancel. Finish it — nobody is told twice.": "{name} 已取消，但取消在中途停止：還有{orders}待取消。請完成 — 不會有人收到兩次通知。",
+ "{name} is cancelled, but not everyone has been told yet. Finish it — nobody is told twice.": "{name} 已取消，但還沒有通知到所有人。請完成 — 不會有人收到兩次通知。",
+ "Finish cancelling": "完成取消",
+ "Tell ticket holders": "通知持票人"
 }

@@ -8,8 +8,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { DemoAdminium } from "../demo/adminium.ts";
-import type { Id } from "../data/wire.ts";
+import { DemoBoxOffice } from "../demo/sides.ts";
+import { cancelRun, CANCELS } from "../data/boxSteps.ts";
+import type { BoxOfficePort } from "../data/ports.ts";
+import { ApiError, type Id } from "../data/wire.ts";
 import { boxOf, type BoxState } from "./box.ts";
+import { mergeDraft, type SaveRows } from "./vals/editor.ts";
 import { renderVals } from "./vals/base.ts";
 import { WaveApp } from "./wave.ts";
 
@@ -388,5 +392,278 @@ describe("Release now", () => {
     };
     expect(await acts("WV-S8793")).toContain("rl");
     expect(await acts("WV-S8809")).not.toContain("rl");
+  });
+});
+
+describe("box fixes", () => {
+  /** The box office on the demo's Adminium, with the box office's port swapped or watched before anything is read. */
+  async function boot(bx: WaveApp["state"]["bx"] = "today", patch: Partial<BoxState> = {}, before: (demo: DemoAdminium) => BoxOfficePort = (d) => d.boxOffice) {
+    const demo = new DemoAdminium();
+    const port = before(demo);
+    const app = new WaveApp({ audience: demo.audience, boxOffice: port, door: demo.door }, "box", { lang: "en-US", theme: "dark" });
+    app.demo = { onClock: (fn) => demo.onClock(fn) };
+    await app.start({ timers: false });
+    const box = boxOf(app);
+    const settle = async () => {
+      for (let i = 0; i < 8; i += 1) {
+        renderVals(app);
+        await app.idle();
+      }
+      return renderVals(app);
+    };
+    app.setState({ bx, box: { ...box.s, ...patch } });
+    await settle();
+    const idOf = (name: string) => box.world()!.shows.find((s) => s.name === name)!.id;
+    const find = async (n: string) => (await demo.boxOffice.list("orders", { where: [{ column: "number", eq: n }] })).rows[0]!;
+    return { app, demo, box, v: settle, idOf, find };
+  }
+  /** Which tables a port was asked to read, and how many pool counts. */
+  const watch = (port: BoxOfficePort) => {
+    const reads: string[] = [];
+    const list = port.list.bind(port);
+    const rows = port.rows.bind(port);
+    const count = port.count.bind(port);
+    const counts = port.counts.bind(port);
+    port.list = (t, q) => (reads.push(t), list(t, q));
+    port.rows = (t) => (reads.push(`rows:${t}`), rows(t));
+    port.count = (t, w) => (reads.push(`count:${t}`), count(t, w));
+    port.counts = (id) => (reads.push("pools"), counts(id));
+    return reads;
+  };
+
+  it("asks again only what a write touched: a guest added re-reads the guest lists, never the shows or their places", async () => {
+    let reads: string[] = [];
+    const { box, v, idOf } = await boot("today", {}, (d) => ((reads = watch(d.boxOffice)), d.boxOffice));
+    reads.length = 0;
+    await box.addGuests(idOf("Neon Circuit"), [{ name: "Zed Ora", plus: 0, on_behalf: "", note: "" }]);
+    await v();
+    expect(reads).toContain("guest_list");
+    expect(reads.filter((r) => r === "pools" || r.startsWith("rows:") || r === "orders" || r === "payments")).toEqual([]);
+  });
+
+  it("asks none of Today's or Events' reads on the door screen", async () => {
+    let reads: string[] = [];
+    const { v } = await boot("door", {}, (d) => ((reads = watch(d.boxOffice)), d.boxOffice));
+    const out = await v();
+    expect((out["td"] as V)["shows"]).toEqual([]);
+    expect(reads.filter((r) => ["payments", "reminders", "broadcasts", "count:reminders"].includes(r))).toEqual([]);
+  });
+
+  it("keeps a door person on the door, whatever address they came in by", async () => {
+    const { app, v } = await boot("orders", {}, (d) => new DemoBoxOffice(d.engine, { name: "Sam", roles: ["door"] }));
+    await v();
+    expect(app.state.bx).toBe("door");
+    const nav = ((await v())["bo"] as V)["nav"] as V[];
+    expect(nav.map((n) => n["id"])).toEqual(["door"]);
+  });
+
+  it("leaves out the drawer's buttons a role may not use", async () => {
+    const { box, v, find } = await boot("orders", {}, (d) => new DemoBoxOffice(d.engine, { name: "Viv", roles: ["viewer"], tables: { orders: ["read"], tickets: ["read"] } }));
+    box.openDrawer((await find("WV-S8793")).id);
+    const acts = (((await v())["dr"] as V)["acts"] as V[]).map((a) => a["id"]);
+    expect(acts).toEqual([]);
+    expect(((await v())["or"] as V)["newOn"]).toBe(false);
+  });
+
+  it("finishes a show's cancel that stopped part-way: every order cancelled, every held email sent once, the message marked sent", async () => {
+    const { app, demo, box, v, idOf } = await boot("pc");
+    const low = idOf("Low Ceiling: new material night");
+    const words = { subject: "Low Ceiling is cancelled", body: "Sorry." };
+    await expect(cancelRun(demo.boxOffice, low, words, { stopAfter: 6 })).rejects.toThrow("stopped");
+    const live = demo.world.where("orders", (o) => o["event_id"] === low && CANCELS.includes(String(o["status"])));
+    expect(live.length).toBeGreaterThan(0);
+    // The box office opens the show again later: Adminium's rows as they are now.
+    app.refresh("box:");
+    const pc = (await (async () => {
+      box.goShow(low, "pc");
+      return v();
+    })())["pc"] as V;
+    expect(pc["finishOn"]).toBe(true);
+    await box.cancelShow(box.world()!.byId.get(low)!, { subject: "other words", body: "never used" });
+    const orders = demo.world.where("orders", (o) => o["event_id"] === low && o["cancel_cause"] === "show");
+    expect(demo.world.where("orders", (o) => o["event_id"] === low && CANCELS.includes(String(o["status"])))).toEqual([]);
+    const ids = new Set(orders.map((o) => o.id));
+    const mails = demo.world.where("messages", (m) => String(m["kind"]).startsWith("cancelled-") && ids.has(m["order_id"] as Id));
+    expect(mails.filter((m) => m["status"] === "held")).toEqual([]);
+    expect(mails.every((m) => m["subject_override"] === words.subject)).toBe(true);
+    const sent = demo.world.where("broadcasts", (b) => b["event_id"] === low && b["template"] === "cancelled");
+    expect(sent.map((b) => [b["status"], b["order_count"]])).toEqual([["sent", orders.length]]);
+    // Run again: nothing more is written.
+    const before = demo.world.all("messages").length;
+    await cancelRun(demo.boxOffice, low, words);
+    expect(demo.world.all("messages").length).toBe(before);
+    expect((((await v())["pc"] as V)["finishOn"])).toBe(false);
+  });
+
+  it("never reports an order let go after a failed step as made; the sheet takes a fresh key", async () => {
+    const { app, demo, box, v, idOf } = await boot("orders");
+    const neon = idOf("Neon Circuit");
+    const std = box.world()!.byId.get(neon)!.types.find((t) => t.name === "Standard")!;
+    const move = demo.boxOffice.move.bind(demo.boxOffice);
+    let fail = true;
+    demo.boxOffice.move = async (id, status, values, from) => {
+      if (status === "paid" && fail) {
+        fail = false;
+        throw new ApiError(503, "INTERNAL");
+      }
+      return move(id, status, values, from);
+    };
+    app.openSheet("bxNew", { ev: neon, q: {}, names: {}, email: "", how: "", err: {}, key: "bo-1753720200000-aaaaaa" });
+    const order = { eventId: neon, tickets: [{ ticket_type_id: std.id, holder_name: "Lee Tan" }], email: "", buyer: "Lee Tan", how: "paidnow" as const, method: "cash" as const, key: "bo-1753720200000-aaaaaa" };
+    await box.createOrder(order);
+    await v();
+    expect(app.state.sheet?.["key"]).not.toBe("bo-1753720200000-aaaaaa");
+    const letGo = demo.world.where("orders", (o) => o["event_id"] === neon && o["buyer_name"] === "Lee Tan");
+    expect(letGo.map((o) => o["status"])).toEqual(["let_go"]);
+    // The same press again (the old key): the let-go order is named, not reported made.
+    await box.createOrder(order);
+    expect(String((await v())["sh"] && ((await v())["sh"] as V)["refusal"])).toContain("let go");
+    expect(box.s.drawer).toBeNull();
+    // With the fresh key: a new order, paid.
+    await box.createOrder({ ...order, key: String(app.state.sheet?.["key"]) });
+    const made = demo.world.where("orders", (o) => o["event_id"] === neon && o["buyer_name"] === "Lee Tan");
+    expect(made.map((o) => o["status"])).toEqual(["let_go", "paid"]);
+    expect(demo.world.where("payments", (p) => made.some((o) => o.id === p["order_id"]) && p["voided"] !== true)).toHaveLength(1);
+  });
+
+  it("makes nothing when the price is not the one on screen, and names the new total", async () => {
+    const { app, demo, box, v, idOf } = await boot("orders");
+    const neon = idOf("Neon Circuit");
+    const std = box.world()!.byId.get(neon)!.types.find((t) => t.name === "Standard")!;
+    app.openSheet("bxNew", { ev: neon, q: {}, names: {}, email: "", how: "", err: {}, key: "bo-1753720200000-bbbbbb" });
+    await box.createOrder({ eventId: neon, tickets: [{ ticket_type_id: std.id, holder_name: "Pat Low" }], email: "", buyer: "Pat Low", how: "paidnow", method: "cash", key: "bo-1753720200000-bbbbbb", expect: 1 });
+    expect(bidi(((await v())["sh"] as V)["refusal"])).toBe("The price changed to $28.00. Check it with them, then press Create again.");
+    expect(demo.world.where("orders", (o) => o["buyer_name"] === "Pat Low")).toEqual([]);
+  });
+
+  it("records a payment once when the same press is sent again", async () => {
+    const { demo, box, find } = await boot("orders");
+    const order = await find("WV-S8793");
+    await box.pay(order, 10, "bank_transfer", "", "pay-1753720200000-cccccc-0000000a");
+    await box.pay(order, 10, "bank_transfer", "", "pay-1753720200000-cccccc-0000000a");
+    expect(demo.world.where("payments", (p) => p["order_id"] === order.id && p["amount"] === 10)).toHaveLength(1);
+  });
+
+  it("ends an offer on the waitlist from its order, and puts someone who missed theirs back at the end", async () => {
+    const { demo, box, idOf } = await boot("waits");
+    const velvet = idOf("Velvet Hour");
+    const mia = demo.world.where("waitlist", (w) => w["event_id"] === velvet && w["status"] === "offered")[0]!;
+    await box.removeWaiting({ ...mia, order_id: null }, "Mia Okada");
+    const offer = demo.world.where("orders", (o) => o["waitlist_id"] === mia.id)[0]!;
+    expect(offer["status"]).toBe("expired");
+    const gia = demo.world.where("waitlist", (w) => w["event_id"] === velvet && w["status"] === "missed")[0]!;
+    await box.addWaiting(velvet, "Gia Price", String(gia["email"]), 1);
+    const back = demo.world.get("waitlist", gia.id)!;
+    expect([back["status"], back["qty"]]).toEqual(["waiting", 1]);
+  });
+
+  it("adds a note under the order's newest notes, never from the copy on screen", async () => {
+    const { demo, box, find } = await boot("orders");
+    const stale = await find("WV-S8793");
+    demo.engine.update("orders", stale.id, { note: "Called them at 10:00" }, { origin: "staff", name: "Jo", roles: ["box-office"] });
+    await box.note(stale, "Paid by phone");
+    expect(demo.world.get("orders", stale.id)!["note"]).toBe("Called them at 10:00\nPaid by phone");
+  });
+
+  it("makes one set of offers when Offer is pressed twice", async () => {
+    const { demo, box, v, idOf } = await boot("waits");
+    const velvet = idOf("Velvet Hour");
+    demo.advance(24 * 60);
+    await v();
+    const before = demo.world.all("orders").length;
+    await Promise.all([box.offer(velvet), box.offer(velvet)]);
+    // Kai's one and Ana's one: made once.
+    expect(demo.world.all("orders").length - before).toBe(2);
+  });
+
+  it("turns off a code a database keeps as 1", async () => {
+    const { demo, box } = await boot("codes");
+    const code = demo.world.all("codes").find((c) => c["active"] === true)!;
+    await box.toggleCode({ ...code, active: 1 });
+    expect(demo.world.get("codes", code.id)!["active"]).toBe(false);
+  });
+
+  it("moves a festival's show and every day in one write; a message that did not go is offered again", async () => {
+    const { demo, box, v, idOf } = await boot("pc");
+    const fest = idOf("Waveform Weekender");
+    const show = box.world()!.byId.get(fest)!;
+    demo.boxOffice.broadcast = async () => {
+      throw new ApiError(503, "INTERNAL");
+    };
+    const at = (t: number) => new Date(t + 7 * 86_400_000).toISOString();
+    await box.postpone(show, { doors: at(show.doors), start: at(show.start), curfew: at(show.curfew), refundUntil: at(show.doors - 86_400_000) }, { subject: "Moved", body: "Moved." }, true, "later");
+    const days = demo.world.where("event_days", (d) => d["event_id"] === fest).map((d) => Date.parse(String(d["doors_at"])));
+    expect(days).toEqual(show.days.map((d) => d.doors + 7 * 86_400_000));
+    box.goShow(fest, "pc");
+    expect((((await v())["pc"] as V)["doneWriteOn"])).toBe(true);
+  });
+
+  it("sends a message that stopped part-way only to those it has not reached, and a sent one never again", async () => {
+    const { demo } = await boot("msgs");
+    const port = demo.boxOffice;
+    const to = [{ order_id: 1, to_address: "a@example.com" }, { order_id: 2, to_address: "b@example.com" }];
+    const b = await port.broadcast({ event_id: 1, audience: "everyone", template: "other", subject: "s", body: "b" }, [], false);
+    demo.engine.update("broadcasts", b.id, { status: "sending" }, { origin: "staff", name: "Priya", roles: ["box-office"] });
+    demo.engine.create("messages", { kind: "broadcast", status: "queued", event_id: 1, broadcast_id: b.id, order_id: 1, to_address: "a@example.com" }, { origin: "staff", name: "Priya", roles: ["box-office"] });
+    await port.sendBroadcast(b.id, {}, to);
+    expect(demo.world.where("messages", (m) => m["broadcast_id"] === b.id).map((m) => m["order_id"]).sort()).toEqual([1, 2]);
+    expect(demo.world.get("broadcasts", b.id)!["status"]).toBe("sent");
+    await expect(port.sendBroadcast(b.id, {}, to)).rejects.toMatchObject({ code: "STATE_MOVE_REFUSED" });
+  });
+
+  it("starts the venue day at 06:00 on its own clock, on both clock-change days", async () => {
+    const { app, box } = await boot("today");
+    app.zone = "Europe/London";
+    expect(new Date(box.venueDayStart(Date.parse("2026-03-29T12:00:00Z"))).toISOString()).toBe("2026-03-29T05:00:00.000Z");
+    expect(new Date(box.venueDayStart(Date.parse("2026-10-25T12:00:00Z"))).toISOString()).toBe("2026-10-25T06:00:00.000Z");
+    expect(new Date(box.venueDayStart(Date.parse("2026-10-25T05:30:00Z"))).toISOString()).toBe("2026-10-24T05:00:00.000Z");
+    expect(box.venueDayEnd(Date.parse("2026-10-24T12:00:00Z")) - box.venueDayStart(Date.parse("2026-10-24T12:00:00Z"))).toBe(25 * 3_600_000);
+  });
+
+  it("uploads a poster onto the show being edited", async () => {
+    const { demo, box, v, idOf } = await boot("editor");
+    const neon = idOf("Neon Circuit");
+    box.goShow(neon, "editor");
+    await v();
+    const got: unknown[] = [];
+    (demo.boxOffice as BoxOfficePort).uploadPoster = async (_file, eventId) => (got.push(eventId), "ref-1");
+    const Img = class {
+      naturalWidth = 2000;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      set src(_: string) {
+        setTimeout(() => this.onload?.(), 0);
+      }
+    };
+    vi.stubGlobal("Image", Img);
+    vi.stubGlobal("URL", { ...URL, createObjectURL: () => "blob:1", revokeObjectURL: () => undefined });
+    await box.pickPoster(new File(["x"], "poster.jpg", { type: "image/jpeg" }));
+    vi.unstubAllGlobals();
+    expect(got).toEqual([neon]);
+    expect((box.s.ed as { image: string }).image).toBe("ref-1");
+  });
+});
+
+describe("a save of a show's draft", () => {
+  const base: SaveRows = {
+    values: { name: "Cinder", about: "Old", doors_at: "a", status: "published" },
+    children: { event_days: [{ id: 1, doors_at: "a" }], ticket_types: [{ id: 10, name: "Standard", price: 20 }, { id: 11, name: "Balcony", price: 30 }], acts: [], questions: [] },
+  };
+  it("sends only what the draft changed, onto the show as it is now", () => {
+    const mine: SaveRows = { ...base, values: { ...base.values, about: "New" }, children: { ...base.children, ticket_types: [{ id: 10, name: "Standard", price: 22 }] } };
+    const cur: SaveRows = {
+      values: { ...base.values, doors_at: "b" },
+      children: { ...base.children, event_days: [{ id: 1, doors_at: "b" }], ticket_types: [...base.children.ticket_types, { id: 12, name: "Late", price: 15 }] },
+    };
+    const out = mergeDraft(base, mine, cur) as SaveRows;
+    expect(out.values).toEqual({ about: "New" });
+    expect(out.children.event_days).toEqual([{ id: 1, doors_at: "b" }]);
+    // Balcony removed by this draft goes; Late added by a colleague stays; Standard's price is this draft's.
+    expect(out.children.ticket_types).toEqual([{ id: 10, name: "Standard", price: 22 }, { id: 12, name: "Late", price: 15 }]);
+  });
+  it("names a conflict where both changed the same thing, and sends nothing", () => {
+    const mine: SaveRows = { ...base, values: { ...base.values, doors_at: "c" } };
+    const cur: SaveRows = { ...base, values: { ...base.values, doors_at: "b" } };
+    expect(mergeDraft(base, mine, cur)).toEqual({ conflict: ["doors_at"] });
   });
 });

@@ -1383,5 +1383,20 @@
  "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "Zruší se {who}, částka {amount} bude k vrácení. {buyer} dostane zprávu.",
  "Receipt downloaded": "Stvrzenka stažena",
  "The receipt couldn't be made just now. Try again in a minute.": "Stvrzenku teď nešlo vytvořit. Zkuste to znovu za minutu.",
- "Signed out here. We couldn't sign you out on your other devices — sign in and try again.": "Tady jste odhlášeni. Na vašich dalších zařízeních se odhlásit nepodařilo — přihlaste se a zkuste to znovu."
+ "Signed out here. We couldn't sign you out on your other devices — sign in and try again.": "Tady jste odhlášeni. Na vašich dalších zařízeních se odhlásit nepodařilo — přihlaste se a zkuste to znovu.",
+ "Nothing to offer right now: the places back are already held or taken.": "Teď není co nabídnout: vrácená místa jsou už držená nebo obsazená.",
+ "That offer has already ended.": "Tahle nabídka už skončila.",
+ "That order was let go when it failed, so nothing was made. Press Create again to make it afresh.": "Objednávka byla při chybě uvolněna, takže nic nevzniklo. Stiskněte znovu Vytvořit objednávku a vytvořte ji znovu.",
+ "The price changed to {total}. Check it with them, then press Create again.": "Cena se změnila na {total}. Ověřte ji s nimi a pak znovu stiskněte Vytvořit objednávku.",
+ "Too many requests from this sign-in just now. Wait a minute, then try again — nothing was written.": "Z tohoto přihlášení je teď příliš mnoho požadavků. Počkejte minutu a zkuste to znovu — nic se nezapsalo.",
+ "There are too many rows to read at once here.": "Tady je příliš mnoho řádků na jedno načtení.",
+ "Save the show first, then add its poster.": "Nejdřív akci uložte, pak přidejte plakát.",
+ "This show isn't there any more.": "Tahle akce už neexistuje.",
+ "Someone else changed the same parts of this show since you opened it. Discard your changes to see theirs, then make yours again.": "Někdo jiný od otevření změnil stejné části této akce. Zahoďte své změny, uvidíte jeho, a pak je udělejte znovu.",
+ "Cancelling orders: {done} of {total}. Keep this page open.": "Rušení objednávek: {done} z {total}. Nechte tuto stránku otevřenou.",
+ "Sending the cancellation emails: {done} of {total}. Keep this page open.": "Odesílání e-mailů o zrušení: {done} z {total}. Nechte tuto stránku otevřenou.",
+ "{name} is cancelled, but cancelling stopped part-way: {orders} still to cancel. Finish it — nobody is told twice.": "{name} je zrušeno, ale rušení se zastavilo v půlce: zbývá zrušit {orders}. Dokončete ho — nikdo nedostane zprávu dvakrát.",
+ "{name} is cancelled, but not everyone has been told yet. Finish it — nobody is told twice.": "{name} je zrušeno, ale ještě ne všichni dostali zprávu. Dokončete to — nikdo nedostane zprávu dvakrát.",
+ "Finish cancelling": "Dokončit zrušení",
+ "Tell ticket holders": "Informujte držitele vstupenek"
 }

@@ -136,6 +136,11 @@ export interface StaffPerson {
   roles: string[];
   /** Where a test of a message goes. */
   email?: string | null;
+  /**
+   * What the person may do with each of the app's tables (by short name), as Adminium says: a screen leaves
+   * out a button whose write would be refused. Absent or null when Adminium does not say (every button shows).
+   */
+  tables?: Record<string, string[]> | null;
 }
 
 /** A show's own rows saved with it: its days, ticket types, acts and questions (a row without an id is new; one left out goes). */
@@ -162,23 +167,33 @@ export interface BoxOfficePort {
 
   /** A row added, changed or deleted: a guest, a waitlist place, a code, a setting, a room, a door, a note. */
   create(table: string, values: Record<string, unknown>): Promise<Row>;
-  update(table: string, id: Id, values: Record<string, unknown>): Promise<Row>;
+  /**
+   * A row changed. With `from`, only while the row is still in that state (a table that keeps states): a
+   * row another screen moved on since is refused (`STATE_MOVE_REFUSED`), never changed from where it is now.
+   */
+  update(table: string, id: Id, values: Record<string, unknown>, from?: string): Promise<Row>;
   remove(table: string, id: Id): Promise<void>;
-  /** A show saved with its days, types, acts and questions in one write; a new one when `id` is null. */
-  saveEvent(id: Id | null, values: Record<string, unknown>, children: EventChildren): Promise<Row>;
+  /**
+   * A show saved with its days, types, acts and questions in one write; a new one when `id` is null. Each
+   * list given is the whole list (a row left out goes); a list not given is left as it is.
+   */
+  saveEvent(id: Id | null, values: Record<string, unknown>, children: Partial<EventChildren>): Promise<Row>;
   /** Emails the box office writes into the outbox itself, one for each row given (a transfer reminder, tickets sent again). */
   mail(kind: string, rows: Record<string, unknown>[]): Promise<void>;
   /**
-   * A message to a show's buyers with its emails, one an order (`to`), in one write: sent now, or kept
-   * waiting in Messages; a waiting one (`id`) sent as it stands.
+   * A message to a show's buyers: kept waiting in Messages, or sent now with its emails, one an order
+   * (`to`). Sending claims the message first (waiting → sending, which a second sender is refused), writes
+   * each email the message does not have yet, then marks it sent: a send that stops part-way is picked up
+   * by sending it again, and nobody gets it twice.
    */
   broadcast(values: Record<string, unknown>, to: Record<string, unknown>[], send: boolean): Promise<Row>;
+  /** A waiting message sent as it stands (its words changed first), or one that stopped part-way finished. */
   sendBroadcast(id: Id, values: Record<string, unknown>, to: Record<string, unknown>[]): Promise<Row>;
 
   /** The file types the box office's exports come in (absent: the screen writes a CSV itself). */
   exportFormats?(): string[];
   /** A poster uploaded as a public picture; its address (the demo keeps it in the browser). */
-  uploadPoster?(file: File): Promise<string>;
+  uploadPoster?(file: File, eventId: Id | null): Promise<string>;
   /** Ends the box office's session (Adminium's own sign-out); the demo has none. */
   signOut?(): Promise<void>;
   /** A box-office order priced by Adminium, written nowhere. */
@@ -186,15 +201,19 @@ export interface BoxOfficePort {
   /** A phone order or comps: made held; `clientKey` makes a retry land on the same order. */
   newOrder(body: OrderBody, clientKey: string): Promise<OrderReply>;
   /** An order moved on by the box office (to the door, to waiting for a transfer, released, paid). */
-  move(orderId: Id, status: string, values?: Record<string, unknown>): Promise<Row>;
-  recordPayment(orderId: Id, amount: number, method: "bank_transfer" | "card" | "cash", note?: string | null): Promise<Row>;
-  recordRefund(orderId: Id, amount: number, method: "bank_transfer" | "card" | "cash", kind: "cancelled_tickets" | "goodwill"): Promise<Row>;
+  move(orderId: Id, status: string, values?: Record<string, unknown>, from?: string): Promise<Row>;
+  /** Money recorded; `key` makes a retry of the same press land on the same payment, never a second one. */
+  recordPayment(orderId: Id, amount: number, method: "bank_transfer" | "card" | "cash", note?: string | null, key?: string): Promise<Row>;
+  recordRefund(orderId: Id, amount: number, method: "bank_transfer" | "card" | "cash", kind: "cancelled_tickets" | "goodwill", key?: string): Promise<Row>;
   /** Tickets cancelled (on a show with a waitlist, handed to it). */
   cancelTickets(ticketIds: Id[], cause: "box_office" | "request"): Promise<void>;
   declineRefund(ticketId: Id): Promise<Row>;
   /** The places back for a waitlist offered to the next people, strictly in joining order. */
   offerWaitlist(eventId: Id): Promise<Row[]>;
-  /** A show cancelled: the show, then each live order, each its own write. */
+  /**
+   * A show and its live orders cancelled, each order its own write (one moved on meanwhile is left for the
+   * next run, which picks up where this one stopped); their cancellation emails are held until sent.
+   */
   cancelShow(eventId: Id): Promise<void>;
 }
 

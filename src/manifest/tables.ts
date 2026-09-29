@@ -1075,6 +1075,8 @@ export const TABLES: Table[] = [
       bool("voided", "Voided", false),
       at("voided_at", "Voided on", { ...opt, rules: stamp("now", voidedNow) }),
       text("voided_by", 80, "Voided by", { ...opt, rules: stamp("user-name", voidedNow) }),
+      // The box office's press: the same press sent again finds this payment instead of recording a second.
+      text("client_key", 64, "Retry key", { ...opt, unique: true }),
     ],
   },
   {
@@ -1096,6 +1098,7 @@ export const TABLES: Table[] = [
       bool("voided", "Voided", false),
       at("voided_at", "Voided on", { ...opt, rules: stamp("now", voidedNow) }),
       text("voided_by", 80, "Voided by", { ...opt, rules: stamp("user-name", voidedNow) }),
+      text("client_key", 64, "Retry key", { ...opt, unique: true }),
     ],
   },
   {
@@ -1131,7 +1134,8 @@ export const TABLES: Table[] = [
       column: "status",
       initial: "waiting",
       strict: true,
-      moves: { waiting: ["offered", "left", "removed"], offered: ["claimed", "missed"], claimed: ["missed"] },
+      // Someone who left, was taken off or missed an offer can be put back on the list (at its end).
+      moves: { waiting: ["offered", "left", "removed"], offered: ["claimed", "missed"], claimed: ["missed"], missed: ["waiting"], left: ["waiting"], removed: ["waiting"] },
     },
     columns: [
       id,
@@ -1144,7 +1148,7 @@ export const TABLES: Table[] = [
         tones: { waiting: "info", offered: "accent", claimed: "pos", missed: "neutral", left: "neutral", removed: "neutral" },
       }),
       fk("order_id", "orders", "Offer", opt),
-      at("joined_at", "Joined", { ...opt, rules: stamp("now", onCreate) }),
+      at("joined_at", "Joined", { ...opt, rules: stamp("now", [onCreate, onStatus("waiting")]) }),
       at("offered_at", "Offered", { ...opt, rules: stamp("now", onStatus("offered")) }),
       at("offer_until", "Offer runs until", { ...opt, rules: stamp({ addMinutes: { hours: setting("offer_hours"), notAfter: DOORS } }, onStatus("offered")) }),
     ],
@@ -1175,6 +1179,9 @@ export const TABLES: Table[] = [
     label: l("Message to buyers"),
     labelPlural: l("Messages to buyers"),
     keyField: "subject",
+    // Sending claims the message first: a second person pressing Send on it is refused, never sent twice.
+    // A send that stops part-way stays "going out" until it is finished.
+    states: { column: "status", initial: "waiting", strict: true, moves: { waiting: ["sending", "sent"], sending: ["sent"] } },
     columns: [
       id,
       fk("event_id", "events", "Show"),
@@ -1190,7 +1197,7 @@ export const TABLES: Table[] = [
       text("subject", 200, "Subject"),
       text("body", 1000, "Message"),
       // A postponement's message waits here until the box office sends it.
-      choice("status", "Status", { waiting: "Waiting to be sent", sent: "Sent" }, { default: "sent", tones: { waiting: "warn", sent: "pos" } }),
+      choice("status", "Status", { waiting: "Waiting to be sent", sending: "Going out", sent: "Sent" }, { default: "waiting", tones: { waiting: "warn", sending: "info", sent: "pos" } }),
       // Who it reached, counted as it went: one email an order, to each buyer's address.
       int("people", "People", opt),
       int("order_count", "Orders", opt),

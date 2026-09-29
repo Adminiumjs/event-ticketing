@@ -5,7 +5,7 @@
  * show's pools, its own money totals, exact counts of the orders and tickets
  * a line is about — and every date and time is the venue's.
  */
-import type { Id, Row, Where } from "../../data/wire.ts";
+import { yes, type Id, type Row, type Where } from "../../data/wire.ts";
 import { tr } from "../../i18n/tr.ts";
 import { svgData, wave, hsh } from "../art.ts";
 import { boxOf, LIVE, LIVE_TICKET, plural, type Box } from "../box.ts";
@@ -79,14 +79,17 @@ export function boxVals(app: WaveApp, v: V): V {
   const w = box.world();
   const bx = app.state.bx;
   const me = box.me();
-  const door = me !== undefined && me.roles.includes("door") && !me.roles.includes("box-office");
+  const door = box.doorOnly();
   const settings = w?.settings;
+  // The door's person works the door alone, whatever address brought them here.
+  if (door && bx !== "door") queueMicrotask(() => app.state.bx !== "door" && box.doorOnly() && app.setState({ bx: "door", sheet: null }));
 
-  // The nav, with what needs the box office counted by Adminium.
-  const overdueN = box.count("orders", [{ column: "status", eq: "overdue" }]) ?? 0;
-  const asked = box.list("tickets", { where: [{ column: "status", eq: "refund_asked" }], limit: 500 });
-  const rqN = new Set((asked?.rows ?? []).map((t) => t["order_id"])).size;
-  const backN = (w?.shows ?? []).filter((e) => e.waitlistOn).reduce((a, e) => a + (box.back(e.id) ?? 0), 0);
+  // The nav, with what needs the box office counted by Adminium (a door phone asks none of it).
+  const overdueN = door ? 0 : (box.count("orders", [{ column: "status", eq: "overdue" }]) ?? 0);
+  const asked = door ? [] : (box.all("tickets", [{ column: "status", eq: "refund_asked" }]) ?? []);
+  const rqN = new Set(asked.map((t) => t["order_id"])).size;
+  const backs = door || settings?.waitlistOn === false ? undefined : box.backAll();
+  const backN = (w?.shows ?? []).filter((e) => e.waitlistOn).reduce((a, e) => a + (backs?.get(e.id) ?? 0), 0);
   const navDef: [string, string, string][] = door
     ? [["door", tr("Door"), "scan-line"]]
     : [
@@ -111,7 +114,9 @@ export function boxVals(app: WaveApp, v: V): V {
         : id === "waits"
           ? { on: backN > 0, n: backN, label: plural(backN, "{n} ticket back for the waitlist", "{n} tickets back for the waitlist") }
           : { on: false, n: 0, label: "" };
-  const nav = navDef.map(([id, label, icon]) => {
+  // A screen whose rows the person may not read is left out of the nav.
+  const NAV_READS: Record<string, string> = { orders: "orders", refunds: "tickets", guests: "guest_list", waits: "waitlist", codes: "codes", msgs: "broadcasts", settings: "settings" };
+  const nav = navDef.filter(([id]) => NAV_READS[id] === undefined || box.can(NAV_READS[id]!, "read")).map(([id, label, icon]) => {
     const b = badge(id);
     const cur = curNav === id;
     return {
@@ -209,8 +214,9 @@ export function boxVals(app: WaveApp, v: V): V {
   // Until the box office's rows arrive no screen is drawn (a deep link lands before them): the page pulses.
   if (w === null) return { ...out, bo: { ...bo, s: Object.fromEntries(BOX_SCREENS.map((k) => [k, false])) }, td: blankToday(), el: { rows: [], filters: [] }, eh: { tabs: [], p: {} }, sa: blankSales(), boLoading: true };
   Object.assign(out, headerVals(app, box, w, B));
-  Object.assign(out, todayVals(app, box, w));
-  Object.assign(out, eventsVals(app, box, w, B));
+  // Today and Events are asked only while they are the screen open (their reads are many).
+  Object.assign(out, bx === "today" ? todayVals(app, box, w) : { td: blankToday() });
+  Object.assign(out, bx === "events" ? eventsVals(app, box, w, B) : { el: { rows: [], filters: [] } });
   Object.assign(out, salesVals(app, box, w));
   Object.assign(out, boxOrderVals(app, box, w, B, v));
   Object.assign(out, boxMoreVals(app, box, w, B, v));
@@ -312,7 +318,7 @@ function todayVals(app: WaveApp, box: Box, w: BoxWorld): V {
   const light = app.light();
   const set = w.settings;
   const dayStart = box.venueDayStart(now);
-  const dayEnd = dayStart + DAY;
+  const dayEnd = box.venueDayEnd(now);
 
   // A card for each show whose doors are on this venue day and which hasn't finished.
   const tonight = w.shows.filter((e) => e.status === "published" && e.days.some((d) => d.doors >= dayStart && d.doors < dayEnd) && now < e.ends).sort((a, b) => a.doors - b.doors);
@@ -399,10 +405,10 @@ function todayVals(app: WaveApp, box: Box, w: BoxWorld): V {
       acts: [],
     });
   }
-  const asked = box.list("tickets", { where: [{ column: "status", eq: "refund_asked" }], limit: 500 })?.rows ?? [];
+  const asked = box.all("tickets", [{ column: "status", eq: "refund_asked" }]) ?? [];
   const askedOrders = [...new Set(asked.map((t) => t["order_id"] as Id))];
-  const askedRows = askedOrders.length === 0 ? [] : (box.list("orders", { where: [{ column: "id", in: askedOrders }], limit: 500 })?.rows ?? []);
-  const ticketsOf = askedOrders.length === 0 ? [] : (box.list("tickets", { where: [{ column: "order_id", in: askedOrders }], limit: 2000 })?.rows ?? []);
+  const askedRows = askedOrders.length === 0 ? [] : (box.allIn("orders", "id", askedOrders) ?? []);
+  const ticketsOf = askedOrders.length === 0 ? [] : (box.allIn("tickets", "order_id", askedOrders) ?? []);
   if (askedRows.length > 0) {
     needs.push({
       id: "rq",
@@ -425,8 +431,9 @@ function todayVals(app: WaveApp, box: Box, w: BoxWorld): V {
       acts: [],
     });
   }
-  for (const e of w.shows.filter((x) => x.status === "cancelled")) {
-    const owe = box.list("orders", { where: [{ column: "event_id", eq: e.id }, { column: "balance", lt: 0 }], limit: 1000 });
+  // Only a cancelled show with money still to pay back (its own totals say so) is read: never every show ever cancelled.
+  for (const e of w.shows.filter((x) => x.status === "cancelled" && x.money.received - x.money.refunded > 0.004)) {
+    const owe = rowsOrNot(box.all("orders", [{ column: "event_id", eq: e.id }, { column: "balance", lt: 0 }]));
     if (owe === undefined || owe.total === 0) continue;
     const toPay = -owe.rows.reduce((a, o) => a + Number(o["balance"] ?? 0), 0);
     needs.push({
@@ -461,10 +468,10 @@ function todayVals(app: WaveApp, box: Box, w: BoxWorld): V {
       });
     }
   }
-  const waitingMsgs = box.list("broadcasts", { where: [{ column: "status", eq: "waiting" }], limit: 50 })?.rows ?? [];
+  const waitingMsgs = box.list("broadcasts", { where: [{ column: "status", in: ["waiting", "sending"] }], limit: 50 })?.rows ?? [];
   for (const b of waitingMsgs) {
     const e = w.byId.get(b["event_id"] as Id);
-    if (e === undefined || e.status === "cancelled") continue;
+    if (e === undefined || e.status === "cancelled" || b["template"] === "cancelled") continue;
     const moved = b["template"] === "moved";
     needs.push({
       id: `bm${String(b.id)}`,
@@ -541,13 +548,13 @@ function todayVals(app: WaveApp, box: Box, w: BoxWorld): V {
     { column: "created_at", gte: new Date(dayStart).toISOString() },
     { column: "created_at", lt: new Date(dayEnd).toISOString() },
   ];
-  const placed = box.list("orders", { where: [...today, { column: "status", in: LIVE }], limit: 2000 })?.rows ?? [];
+  const placed = box.all("orders", [...today, { column: "status", in: LIVE }]) ?? [];
   const out = placed.length === 0 ? 0 : (box.count("tickets", [{ column: "order_id", in: placed.map((o) => o.id) }, { column: "status", in: [...LIVE_TICKET, "cancelled", "returned"] }]) ?? 0);
   const recorded = [
-    ...(box.list("payments", { where: [{ column: "recorded_at", gte: new Date(dayStart).toISOString() }, { column: "recorded_at", lt: new Date(dayEnd).toISOString() }], limit: 2000 })?.rows ?? []),
-    ...(box.list("door_collections", { where: [{ column: "taken_at", gte: new Date(dayStart).toISOString() }, { column: "taken_at", lt: new Date(dayEnd).toISOString() }, { column: "state", eq: "taken" }], limit: 2000 })?.rows ?? []),
+    ...(box.all("payments", [{ column: "recorded_at", gte: new Date(dayStart).toISOString() }, { column: "recorded_at", lt: new Date(dayEnd).toISOString() }]) ?? []),
+    ...(box.all("door_collections", [{ column: "taken_at", gte: new Date(dayStart).toISOString() }, { column: "taken_at", lt: new Date(dayEnd).toISOString() }, { column: "state", eq: "taken" }]) ?? []),
   ]
-    .filter((p) => p["voided"] !== true)
+    .filter((p) => !yes(p["voided"]))
     .reduce((a, p) => a + Number(p["amount"] ?? 0), 0);
   const sumOf = (st: string) => placed.filter((o) => o["status"] === st).reduce((a, o) => a + Number(o["total"] ?? 0), 0);
 
@@ -585,9 +592,12 @@ function eventsVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unkno
   const chip = B["chip"] as (on: boolean) => string;
   const fmap: Record<string, string[]> = { on: ["on"], soon: ["soon"], sold: ["sold"], post: ["post", "cancelled"], past: ["past"], draft: ["draft"] };
   const all = w.shows.map((e) => ({ e, st: box.status(e) }));
-  const rows = all
+  const shown = all
     .filter((x) => s.evF === "all" || fmap[s.evF]!.includes(x.st.id))
-    .sort((a, b) => Number(box.isPast(a.e)) - Number(box.isPast(b.e)) || a.e.start - b.e.start)
+    .sort((a, b) => Number(box.isPast(a.e)) - Number(box.isPast(b.e)) || a.e.start - b.e.start);
+  // A page of shows at a time: each row's places are one read, and a venue's history keeps growing.
+  const rows = shown
+    .slice(0, s.evN)
     .map(({ e, st }) => {
       const sold = box.sold(e);
       const cancelled = st.id === "cancelled";
@@ -641,6 +651,9 @@ function eventsVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unkno
         return { id, label: `${label} ${fsi(num(c))}`, on: s.evF === id, style: chip(s.evF === id), go: () => box.set({ evF: id }) };
       }),
       rows,
+      moreOn: shown.length > rows.length,
+      more: () => box.set({ evN: s.evN + 50 }),
+      createOn: box.can("events", "create"),
       create: () => box.newEvent(),
     },
   };
@@ -782,12 +795,12 @@ function salesVals(app: WaveApp, box: Box, w: BoxWorld): V {
 
   // Codes used on this show: every code that applies here with a use here (per show, and in all).
   const codeRows = box.rows("codes") ?? [];
-  const uses = box.list("orders", { where: [{ column: "event_id", eq: e.id }, { column: "code_id", isNull: false }, { column: "status", in: LIVE }], limit: 2000 })?.rows ?? [];
-  const usesAll = box.list("orders", { where: [{ column: "code_id", isNull: false }, { column: "status", in: LIVE }], limit: 5000 })?.rows ?? [];
-  const here = codeRows.filter((c) => uses.some((o) => o["code_id"] === c.id) || (!past && !cancelled && (c["event_id"] === e.id || (c["room_id"] !== null && c["room_id"] === e.room?.id) || (c["event_id"] === null && c["room_id"] === null)) && c["active"] === true));
+  const uses = box.all("orders", [{ column: "event_id", eq: e.id }, { column: "code_id", isNull: false }, { column: "status", in: LIVE }]) ?? [];
+  const here = codeRows.filter((c) => uses.some((o) => o["code_id"] === c.id) || (!past && !cancelled && (c["event_id"] === e.id || (c["room_id"] !== null && c["room_id"] === e.room?.id) || (c["event_id"] === null && c["room_id"] === null)) && yes(c["active"])));
   const codes = here.map((c) => {
     const onShow = uses.filter((o) => o["code_id"] === c.id).length;
-    const inAll = usesAll.filter((o) => o["code_id"] === c.id).length;
+    // Counted by Adminium, one code at a time: every order ever placed with a code is never read here.
+    const inAll = box.count("orders", [{ column: "code_id", eq: c.id }, { column: "status", in: LIVE }]) ?? 0;
     const max = c["max_uses"] === null || c["max_uses"] === undefined ? null : Number(c["max_uses"]);
     return {
       code: String(c["code"]),
@@ -841,3 +854,6 @@ function salesVals(app: WaveApp, box: Box, w: BoxWorld): V {
 const fDayShort = (t: number): string => fD(t).split(" ")[0] ?? "";
 
 export { iso };
+
+/** Rows and how many, as a list reads them (undefined while Adminium has not answered). */
+const rowsOrNot = (rows: Row[] | undefined): { rows: Row[]; total: number } | undefined => (rows === undefined ? undefined : { rows, total: rows.length });

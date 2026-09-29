@@ -7,7 +7,7 @@
  */
 import type { Id, OrderBody, Row } from "../../data/wire.ts";
 import { tr } from "../../i18n/tr.ts";
-import { boxOf, LIVE_TICKET, plural, unsentScans, type Box } from "../box.ts";
+import { boxOf, hashKey, LIVE_TICKET, mintKey, plural, unsentScans, type Box } from "../box.ts";
 import { doorOf } from "../door.ts";
 import type { BoxShow } from "../boxWorld.ts";
 import { codeFace, fD, fT, money, ms, num } from "../fmt.ts";
@@ -144,7 +144,10 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
         e?.preventDefault();
         if (busy) return;
         if (!(amt > 0)) return set({ err: { amt: tr("Enter the amount received") } });
-        void box.pay(order, amt, sh["method"] as "bank_transfer" | "card" | "cash", String(sh["note"] ?? "").trim());
+        // The sheet's own key with what it records: pressed again after a lost answer, the same payment is found.
+        const key = String(sh["key"] ?? "") || mintKey("pay");
+        if (sh["key"] !== key) set({ key });
+        void box.pay(order, amt, sh["method"] as "bank_transfer" | "card" | "cash", String(sh["note"] ?? "").trim(), `${key}-${hashKey(`${String(amt)}:${String(sh["method"])}`)}`);
       },
     });
   }
@@ -249,7 +252,9 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
         if (busy) return;
         const amt = amountOf(sh["amount"]);
         if (!(amt > 0) || amt > max + 0.001) return set({ err: { amount: tr("Enter an amount up to {max}", { max: money(max) }) } });
-        void box.refund(order, amt, sh["how"] as "bank_transfer" | "card" | "cash", kind);
+        const key = String(sh["key"] ?? "") || mintKey("refund");
+        if (sh["key"] !== key) set({ key });
+        void box.refund(order, amt, sh["how"] as "bank_transfer" | "card" | "cash", kind, `${key}-${hashKey(`${String(amt)}:${String(sh["how"])}:${kind}`)}`);
       },
     });
   }
@@ -523,6 +528,16 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
   if (k === "bxCancelShow") {
     const ev = w.byId.get(sh["ev"] as Id);
     const n = Number(sh["n"] ?? 0);
+    const run = box.s.pc.run;
+    // How far it has got, while it goes (a big show goes at the pace Adminium allows).
+    if (busy && run !== null)
+      Object.assign(o, {
+        noteOn: true,
+        note:
+          run.stage === "orders"
+            ? tr("Cancelling orders: {done} of {total}. Keep this page open.", { done: num(run.done), total: num(run.total) })
+            : tr("Sending the cancellation emails: {done} of {total}. Keep this page open.", { done: num(run.done), total: num(run.total) }),
+      });
     Object.assign(o, {
       icon: "calendar-x",
       tone: "danger",
@@ -725,7 +740,9 @@ function newOrderSheet(app: WaveApp, box: Box, o: V & { fields: unknown[] }, sh:
         buyer: given.find((x) => x !== "") ?? "",
         how: how as "paidnow" | "door" | "transfer" | "none",
         method,
-        key: String(sh["key"] ?? ""),
+        key: String(sh["key"] ?? "") || mintKey("bo"),
+        // The total on screen, when Adminium priced it: a different price makes nothing.
+        ...(quote === undefined ? {} : { expect: total }),
       });
     },
   });

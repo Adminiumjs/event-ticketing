@@ -10,6 +10,7 @@
  */
 import { broadcastKind } from "../data/messageKinds.ts";
 import type { AudiencePort, BankDoor, BoxOfficePort, DoorPort, EventChildren, OrderWithTickets, Person, StaffPerson, Venue } from "../data/ports.ts";
+import { cancelShowOrders, offerPlan, recipientKey } from "../data/boxSteps.ts";
 import { ApiError, type ClaimReply, type Config, type HistoryEntry, type Id, type ListQuery, type ListReply, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type TypeLeft, type Where } from "../data/wire.ts";
 import { toMs } from "../lib/venueTime.ts";
 import { normalizeCode, randomCode } from "./codes.ts";
@@ -679,8 +680,16 @@ export class DemoBoxOffice implements BoxOfficePort {
     return this.engine.create(table as Table, values, this.writer).row;
   }
 
-  async update(table: string, id: Id, values: Record<string, unknown>): Promise<Row> {
+  async update(table: string, id: Id, values: Record<string, unknown>, from?: string): Promise<Row> {
+    this.seen(table, id, from);
     return this.engine.update(table as Table, id, values, this.writer);
+  }
+
+  /** A change that names the state it saw: refused, as Adminium refuses it, when the row has moved on. */
+  private seen(table: string, id: Id, from: string | undefined): void {
+    if (from === undefined) return;
+    const now = this.engine.world.get(table as Table, id)?.["status"];
+    if (now !== from) throw new ApiError(409, "STATE_MOVE_REFUSED", { column: "status", from: now ?? null, named: from });
   }
 
   async remove(table: string, id: Id): Promise<void> {
@@ -702,7 +711,7 @@ export class DemoBoxOffice implements BoxOfficePort {
     engine.remove(table as Table, id, this.writer);
   }
 
-  async saveEvent(id: Id | null, values: Record<string, unknown>, children: EventChildren): Promise<Row> {
+  async saveEvent(id: Id | null, values: Record<string, unknown>, children: Partial<EventChildren>): Promise<Row> {
     const engine = this.engine;
     return engine.transaction(() => {
       const event = id === null ? engine.create("events", values, this.writer).row : engine.update("events", id, values, this.writer);
@@ -733,8 +742,8 @@ export class DemoBoxOffice implements BoxOfficePort {
   async broadcast(values: Record<string, unknown>, to: Record<string, unknown>[], send: boolean): Promise<Row> {
     const engine = this.engine;
     return engine.transaction(() => {
-      const made = engine.create("broadcasts", { ...values, status: send ? "sent" : "waiting" }, this.writer).row;
-      if (send) this.queueBroadcast(made, to);
+      const made = engine.create("broadcasts", { ...values, status: "waiting" }, this.writer).row;
+      if (send) this.sendNow(made, {}, to);
       return copy(engine.world.get("broadcasts", made.id)!);
     });
   }
@@ -742,15 +751,26 @@ export class DemoBoxOffice implements BoxOfficePort {
   async sendBroadcast(id: Id, values: Record<string, unknown>, to: Record<string, unknown>[]): Promise<Row> {
     const engine = this.engine;
     return engine.transaction(() => {
-      const sent = engine.update("broadcasts", id, { ...values, status: "sent" }, this.writer);
-      this.queueBroadcast(sent, to);
+      this.sendNow(engine.world.get("broadcasts", id)!, values, to);
       return copy(engine.world.get("broadcasts", id)!);
     });
   }
 
-  /** One email an order (a moved show's own kind, or a message to its buyers), and a friend's own to each holder. */
+  /** Claimed (a second sender is refused), its emails written (only those it does not have yet), then sent. */
+  private sendNow(b: Row, values: Record<string, unknown>, to: Record<string, unknown>[]): void {
+    const engine = this.engine;
+    if (b["status"] !== "sending") {
+      this.seen("broadcasts", b.id, "waiting");
+      engine.update("broadcasts", b.id, { ...values, status: "sending" }, this.writer);
+    }
+    this.queueBroadcast(engine.world.get("broadcasts", b.id)!, to);
+    engine.update("broadcasts", b.id, { status: "sent" }, this.writer);
+  }
+
+  /** One email an order (a moved show's own kind, or a message to its buyers), and a friend's own to each holder: only those it does not have yet. */
   private queueBroadcast(b: Row, to: Record<string, unknown>[]): void {
-    for (const row of to) {
+    const had = new Set(this.engine.world.where("messages", (m) => m["broadcast_id"] === b.id).map(recipientKey));
+    for (const row of to.filter((r) => !had.has(recipientKey(r)))) {
       // A friend's copy goes to the friend's own address, which the server reads from their customer row.
       const friend = row["customer_id"] === undefined || row["customer_id"] === null ? undefined : this.engine.world.get("customers", row["customer_id"] as Id);
       this.engine.create(
@@ -782,25 +802,38 @@ export class DemoBoxOffice implements BoxOfficePort {
     const engine = this.engine;
     if (again !== undefined) return { data: copy(engine.world.get("orders", again)!), tickets: engine.world.where("tickets", (t) => t["order_id"] === again).map(copy), replayed: true };
     const event = engine.world.get("events", body.values["event_id"] as Id);
-    const made = engine.create("orders", { channel: "box_office", ...body.values, room_id: event?.["room_id"] ?? null, client_key: clientKey }, this.writer, {
-      table: "tickets",
-      via: "order_id",
-      rows: body.tickets.map((t) => ({ ...t })),
+    const made = engine.transaction(() => {
+      const out = engine.create("orders", { channel: "box_office", ...body.values, room_id: event?.["room_id"] ?? null, client_key: clientKey }, this.writer, {
+        table: "tickets",
+        via: "order_id",
+        rows: body.tickets.map((t) => ({ ...t })),
+      });
+      // The total the box office was shown: another one writes nothing, as Adminium's price check refuses it.
+      if (body.expect !== undefined && Math.abs(Number(out.row["total"] ?? 0) - body.expect.total) > 0.004) throw new ApiError(409, "PRICE_CHANGED", { column: "total", total: Number(out.row["total"] ?? 0).toFixed(2) });
+      return out;
     });
     this.retries.set(clientKey, made.row.id);
     return { data: made.row, tickets: made.children };
   }
 
-  async move(orderId: Id, status: string, values: Record<string, unknown> = {}): Promise<Row> {
+  async move(orderId: Id, status: string, values: Record<string, unknown> = {}, from?: string): Promise<Row> {
+    this.seen("orders", orderId, from);
     return this.engine.update("orders", orderId, { ...values, status }, this.writer);
   }
 
-  async recordPayment(orderId: Id, amount: number, method: "bank_transfer" | "card" | "cash", note: string | null = null): Promise<Row> {
-    return this.engine.create("payments", { order_id: orderId, amount, method, note }, this.writer).row;
+  async recordPayment(orderId: Id, amount: number, method: "bank_transfer" | "card" | "cash", note: string | null = null, key?: string): Promise<Row> {
+    return this.keyed("payments", { order_id: orderId, amount, method, note }, key);
   }
 
-  async recordRefund(orderId: Id, amount: number, method: "bank_transfer" | "card" | "cash", kind: "cancelled_tickets" | "goodwill"): Promise<Row> {
-    return this.engine.create("refunds", { order_id: orderId, amount, method, kind }, this.writer).row;
+  async recordRefund(orderId: Id, amount: number, method: "bank_transfer" | "card" | "cash", kind: "cancelled_tickets" | "goodwill", key?: string): Promise<Row> {
+    return this.keyed("refunds", { order_id: orderId, amount, method, kind }, key);
+  }
+
+  /** Money written once per press: a press sent again answers the row it made. */
+  private keyed(table: "payments" | "refunds", values: Record<string, unknown>, key: string | undefined): Row {
+    const made = key === undefined ? undefined : this.engine.world.all(table).find((r) => r["client_key"] === key);
+    if (made !== undefined) return copy(made);
+    return this.engine.create(table, { ...values, ...(key === undefined ? {} : { client_key: key }) }, this.writer).row;
   }
 
   async cancelTickets(ticketIds: Id[], cause: "box_office" | "request"): Promise<void> {
@@ -824,36 +857,31 @@ export class DemoBoxOffice implements BoxOfficePort {
     const engine = this.engine;
     return engine.transaction(() => {
       const returned = engine.world.where("tickets", (t) => t["event_id"] === eventId && t["status"] === "returned");
-      const offeredAlready = engine.world.where("orders", (o) => o["event_id"] === eventId && o["status"] === "offered").reduce((n, o) => n + engine.world.where("tickets", (t) => t["order_id"] === o.id).length, 0);
-      let left = returned.length - offeredAlready;
-      const type = returned[0]?.["ticket_type_id"] as Id | undefined;
+      const offeredOrders = new Set(engine.world.where("orders", (o) => o["event_id"] === eventId && o["status"] === "offered").map((o) => o.id));
+      const offered = engine.world.where("tickets", (t) => offeredOrders.has(t["order_id"] as Id));
+      const plan = offerPlan(returned, offered, engine.counts(eventId));
       const offers: Row[] = [];
       const queue = engine.world.where("waitlist", (w) => w["event_id"] === eventId && w["status"] === "waiting").sort((a, b) => String(a["joined_at"]).localeCompare(String(b["joined_at"])));
       for (const entry of queue) {
-        if (left <= 0 || type === undefined) break;
-        const n = Math.min(Number(entry["qty"]), left);
+        const types = plan.take(Number(entry["qty"]));
+        if (types.length === 0) break;
         const customer = engine.world.get("customers", entry["customer_id"] as Id);
         const made = engine.create(
           "orders",
           { event_id: eventId, room_id: engine.world.get("events", eventId)!["room_id"], channel: "box_office", email: entry["email"], buyer_name: customer?.["name"] ?? null, customer_id: entry["customer_id"], waitlist_id: entry.id },
           this.writer,
-          { table: "tickets", via: "order_id", rows: Array.from({ length: n }, () => ({ ticket_type_id: type })) },
+          { table: "tickets", via: "order_id", rows: types.map((ticket_type_id) => ({ ticket_type_id })) },
         );
         offers.push(engine.update("orders", made.row.id, { status: "offered" }, this.writer));
-        engine.update("waitlist", entry.id, { status: "offered" }, this.writer);
-        left -= n;
+        engine.update("waitlist", entry.id, { status: "offered", order_id: made.row.id }, this.writer);
       }
       return offers;
     });
   }
 
+  /** A show and its live orders cancelled, each order its own write; their emails held until sent. */
   async cancelShow(eventId: Id): Promise<void> {
-    const engine = this.engine;
-    engine.update("events", eventId, { status: "cancelled" }, this.writer);
-    // Each live order its own write: an order already cancelled is left as it is.
-    for (const order of engine.world.where("orders", (o) => o["event_id"] === eventId && [...LIVE_ORDER, "held", "confirming", "offered"].includes(String(o["status"])))) {
-      engine.update("orders", order.id, { status: "cancelled", cancel_cause: "show" }, this.writer);
-    }
+    return cancelShowOrders(this, eventId);
   }
 }
 

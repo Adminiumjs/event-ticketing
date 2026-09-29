@@ -35,6 +35,7 @@ import { COLUMNS, resolveSample } from "../data/sampleRows.ts";
 import { DEMO_BUNDLE, DEMO_CURRENCY, DEMO_START, DEMO_ZONE } from "../demo/world.ts";
 import { AdminiumAudience } from "../data/adminiumAudience.ts";
 import { AdminiumStaff } from "../data/adminiumStaff.ts";
+import { cancelLeft, cancelRun } from "../data/boxSteps.ts";
 import { createSessionTransport } from "../data/sessionSource.ts";
 import type { StaffConfig } from "../staffConnection.ts";
 import { publicRefs } from "../data/publicRefs.ts";
@@ -1314,6 +1315,186 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
             code: "VALIDATION_FAILED",
           });
         }, 120_000);
+      });
+
+      describe("box fixes", () => {
+        /** A show of this block's own, in the sample's Main Hall, on sale: nothing the other steps read. */
+        const ownShow = async (box: AdminiumStaff, name: string, extra: Record<string, unknown> = {}, types: Record<string, unknown>[] = [{ name: "Standard", price: 20, capacity: 400 }]) => {
+          const room = (await box.rows("rooms")).find((r) => r["name"] === "Main Hall")!;
+          const at = (h: number) => new Date(venueAt("2026-09-20T19:00") + h * 3_600_000).toISOString();
+          const made = await box.saveEvent(
+            null,
+            { name, slug: `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${engine}`, kind: "gig", room_id: room.id, doors_at: at(0), starts_at: at(1), curfew_at: at(4), ends_at: at(4), ...extra },
+            { event_days: [{ day: 1, doors_at: at(0), curfew_at: at(4) }], ticket_types: types.map((t, i) => ({ kind: "standard", max_per_order: 8, visibility: "public", position: i, ...t })), acts: [], questions: [] },
+          );
+          await box.update("events", made.id, { status: "published" }, "draft");
+          const typeRows = (await box.list("ticket_types", { where: [{ column: "event_id", eq: made.id }], sort: [{ column: "position" }] })).rows;
+          return { id: made.id, types: typeRows };
+        };
+        /** A box-office person of this block's own: their own requests-a-minute. */
+        const BOX_PERSON = { email: `bo.fix.${engine}@waveform.test`, password: `box-${Math.random().toString(36).slice(2)}-${String(Date.now())}` };
+        const boxPerson = async () => {
+          const roles = ok(await staff.get<{ data?: { id: string; slug: string }[]; roles?: { id: string; slug: string }[] }>("/api/v1/roles"));
+          const role = (roles.data ?? roles.roles ?? []).find((r) => r.slug === "events-box-office")!;
+          const invited = await staff.post("/api/v1/users", { email: BOX_PERSON.email, name: "Priya", roleIds: [role.id] });
+          const token = JSON.stringify(invited.body).match(/\/reset\/([A-Za-z0-9_-]+)/)![1]!;
+          ok(await new Caller(server.base, { origin: server.base }).post("/api/v1/auth/password/reset", { token, newPassword: BOX_PERSON.password }));
+          return staffPort(BOX_PERSON);
+        };
+
+        it("reads every yes/no as a yes/no: a code turned off stays off, a required question stays required, a voided payment counts for nothing, a waitlist show's cancel returns its tickets", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const box = await staffPort(ADMIN);
+          const code = await box.create("codes", { code: `BOXFIX${engine.toUpperCase()}`, kind: "percent", value: 10 });
+          expect(code["active"]).toBe(true);
+          const off = await box.update("codes", code.id, { active: false });
+          expect(off["active"]).toBe(false);
+          expect((await box.list("codes", { where: [{ column: "id", eq: code.id }] })).rows[0]!["active"]).toBe(false);
+
+          const show = await ownShow(box, `Yes No ${engine}`, { waitlist_on: true });
+          await box.saveEvent(show.id, {}, { questions: [{ text: "Dietary needs?", kind: "text", per: "order", required: true, position: 0 }] });
+          const q = (await box.list("questions", { where: [{ column: "event_id", eq: show.id }] })).rows[0]!;
+          expect(q["required"]).toBe(true);
+          expect((await box.list("events", { where: [{ column: "id", eq: show.id }] })).rows[0]!["waitlist_on"]).toBe(true);
+
+          const order = await box.newOrder({ values: { event_id: show.id, buyer_name: "Yes No", email: "yes.no@example.com" }, tickets: [{ ticket_type_id: show.types[0]!.id }, { ticket_type_id: show.types[0]!.id }] }, key("yesno"));
+          await box.move(order.data.id, "door", {}, "held");
+          const pay = await box.recordPayment(order.data.id, 5, "cash", null, key("pay"));
+          await box.update("payments", pay.id, { voided: true });
+          const paid = (await box.list("payments", { where: [{ column: "id", eq: pay.id }] })).rows[0]!;
+          expect(paid["voided"]).toBe(true);
+          expect(Number((await box.list("orders", { where: [{ column: "id", eq: order.data.id }] })).rows[0]!["paid_in"])).toBe(0);
+          await box.cancelTickets([order.tickets[0]!.id], "box_office");
+          expect((await box.list("tickets", { where: [{ column: "id", eq: order.tickets[0]!.id }] })).rows[0]!["status"]).toBe("returned");
+        }, 240_000);
+
+        it("records money once per press, and never takes a let-go order's replay for a made one", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const box = await staffPort(ADMIN);
+          const show = await ownShow(box, `Retry ${engine}`);
+          const k = key("retry");
+          const first = await box.newOrder({ values: { event_id: show.id, buyer_name: "Rae Try" }, tickets: [{ ticket_type_id: show.types[0]!.id }] }, k);
+          // The step after the create failed: the order is let go.
+          await box.move(first.data.id, "let_go", {}, "held");
+          const again = await box.newOrder({ values: { event_id: show.id, buyer_name: "Rae Try" }, tickets: [{ ticket_type_id: show.types[0]!.id }] }, k);
+          expect([again.replayed, again.data.id, again.data["status"]]).toEqual([true, first.data.id, "let_go"]);
+          // A new press is a new key: a new order.
+          const fresh = await box.newOrder({ values: { event_id: show.id, buyer_name: "Rae Try" }, tickets: [{ ticket_type_id: show.types[0]!.id }] }, key("retry"));
+          expect(fresh.data.id).not.toBe(first.data.id);
+          expect(await refusal(() => box.newOrder({ values: { event_id: show.id, buyer_name: "Rae Try" }, tickets: [{ ticket_type_id: show.types[0]!.id }], expect: { total: 1 } }, key("retry")))).toMatchObject({ code: "PRICE_CHANGED" });
+          await box.move(fresh.data.id, "door", {}, "held");
+          const pk = key("pay");
+          const one = await box.recordPayment(fresh.data.id, 20, "cash", null, pk);
+          const two = await box.recordPayment(fresh.data.id, 20, "cash", null, pk);
+          expect(two.id).toBe(one.id);
+          expect((await box.list("payments", { where: [{ column: "order_id", eq: fresh.data.id }] })).rows).toHaveLength(1);
+        }, 240_000);
+
+        it("claims a message before sending it: a second sender is refused, and a send picked up later reaches only those not reached", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const box = await staffPort(ADMIN);
+          const show = await ownShow(box, `Message ${engine}`);
+          const buyers: Row[] = [];
+          for (let i = 0; i < 3; i += 1) {
+            const o = await box.newOrder({ values: { event_id: show.id, buyer_name: `Buyer ${String(i)}`, email: `buyer${String(i)}.${engine}@example.com` }, tickets: [{ ticket_type_id: show.types[0]!.id }] }, key("msg"));
+            buyers.push(await box.move(o.data.id, "door", {}, "held"));
+          }
+          const to = buyers.map((o) => ({ order_id: o.id, to_address: o["email"] }));
+          const waiting = await box.broadcast({ event_id: show.id, audience: "everyone", template: "other", subject: "Doors at 19:00", body: "See you.", people: 3, order_count: 3 }, [], false);
+          expect(waiting["status"]).toBe("waiting");
+          const both = await Promise.allSettled([box.sendBroadcast(waiting.id, {}, to), box.sendBroadcast(waiting.id, {}, to)]);
+          expect(both.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
+          expect((both.find((r) => r.status === "rejected") as PromiseRejectedResult).reason).toMatchObject({ code: "STATE_MOVE_REFUSED" });
+          expect((await box.list("messages", { where: [{ column: "broadcast_id", eq: waiting.id }] })).total).toBe(3);
+          // One that stopped part-way (claimed, one email written): finishing it writes the other two.
+          const part = await box.broadcast({ event_id: show.id, audience: "everyone", template: "other", subject: "Set times", body: "Up.", people: 3, order_count: 3 }, [], false);
+          await box.update("broadcasts", part.id, { status: "sending" }, "waiting");
+          await box.mail("broadcast", [{ event_id: show.id, broadcast_id: part.id, ...to[0]! }]);
+          expect((await box.sendBroadcast(part.id, {}, to))["status"]).toBe("sent");
+          expect((await box.list("messages", { where: [{ column: "broadcast_id", eq: part.id }] })).total).toBe(3);
+        }, 240_000);
+
+        it("keeps a waitlist offer's order on the place, ends the offer by its order, and puts someone back at the end of the list", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const box = await staffPort(ADMIN);
+          const show = await ownShow(box, `Waitlist ${engine}`, { waitlist_on: true }, [{ name: "Standard", price: 20, capacity: 2 }, { name: "Balcony", price: 30, capacity: 2 }]);
+          const [std, bal] = show.types;
+          const sold = await box.newOrder({ values: { event_id: show.id, buyer_name: "Full House", email: `full.${engine}@example.com` }, tickets: [{ ticket_type_id: std!.id }, { ticket_type_id: bal!.id }] }, key("wl"));
+          await box.move(sold.data.id, "door", {}, "held");
+          const people: Row[] = [];
+          for (const who of ["kai", "ana"]) {
+            const c = await box.create("customers", { email: `${who}.${engine}@example.com`, name: who });
+            people.push(await box.create("waitlist", { event_id: show.id, customer_id: c.id, email: `${who}.${engine}@example.com`, qty: 2 }));
+          }
+          // A Standard and a Balcony come back: both are offered, each as its own type.
+          await box.cancelTickets(sold.tickets.map((t) => t.id), "box_office");
+          const offers = await box.offerWaitlist(show.id);
+          expect(offers).toHaveLength(1);
+          const offered = (await box.list("tickets", { where: [{ column: "order_id", eq: offers[0]!.id }] })).rows.map((t) => t["ticket_type_id"]).sort();
+          expect(offered).toEqual([std!.id, bal!.id].sort());
+          const place = (await box.list("waitlist", { where: [{ column: "id", eq: people[0]!.id }] })).rows[0]!;
+          expect([place["status"], place["order_id"]]).toEqual(["offered", offers[0]!.id]);
+          // Removed while offered: the offer's order runs out, and the place is missed.
+          await box.move(offers[0]!.id, "expired", {}, "offered");
+          const missed = await until(async () => {
+            const row = (await box.list("waitlist", { where: [{ column: "id", eq: people[0]!.id }] })).rows[0]!;
+            return row["status"] === "missed" ? row : undefined;
+          }, "the place missed", 60_000);
+          // Put back: waiting again, joined now (at the end of the list).
+          const back = await box.update("waitlist", missed.id, { status: "waiting", qty: 1, order_id: null }, "missed");
+          expect(back["status"]).toBe("waiting");
+          expect(Date.parse(String(back["joined_at"]))).toBeGreaterThan(Date.parse(String(people[1]!["joined_at"])));
+        }, 240_000);
+
+        it("moves a show and its days in one write, and a save sends only what changed, keeping a colleague's new type", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const box = await staffPort(ADMIN);
+          const show = await ownShow(box, `Moved ${engine}`);
+          const day = (await box.list("event_days", { where: [{ column: "event_id", eq: show.id }] })).rows[0]!;
+          const later = (iso: unknown) => new Date(Date.parse(String(iso)) + 7 * 86_400_000).toISOString();
+          const ev = (await box.list("events", { where: [{ column: "id", eq: show.id }] })).rows[0]!;
+          await box.saveEvent(show.id, { doors_at: later(ev["doors_at"]), starts_at: later(ev["starts_at"]), curfew_at: later(ev["curfew_at"]), ends_at: later(ev["curfew_at"]), was_starts_at: ev["starts_at"] }, { event_days: [{ id: day.id, doors_at: later(day["doors_at"]), curfew_at: later(day["curfew_at"]) }] });
+          const moved = (await box.list("event_days", { where: [{ column: "event_id", eq: show.id }] })).rows;
+          expect(moved.map((d) => [d.id, Date.parse(String(d["doors_at"]))])).toEqual([[day.id, Date.parse(later(day["doors_at"]))]]);
+          // A colleague adds a type; this save changes only the show's words and sends the list as it is now.
+          await box.saveEvent(show.id, {}, { ticket_types: [...show.types.map((t) => ({ id: t.id })), { name: "Late", kind: "standard", price: 15, capacity: 20, max_per_order: 8, visibility: "public", position: 1 }] });
+          const now = (await box.list("ticket_types", { where: [{ column: "event_id", eq: show.id }] })).rows;
+          await box.saveEvent(show.id, { about: "New words." }, { ticket_types: now.map((t) => ({ id: t.id })) });
+          const after = (await box.list("ticket_types", { where: [{ column: "event_id", eq: show.id }] })).rows.map((t) => t["name"]).sort();
+          expect(after).toEqual(["Late", "Standard"]);
+          const still = (await box.list("events", { where: [{ column: "id", eq: show.id }] })).rows[0]!;
+          expect([still["about"], Date.parse(String(still["doors_at"]))]).toEqual(["New words.", Date.parse(later(ev["doors_at"]))]);
+        }, 240_000);
+
+        it("cancels a show with more orders than a minute's requests at the pace Adminium allows, and a cancel stopped part-way is finished: every order, every email once", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const admin = await staffPort(ADMIN);
+          const show = await ownShow(admin, `Big Cancel ${engine}`);
+          const N = 160;
+          for (let i = 0; i < N; i += 1) {
+            const o = await admin.newOrder({ values: { event_id: show.id, buyer_name: `Guest ${String(i)}`, email: `guest${String(i)}.${engine}@example.com` }, tickets: [{ ticket_type_id: show.types[0]!.id }] }, key("big"));
+            await admin.move(o.data.id, "door", {}, "held");
+          }
+          // Another person's own requests-a-minute: the cancel alone is more than one minute's (an order and an email each).
+          const box = await boxPerson();
+          const words = { subject: "Big Cancel is off", body: "Sorry — the show is cancelled." };
+          await expect(cancelRun(box, show.id, words, { stopAfter: 60 })).rejects.toThrow("stopped");
+          const midway = await cancelLeft(box, show.id);
+          expect(midway.orders.length).toBeGreaterThan(0);
+          expect(midway.message?.["status"]).toBe("waiting");
+          // Over a minute's requests for one person: the rate limit is waited out, never met with a stop.
+          const done = await cancelRun(box, show.id, { subject: "other words", body: "never sent" });
+          expect(done.orders).toBe(N);
+          const left = await cancelLeft(box, show.id);
+          expect([left.orders.length, left.emails.length, left.message?.["status"]]).toEqual([0, 0, "sent"]);
+          const orders = new Set((await box.list("orders", { where: [{ column: "event_id", eq: show.id }], limit: 1000 })).rows.map((o) => o.id));
+          const mails = (await box.list("messages", { where: [{ column: "kind", in: ["cancelled-paid", "cancelled-unpaid"] }], limit: 20_000 })).rows.filter((m) => orders.has(m["order_id"] as number));
+          // Each order's email once, none still held, with the first words typed.
+          expect(new Set(mails.map((m) => m["order_id"])).size).toBe(mails.length);
+          expect(mails.length).toBe(N);
+          expect(mails.filter((m) => m["status"] === "held")).toEqual([]);
+          expect(mails.every((m) => m["subject_override"] === words.subject)).toBe(true);
+        }, 900_000);
       });
 
       it("removes the sample", async (ctx) => {
