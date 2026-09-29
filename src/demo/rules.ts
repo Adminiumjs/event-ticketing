@@ -365,7 +365,15 @@ export const MANIFEST_RULES = {
     "waitlist": {
       "joined_at": {
         "set": "now",
-        "on": "create"
+        "on": [
+          "create",
+          {
+            "column": "status",
+            "values": [
+              "waiting"
+            ]
+          }
+        ]
       },
       "offered_at": {
         "set": "now",
@@ -729,6 +737,7 @@ export const MANIFEST_RULES = {
       ],
       "status": [
         "waiting",
+        "sending",
         "sent"
       ]
     },
@@ -812,6 +821,16 @@ export const MANIFEST_RULES = {
       [
         "ticket_id",
         "event_day_id"
+      ]
+    ],
+    "payments": [
+      [
+        "client_key"
+      ]
+    ],
+    "refunds": [
+      [
+        "client_key"
       ]
     ],
     "waitlist": [
@@ -1559,6 +1578,29 @@ export const MANIFEST_RULES = {
         ],
         "claimed": [
           "missed"
+        ],
+        "missed": [
+          "waiting"
+        ],
+        "left": [
+          "waiting"
+        ],
+        "removed": [
+          "waiting"
+        ]
+      }
+    },
+    "broadcasts": {
+      "column": "status",
+      "initial": "waiting",
+      "strict": true,
+      "moves": {
+        "waiting": [
+          "sending",
+          "sent"
+        ],
+        "sending": [
+          "sent"
         ]
       }
     }

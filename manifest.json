@@ -9636,6 +9636,23 @@
                 }
               }
             }
+          },
+          {
+            "ref": "client_key",
+            "type": "text",
+            "maxLength": 64,
+            "label": {
+              "en-US": "Retry key",
+              "de-DE": "Wiederholungsschlüssel",
+              "fr-FR": "Clé de relance",
+              "da-DK": "Genforsøgsnøgle",
+              "cs-CZ": "Klíč pro opakování",
+              "ar-EG": "مفتاح إعادة المحاولة",
+              "zh-CN": "重试码",
+              "zh-TW": "重試碼"
+            },
+            "nullable": true,
+            "unique": true
           }
         ]
       },
@@ -9970,6 +9987,23 @@
                 }
               }
             }
+          },
+          {
+            "ref": "client_key",
+            "type": "text",
+            "maxLength": 64,
+            "label": {
+              "en-US": "Retry key",
+              "de-DE": "Wiederholungsschlüssel",
+              "fr-FR": "Clé de relance",
+              "da-DK": "Genforsøgsnøgle",
+              "cs-CZ": "Klíč pro opakování",
+              "ar-EG": "مفتاح إعادة المحاولة",
+              "zh-CN": "重试码",
+              "zh-TW": "重試碼"
+            },
+            "nullable": true,
+            "unique": true
           }
         ]
       },
@@ -10328,6 +10362,15 @@
             ],
             "claimed": [
               "missed"
+            ],
+            "missed": [
+              "waiting"
+            ],
+            "left": [
+              "waiting"
+            ],
+            "removed": [
+              "waiting"
             ]
           }
         },
@@ -10541,7 +10584,15 @@
             "rules": {
               "stamp": {
                 "set": "now",
-                "on": "create"
+                "on": [
+                  "create",
+                  {
+                    "column": "status",
+                    "values": [
+                      "waiting"
+                    ]
+                  }
+                ]
               }
             }
           },
@@ -10840,6 +10891,20 @@
           "zh-TW": "給購票人的訊息"
         },
         "keyField": "subject",
+        "states": {
+          "column": "status",
+          "initial": "waiting",
+          "strict": true,
+          "moves": {
+            "waiting": [
+              "sending",
+              "sent"
+            ],
+            "sending": [
+              "sent"
+            ]
+          }
+        },
         "columns": [
           {
             "ref": "id",
@@ -11046,6 +11111,7 @@
             "type": "enum",
             "enum": [
               "waiting",
+              "sending",
               "sent"
             ],
             "label": {
@@ -11058,7 +11124,7 @@
               "zh-CN": "状态",
               "zh-TW": "狀態"
             },
-            "default": "sent",
+            "default": "waiting",
             "rules": {
               "enumLabels": {
                 "labels": {
@@ -11071,6 +11137,16 @@
                     "ar-EG": "بانتظار الإرسال",
                     "zh-CN": "待发送",
                     "zh-TW": "等待寄出"
+                  },
+                  "sending": {
+                    "en-US": "Going out",
+                    "de-DE": "Wird versendet",
+                    "fr-FR": "Envoi en cours",
+                    "da-DK": "Sendes",
+                    "cs-CZ": "Odesílá se",
+                    "ar-EG": "قيد الإرسال",
+                    "zh-CN": "发送中",
+                    "zh-TW": "寄送中"
                   },
                   "sent": {
                     "en-US": "Sent",
@@ -11085,6 +11161,7 @@
                 },
                 "tones": {
                   "waiting": "warn",
+                  "sending": "info",
                   "sent": "pos"
                 }
               }
