@@ -162,7 +162,7 @@
  "Sign out everywhere": "Überall abmelden",
  "Cancel": "Abbrechen",
  "Delete my details?": "Meine Daten löschen?",
- "Your sign-in and your name and email on the account are removed. Tickets you already have still work, and the links in your emails still open them.": "Deine Anmeldung sowie dein Name und deine E-Mail im Konto werden entfernt. Tickets, die du schon hast, gelten weiter, und die Links in deinen E-Mails öffnen sie weiterhin.",
+ "Your sign-in and your name and email on the account are removed. Tickets you already have still work at the door, but the links in your emails stop opening your orders.": "Deine Anmeldung sowie dein Name und deine E-Mail im Konto werden entfernt. Tickets, die du schon hast, gelten am Einlass weiter, aber die Links in deinen E-Mails öffnen deine Bestellungen nicht mehr.",
  "For your safety, sign in again to delete your details.": "Zu deiner Sicherheit melde dich erneut an, um deine Daten zu löschen.",
  "Send me a link": "Schick mir einen Link",
  "Which ticket?": "Welches Ticket?",
@@ -1382,5 +1382,6 @@
  "{who} is cancelled and {amount} becomes due back. {buyer} is told.": "{who} wird storniert und {amount} wird zur Erstattung fällig. {buyer} wird informiert.",
  "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "{who} werden storniert und {amount} wird zur Erstattung fällig. {buyer} wird informiert.",
  "Receipt downloaded": "Beleg heruntergeladen",
- "The receipt couldn't be made just now. Try again in a minute.": "Der Beleg konnte gerade nicht erstellt werden. Versuch es in einer Minute noch einmal."
+ "The receipt couldn't be made just now. Try again in a minute.": "Der Beleg konnte gerade nicht erstellt werden. Versuch es in einer Minute noch einmal.",
+ "Signed out here. We couldn't sign you out on your other devices — sign in and try again.": "Hier abgemeldet. Auf deinen anderen Geräten konnten wir dich nicht abmelden – melde dich an und versuch es noch einmal."
 }

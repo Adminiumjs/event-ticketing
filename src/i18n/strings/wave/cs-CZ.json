@@ -162,7 +162,7 @@
  "Sign out everywhere": "Odhlásit se všude",
  "Cancel": "Zrušit",
  "Delete my details?": "Smazat moje údaje?",
- "Your sign-in and your name and email on the account are removed. Tickets you already have still work, and the links in your emails still open them.": "Vaše přihlášení a jméno i e-mail na účtu odstraníme. Vstupenky, které už máte, dál platí a odkazy ve vašich e-mailech je dál otevřou.",
+ "Your sign-in and your name and email on the account are removed. Tickets you already have still work at the door, but the links in your emails stop opening your orders.": "Vaše přihlášení a jméno i e-mail na účtu odstraníme. Vstupenky, které už máte, u vchodu dál platí, ale odkazy ve vašich e-mailech už vaše objednávky neotevřou.",
  "For your safety, sign in again to delete your details.": "Kvůli vašemu bezpečí se pro smazání údajů znovu přihlaste.",
  "Send me a link": "Pošlete mi odkaz",
  "Which ticket?": "Která vstupenka?",
@@ -1382,5 +1382,6 @@
  "{who} is cancelled and {amount} becomes due back. {buyer} is told.": "Zruší se {who}, částka {amount} bude k vrácení. {buyer} dostane zprávu.",
  "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "Zruší se {who}, částka {amount} bude k vrácení. {buyer} dostane zprávu.",
  "Receipt downloaded": "Stvrzenka stažena",
- "The receipt couldn't be made just now. Try again in a minute.": "Stvrzenku teď nešlo vytvořit. Zkuste to znovu za minutu."
+ "The receipt couldn't be made just now. Try again in a minute.": "Stvrzenku teď nešlo vytvořit. Zkuste to znovu za minutu.",
+ "Signed out here. We couldn't sign you out on your other devices — sign in and try again.": "Tady jste odhlášeni. Na vašich dalších zařízeních se odhlásit nepodařilo — přihlaste se a zkuste to znovu."
 }

@@ -162,7 +162,7 @@
  "Sign out everywhere": "在所有裝置登出",
  "Cancel": "取消",
  "Delete my details?": "要刪除我的資料嗎？",
- "Your sign-in and your name and email on the account are removed. Tickets you already have still work, and the links in your emails still open them.": "你的登入資訊，以及帳號上的姓名和電子郵件都會被移除。你已經擁有的票仍然有效，信件裡的連結也仍然可以開啟這些票。",
+ "Your sign-in and your name and email on the account are removed. Tickets you already have still work at the door, but the links in your emails stop opening your orders.": "你的登入資訊，以及帳號上的姓名和電子郵件都會被移除。你已經擁有的票在入場時仍然有效，但信件裡的連結將無法再開啟你的訂單。",
  "For your safety, sign in again to delete your details.": "為了你的安全，請重新登入後再刪除資料。",
  "Send me a link": "寄連結給我",
  "Which ticket?": "哪一張票？",
@@ -1382,5 +1382,6 @@
  "{who} is cancelled and {amount} becomes due back. {buyer} is told.": "{who} 將取消，應退還 {amount}。會通知 {buyer}。",
  "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "{who} 將取消，應退還 {amount}。會通知 {buyer}。",
  "Receipt downloaded": "收據已下載",
- "The receipt couldn't be made just now. Try again in a minute.": "暫時無法產生收據，請一分鐘後再試。"
+ "The receipt couldn't be made just now. Try again in a minute.": "暫時無法產生收據，請一分鐘後再試。",
+ "Signed out here. We couldn't sign you out on your other devices — sign in and try again.": "已在這台裝置登出。無法在你的其他裝置上登出——請登入後再試一次。"
 }
