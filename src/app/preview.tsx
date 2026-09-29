@@ -227,7 +227,7 @@ export function PreviewPane({ box, draft, phone, full }: { box: Box; draft: Draf
   return (
     <div ref={outer} style={st(`width:100%; height:${full ? "100%" : "auto"};`)}>
       <div
-        role="img"
+        role="group"
         aria-label={tr("The public page for this draft")}
         onClickCapture={onClick}
         style={st(`position:relative; width:${String(dispW)}px; height:${boxH}; margin-inline:auto; overflow:hidden; border-radius:${phone ? "28px" : "14px"}; border:${phone ? "6px solid var(--surface-3)" : "1px solid var(--border)"}; background:var(--bg);`)}

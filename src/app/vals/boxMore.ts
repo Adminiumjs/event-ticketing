@@ -79,7 +79,6 @@ function msgVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unknown>
   const s = box.s;
   const m = s.msg;
   const nar = app.narrow();
-  const light = app.light();
   const chip = B["chip"] as (on: boolean) => string;
   const seg = B["seg"] as (on: boolean) => string;
   const shows = w.shows.filter((e) => !box.isPast(e) || e.status === "cancelled").sort((a, b) => a.start - b.start);
@@ -159,7 +158,8 @@ function msgVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unknown>
           waiting: m.waiting,
         }),
       p: posterOf(app, show),
-      btnBg: palette(light)["accent"],
+      // The email's own button: its colour is the email's, whatever the screen's theme (white on it reads in both).
+      btnBg: palette(true)["accent"],
       cta: CTA()[tpl],
       from: f.from,
       foot: f.foot,
@@ -196,7 +196,6 @@ function pcVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unknown>)
   const p = s.pc;
   const now = app.now;
   const nar = app.narrow();
-  const light = app.light();
   const seg = B["seg"] as (on: boolean) => string;
   const set = (q: Partial<typeof p>) => box.set({ pc: { ...p, ev: show.id, ...q } });
   const F = (k: "date" | "doors" | "stage" | "until") => ({ v: p[k], on: (e: { target: { value: string } }) => set({ [k]: e.target.value, msg: k === "date" || k === "until" ? null : p.msg, tried: false }) });
@@ -342,7 +341,8 @@ function pcVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unknown>)
     subj,
     paras: msg.split(/\n\n+/).map((t, i) => ({ k: `p${String(i)}`, t })),
     p: posterOf(app, show),
-    btnBg: palette(light)["accent"],
+    // The email's own button, in the email's colour whatever the screen's theme.
+    btnBg: palette(true)["accent"],
     people: peopleTxt,
     cta: p.mode === "post" ? tr("Postpone and send") : tr("Cancel {name} and send", { name: show.name }),
     laterOn: p.mode === "post",
