@@ -3391,7 +3391,8 @@ export const MANIFEST_RULES = {
             "status",
             "buyer_name",
             "channel",
-            "note"
+            "note",
+            "paid_method"
           ],
           "writableValues": {
             "status": [
@@ -3400,6 +3401,10 @@ export const MANIFEST_RULES = {
             ],
             "channel": [
               "door"
+            ],
+            "paid_method": [
+              "card",
+              "cash"
             ]
           }
         },

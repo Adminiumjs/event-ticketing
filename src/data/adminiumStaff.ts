@@ -481,7 +481,7 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
       const order = await this.one("orders", made["order_id"] as Id);
       if (order["status"] === "door" && Number(order["balance"] ?? 0) <= 0) {
         try {
-          await this.change("orders", order.id, { status: "paid" }, { from: "door" });
+          await this.change("orders", order.id, { status: "paid", paid_method: method }, { from: "door" });
         } catch (error) {
           // Another phone paid it off a moment ago: it is paid either way.
           if (!refusedAs(error, "STATE_MOVE_REFUSED") && !refusedAs(error, "STATE_UNCHANGED")) throw error;

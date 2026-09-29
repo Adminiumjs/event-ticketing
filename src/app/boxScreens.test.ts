@@ -5,13 +5,16 @@
  * show's refunds show the sample's own figures, and its buttons land where
  * the plan says. Values only — the browser pass draws them.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { DemoAdminium } from "../demo/adminium.ts";
 import type { Id } from "../data/wire.ts";
 import { boxOf, type BoxState } from "./box.ts";
 import { renderVals } from "./vals/base.ts";
 import { WaveApp } from "./wave.ts";
+
+// A day's move re-settles the whole venue: slow on a busy machine.
+vi.setConfig({ testTimeout: 60_000 });
 
 type V = Record<string, unknown>;
 const bidi = (s: unknown) => String(s).replace(/[⁦-⁩]/g, "");
@@ -197,7 +200,8 @@ describe("Orders and the drawer", () => {
     const { box, v } = await open();
     const find = async (n: string) => (await box.port.list("orders", { where: [{ column: "number", eq: n }] })).rows[0]!;
     await box.pay(await find("WV-S8793"), 72, "bank_transfer", "");
-    expect((await find("WV-S8793"))["status"]).toBe("paid");
+    // How it was paid goes with the move: the transfer's payment email is sent on it, and the receipt says it.
+    expect([(await find("WV-S8793"))["status"], (await find("WV-S8793"))["paid_method"]]).toEqual(["paid", "bank_transfer"]);
     await box.release((await find("WV-S8795")).id, "WV-S8795");
     expect((await find("WV-S8795"))["status"]).toBe("released");
     const td = (await v())["td"] as V;

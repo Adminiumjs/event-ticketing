@@ -55,7 +55,9 @@ export async function bootAdminium(mount: HTMLElement, fail: StartupFailure): Pr
       );
       return;
     }
-    const port = new AdminiumAudience(served);
+    // Receipts come from an add-on: the hosted page's configuration says whether one is attached.
+    const attached = HOSTED ? await fetch(`${import.meta.env.BASE_URL}surface-config.json`, { cache: "no-store" }).then((r) => (r.ok ? (r.json() as Promise<{ addOns?: Record<string, unknown> }>) : null)).catch(() => null) : null;
+    const port = new AdminiumAudience({ ...served, receipts: attached?.addOns?.["invoices"] !== undefined });
     app = new WaveApp({ audience: port }, "audience", { lang, theme });
     // Signed out on another device, or the details deleted: this tab lets go too, and says so.
     port.onSessionEnded(() => app.buyer.sessionEnded());

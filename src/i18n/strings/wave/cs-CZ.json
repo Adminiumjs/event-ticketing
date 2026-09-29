@@ -1380,5 +1380,7 @@
  "Guest-list places": "Místa na seznamu hostů",
  "Price": "Cena",
  "{who} is cancelled and {amount} becomes due back. {buyer} is told.": "Zruší se {who}, částka {amount} bude k vrácení. {buyer} dostane zprávu.",
- "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "Zruší se {who}, částka {amount} bude k vrácení. {buyer} dostane zprávu."
+ "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "Zruší se {who}, částka {amount} bude k vrácení. {buyer} dostane zprávu.",
+ "Receipt downloaded": "Stvrzenka stažena",
+ "The receipt couldn't be made just now. Try again in a minute.": "Stvrzenku teď nešlo vytvořit. Zkuste to znovu za minutu."
 }

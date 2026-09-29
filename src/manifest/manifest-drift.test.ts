@@ -61,6 +61,16 @@ describe("manifest.json is what src/manifest/ writes", () => {
       }
     }
   });
+
+  it("reaches no email variable more than one link from the row it is about (Adminium fills no deeper; the email would not go)", () => {
+    const FORMATS = new Set(["date", "time", "grouped", "qr"]);
+    const deep = [...JSON.stringify(manifest["emailTemplates"]).matchAll(/\{\{([A-Za-z_.]+)\}\}/g)]
+      .map((m) => m[1]!.split("."))
+      .map((parts) => (FORMATS.has(parts[parts.length - 1]!) ? parts.slice(0, -1) : parts))
+      .filter((parts) => parts.length > 3)
+      .map((parts) => parts.join("."));
+    expect([...new Set(deep)]).toEqual([]);
+  });
 });
 
 describe("nobody in the audience reads what is not theirs", () => {

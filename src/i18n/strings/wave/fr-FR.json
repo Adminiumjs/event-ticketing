@@ -1380,5 +1380,7 @@
  "Guest-list places": "Places sur liste d'invités",
  "Price": "Prix",
  "{who} is cancelled and {amount} becomes due back. {buyer} is told.": "{who} est annulé, et {amount} est à rembourser. {buyer} est prévenu.",
- "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "{who} sont annulés, et {amount} est à rembourser. {buyer} est prévenu."
+ "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "{who} sont annulés, et {amount} est à rembourser. {buyer} est prévenu.",
+ "Receipt downloaded": "Reçu téléchargé",
+ "The receipt couldn't be made just now. Try again in a minute.": "Le reçu n'a pas pu être créé pour l'instant. Réessayez dans une minute."
 }

@@ -1380,5 +1380,7 @@
  "Guest-list places": "أماكن قائمة الضيوف",
  "Price": "السعر",
  "{who} is cancelled and {amount} becomes due back. {buyer} is told.": "تُلغى {who} ويصبح {amount} مستحق الرد. يُبلَّغ {buyer} بذلك.",
- "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "تُلغى {who} ويصبح {amount} مستحق الرد. يُبلَّغ {buyer} بذلك."
+ "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "تُلغى {who} ويصبح {amount} مستحق الرد. يُبلَّغ {buyer} بذلك.",
+ "Receipt downloaded": "تم تنزيل الإيصال",
+ "The receipt couldn't be made just now. Try again in a minute.": "تعذّر إنشاء الإيصال الآن. حاول مرة أخرى بعد دقيقة."
 }

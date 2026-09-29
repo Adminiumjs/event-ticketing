@@ -431,6 +431,11 @@ export class DemoAudience implements AudiencePort {
     };
   }
 
+  /** The demo's Adminium has no add-on that draws receipts: the order page offers none. */
+  async receipt(): Promise<Blob> {
+    throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
+  }
+
   async myOrder(orderId: Id): Promise<OrderWithTickets> {
     const me = this.signedIn();
     const order = this.engine.world.get("orders", orderId);
@@ -751,7 +756,7 @@ export class DemoDoor implements DoorPort {
       const made = engine.create("door_collections", { ticket_id: ticketId, method, device_id: deviceId }, this.writer(occurredAt)).row;
       const order = engine.world.get("orders", engine.world.get("tickets", ticketId)!["order_id"] as Id)!;
       // Nothing owed any more: the door moves the order to paid itself.
-      if (order["status"] === "door" && Number(order["balance"] ?? 0) <= 0) engine.update("orders", order.id, { status: "paid" }, this.writer());
+      if (order["status"] === "door" && Number(order["balance"] ?? 0) <= 0) engine.update("orders", order.id, { status: "paid", paid_method: method }, this.writer());
       return made;
     });
   }

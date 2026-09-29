@@ -425,7 +425,8 @@ export class Box {
       const st = String(after?.["status"] ?? "");
       if (after !== undefined && Number(after["balance"] ?? 0) <= 0 && ["door", "awaiting_transfer", "overdue", "released", "not_collected"].includes(st)) {
         try {
-          await this.port.move(order.id, "paid");
+          // How it was paid goes with the move: the receipt says it, and a transfer's payment email is sent on it.
+          await this.port.move(order.id, "paid", { paid_method: method });
         } catch (error) {
           // The move refused (a released order's seats have gone): the money is not left recorded against it.
           await this.port.update("payments", payment.id, { voided: true }).catch(() => undefined);
@@ -743,7 +744,7 @@ export class Box {
           if (o.how === "paidnow") {
             const total = Number(reply.data["total"] ?? 0);
             if (total > 0) payment = await this.port.recordPayment(id, total, o.method, null);
-            await this.port.move(id, "paid");
+            await this.port.move(id, "paid", { paid_method: o.method });
           } else await this.port.move(id, o.how === "door" ? "door" : o.how === "transfer" ? "awaiting_transfer" : "no_charge");
         } catch (error) {
           if (payment !== null) await this.port.update("payments", payment.id, { voided: true }).catch(() => undefined);

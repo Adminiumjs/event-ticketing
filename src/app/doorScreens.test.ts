@@ -162,7 +162,7 @@ describe("the doors (Tue 19:58, after the 38 early scans)", () => {
     const second = await scan("P4MA-7VKE");
     expect(second["word"]).toBe("Collect");
     await door.collect("cash");
-    expect([order("WV-S8761")["status"], Number(order("WV-S8761")["balance"])]).toEqual(["paid", 0]);
+    expect([order("WV-S8761")["status"], Number(order("WV-S8761")["balance"]), order("WV-S8761")["paid_method"]]).toEqual(["paid", 0, "cash"]);
     const rows = (await v())["recent"] as V[];
     expect(bidi(rows[0]!["type"])).toBe("Standard · paid $28.00 in cash");
     await door.undo(door.s.recent[0]!.key);

@@ -269,6 +269,7 @@ export class WaveApp {
       setZone(this.zone);
       setCurrency(config.currency);
       if (config.now) this.skew = Date.parse(config.now) - Date.now();
+      this.receipts = config.receipts === true;
       this.now = Date.now() + this.skew;
       this.setState({ loading: false, loadError: false });
     } catch {
@@ -561,6 +562,23 @@ export class WaveApp {
       // A browser that refuses the clipboard still shows the toast's words; the address bar has the link.
     }
     this.toast(tr("Link copied"), "link");
+  }
+  /** Whether this venue's paid orders have a receipt to save. */
+  receipts = false;
+  /** A paid order's receipt, drawn by Adminium and saved as a file. */
+  async receipt(order: Row): Promise<void> {
+    try {
+      const file = await this.ports.audience!.receipt(order.id);
+      const url = URL.createObjectURL(file);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${String(order["number"] ?? "receipt")}.pdf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      this.toast(tr("Receipt downloaded"), "receipt-text");
+    } catch {
+      this.toast(tr("The receipt couldn't be made just now. Try again in a minute."), "triangle-alert");
+    }
   }
   /** A calendar file: one event per day of the show, on the venue's clock. */
   ics(show: Show): void {

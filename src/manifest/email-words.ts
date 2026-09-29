@@ -27,7 +27,7 @@ export const EMAIL_DE: EmailWords = {
     "preheader": "{{order.event.doors_at.date}} · Einlass {{order.event.doors_at.time}}",
     "heading": "Du bist dabei: {{order.event.name}}",
     "paras": [
-      "{{order.event.doors_at.date}} · Einlass {{order.event.doors_at.time}} · Beginn {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+      "{{order.event.doors_at.date}} · Einlass {{order.event.doors_at.time}} · Beginn {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
       "Zeig am Einlass den Code jedes Tickets. Was noch offen ist, zahlst du dort, mit Karte oder bar."
     ],
     "button": "Meine Bestellung ansehen",
@@ -39,7 +39,7 @@ export const EMAIL_DE: EmailWords = {
     "preheader": "Bezahlt · {{order.total}}",
     "heading": "Du bist dabei: {{order.event.name}}",
     "paras": [
-      "{{order.event.doors_at.date}} · Einlass {{order.event.doors_at.time}} · Beginn {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+      "{{order.event.doors_at.date}} · Einlass {{order.event.doors_at.time}} · Beginn {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
       "Vollständig bezahlt: {{order.total}}. Zeig am Einlass den Code jedes Tickets."
     ],
     "button": "Meine Bestellung ansehen",
@@ -99,7 +99,7 @@ export const EMAIL_DE: EmailWords = {
     "heading": "Zahlung erhalten",
     "paras": [
       "Danke – wir haben {{order.paid_in}} für Bestellung {{order.number}} erhalten. Hier sind deine Tickets.",
-      "{{order.event.doors_at.date}} · Einlass {{order.event.doors_at.time}} · {{order.event.room.name}}."
+      "{{order.event.doors_at.date}} · Einlass {{order.event.doors_at.time}} · {{order.room.name}}."
     ],
     "button": "Meine Bestellung ansehen",
     "foot": "Bestellung {{order.number}}. Der Button öffnet deine Bestellung – heb diese E-Mail gut auf."
@@ -235,10 +235,10 @@ export const EMAIL_DE: EmailWords = {
   "tonight": {
     "name": "Bis heute Abend",
     "subject": "Heute Abend: {{order.event.name}}, Einlass {{order.event.doors_at.time}}",
-    "preheader": "Einlass {{order.event.doors_at.time}} · {{order.event.room.name}}",
+    "preheader": "Einlass {{order.event.doors_at.time}} · {{order.room.name}}",
     "heading": "Bis heute Abend",
     "paras": [
-      "Einlass {{order.event.doors_at.time}} · Schluss spätestens {{order.event.curfew_at.time}} · {{order.event.room.name}}. Was noch offen ist, zahlst du am Einlass, mit Karte oder bar."
+      "Einlass {{order.event.doors_at.time}} · Schluss spätestens {{order.event.curfew_at.time}} · {{order.room.name}}. Was noch offen ist, zahlst du am Einlass, mit Karte oder bar."
     ],
     "button": "Meine Tickets zeigen",
     "foot": "Du hast Tickets für diese Show · Bestellung {{order.number}}."
@@ -246,10 +246,10 @@ export const EMAIL_DE: EmailWords = {
   "tomorrow": {
     "name": "Bis morgen",
     "subject": "Morgen: {{order.event.name}}, Einlass {{order.event.doors_at.time}}",
-    "preheader": "Einlass {{order.event.doors_at.time}} · {{order.event.room.name}}",
+    "preheader": "Einlass {{order.event.doors_at.time}} · {{order.room.name}}",
     "heading": "Bis morgen",
     "paras": [
-      "Einlass {{order.event.doors_at.time}} · {{order.event.room.name}}. Was noch offen ist, zahlst du am Einlass, mit Karte oder bar."
+      "Einlass {{order.event.doors_at.time}} · {{order.room.name}}. Was noch offen ist, zahlst du am Einlass, mit Karte oder bar."
     ],
     "button": "Meine Tickets zeigen",
     "foot": "Du hast Tickets für diese Show · Bestellung {{order.number}}."
@@ -341,7 +341,7 @@ export const EMAIL_FR: EmailWords = {
     "preheader": "{{order.event.doors_at.date}} · ouverture des portes à {{order.event.doors_at.time}}",
     "heading": "Vous venez à {{order.event.name}}",
     "paras": [
-      "{{order.event.doors_at.date}} · Ouverture des portes à {{order.event.doors_at.time}} · sur scène à {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+      "{{order.event.doors_at.date}} · Ouverture des portes à {{order.event.doors_at.time}} · sur scène à {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
       "Présentez le code de chaque billet à l'entrée. S'il reste quelque chose à régler, cela se fait sur place, par carte ou en espèces."
     ],
     "button": "Voir ma commande",
@@ -353,7 +353,7 @@ export const EMAIL_FR: EmailWords = {
     "preheader": "Payé · {{order.total}}",
     "heading": "Vous venez à {{order.event.name}}",
     "paras": [
-      "{{order.event.doors_at.date}} · Ouverture des portes à {{order.event.doors_at.time}} · sur scène à {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+      "{{order.event.doors_at.date}} · Ouverture des portes à {{order.event.doors_at.time}} · sur scène à {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
       "Tout est réglé : {{order.total}}. Présentez le code de chaque billet à l'entrée."
     ],
     "button": "Voir ma commande",
@@ -413,7 +413,7 @@ export const EMAIL_FR: EmailWords = {
     "heading": "Paiement reçu",
     "paras": [
       "Merci ! Nous avons bien reçu {{order.paid_in}} pour la commande {{order.number}}. Voici vos billets.",
-      "{{order.event.doors_at.date}} · Ouverture des portes à {{order.event.doors_at.time}} · {{order.event.room.name}}."
+      "{{order.event.doors_at.date}} · Ouverture des portes à {{order.event.doors_at.time}} · {{order.room.name}}."
     ],
     "button": "Voir ma commande",
     "foot": "Commande {{order.number}}. Le bouton ouvre votre commande : gardez cet e-mail."
@@ -549,10 +549,10 @@ export const EMAIL_FR: EmailWords = {
   "tonight": {
     "name": "À ce soir",
     "subject": "Ce soir : {{order.event.name}}, ouverture des portes à {{order.event.doors_at.time}}",
-    "preheader": "Ouverture des portes à {{order.event.doors_at.time}} · {{order.event.room.name}}",
+    "preheader": "Ouverture des portes à {{order.event.doors_at.time}} · {{order.room.name}}",
     "heading": "À ce soir",
     "paras": [
-      "Ouverture des portes à {{order.event.doors_at.time}} · fin de soirée à {{order.event.curfew_at.time}} · {{order.event.room.name}}. S'il reste quelque chose à régler, cela se fait à l'entrée, par carte ou en espèces."
+      "Ouverture des portes à {{order.event.doors_at.time}} · fin de soirée à {{order.event.curfew_at.time}} · {{order.room.name}}. S'il reste quelque chose à régler, cela se fait à l'entrée, par carte ou en espèces."
     ],
     "button": "Afficher mes billets",
     "foot": "Vous avez des billets pour ce spectacle · commande {{order.number}}."
@@ -560,10 +560,10 @@ export const EMAIL_FR: EmailWords = {
   "tomorrow": {
     "name": "À demain",
     "subject": "Demain : {{order.event.name}}, ouverture des portes à {{order.event.doors_at.time}}",
-    "preheader": "Ouverture des portes à {{order.event.doors_at.time}} · {{order.event.room.name}}",
+    "preheader": "Ouverture des portes à {{order.event.doors_at.time}} · {{order.room.name}}",
     "heading": "À demain",
     "paras": [
-      "Ouverture des portes à {{order.event.doors_at.time}} · {{order.event.room.name}}. S'il reste quelque chose à régler, cela se fait à l'entrée, par carte ou en espèces."
+      "Ouverture des portes à {{order.event.doors_at.time}} · {{order.room.name}}. S'il reste quelque chose à régler, cela se fait à l'entrée, par carte ou en espèces."
     ],
     "button": "Afficher mes billets",
     "foot": "Vous avez des billets pour ce spectacle · commande {{order.number}}."
@@ -655,7 +655,7 @@ export const EMAIL_DA: EmailWords = {
     "preheader": "{{order.event.doors_at.date}} · dørene åbner {{order.event.doors_at.time}}",
     "heading": "Du skal til {{order.event.name}}",
     "paras": [
-      "{{order.event.doors_at.date}} · Dørene åbner {{order.event.doors_at.time}} · på scenen {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+      "{{order.event.doors_at.date}} · Dørene åbner {{order.event.doors_at.time}} · på scenen {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
       "Vis hver billets kode ved døren. Et eventuelt restbeløb betales dér, med kort eller kontant."
     ],
     "button": "Se min ordre",
@@ -667,7 +667,7 @@ export const EMAIL_DA: EmailWords = {
     "preheader": "Betalt · {{order.total}}",
     "heading": "Du skal til {{order.event.name}}",
     "paras": [
-      "{{order.event.doors_at.date}} · Dørene åbner {{order.event.doors_at.time}} · på scenen {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+      "{{order.event.doors_at.date}} · Dørene åbner {{order.event.doors_at.time}} · på scenen {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
       "Betalt fuldt ud: {{order.total}}. Vis hver billets kode ved døren."
     ],
     "button": "Se min ordre",
@@ -727,7 +727,7 @@ export const EMAIL_DA: EmailWords = {
     "heading": "Betaling modtaget",
     "paras": [
       "Tak – vi har modtaget {{order.paid_in}} for ordre {{order.number}}. Her er dine billetter.",
-      "{{order.event.doors_at.date}} · Dørene åbner {{order.event.doors_at.time}} · {{order.event.room.name}}."
+      "{{order.event.doors_at.date}} · Dørene åbner {{order.event.doors_at.time}} · {{order.room.name}}."
     ],
     "button": "Se min ordre",
     "foot": "Ordre {{order.number}}. Knappen åbner din ordre – gem denne mail."
@@ -863,10 +863,10 @@ export const EMAIL_DA: EmailWords = {
   "tonight": {
     "name": "Vi ses i aften",
     "subject": "I aften: {{order.event.name}}, dørene åbner {{order.event.doors_at.time}}",
-    "preheader": "Dørene åbner {{order.event.doors_at.time}} · {{order.event.room.name}}",
+    "preheader": "Dørene åbner {{order.event.doors_at.time}} · {{order.room.name}}",
     "heading": "Vi ses i aften",
     "paras": [
-      "Dørene åbner {{order.event.doors_at.time}} · slut senest {{order.event.curfew_at.time}} · {{order.event.room.name}}. Et eventuelt restbeløb betales ved døren, med kort eller kontant."
+      "Dørene åbner {{order.event.doors_at.time}} · slut senest {{order.event.curfew_at.time}} · {{order.room.name}}. Et eventuelt restbeløb betales ved døren, med kort eller kontant."
     ],
     "button": "Vis mine billetter",
     "foot": "Du har billetter til dette arrangement · ordre {{order.number}}."
@@ -874,10 +874,10 @@ export const EMAIL_DA: EmailWords = {
   "tomorrow": {
     "name": "Vi ses i morgen",
     "subject": "I morgen: {{order.event.name}}, dørene åbner {{order.event.doors_at.time}}",
-    "preheader": "Dørene åbner {{order.event.doors_at.time}} · {{order.event.room.name}}",
+    "preheader": "Dørene åbner {{order.event.doors_at.time}} · {{order.room.name}}",
     "heading": "Vi ses i morgen",
     "paras": [
-      "Dørene åbner {{order.event.doors_at.time}} · {{order.event.room.name}}. Et eventuelt restbeløb betales ved døren, med kort eller kontant."
+      "Dørene åbner {{order.event.doors_at.time}} · {{order.room.name}}. Et eventuelt restbeløb betales ved døren, med kort eller kontant."
     ],
     "button": "Vis mine billetter",
     "foot": "Du har billetter til dette arrangement · ordre {{order.number}}."
@@ -969,7 +969,7 @@ export const EMAIL_CS: EmailWords = {
     "preheader": "{{order.event.doors_at.date}} · otevíráme v {{order.event.doors_at.time}}",
     "heading": "Jdete na {{order.event.name}}",
     "paras": [
-      "{{order.event.doors_at.date}} · Otevíráme v {{order.event.doors_at.time}} · na pódiu od {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+      "{{order.event.doors_at.date}} · Otevíráme v {{order.event.doors_at.time}} · na pódiu od {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
       "U vchodu ukažte kód každé vstupenky. Případný doplatek uhradíte tam, kartou nebo hotově."
     ],
     "button": "Zobrazit objednávku",
@@ -981,7 +981,7 @@ export const EMAIL_CS: EmailWords = {
     "preheader": "Zaplaceno · {{order.total}}",
     "heading": "Jdete na {{order.event.name}}",
     "paras": [
-      "{{order.event.doors_at.date}} · Otevíráme v {{order.event.doors_at.time}} · na pódiu od {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+      "{{order.event.doors_at.date}} · Otevíráme v {{order.event.doors_at.time}} · na pódiu od {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
       "Zaplaceno v plné výši: {{order.total}}. U vchodu ukažte kód každé vstupenky."
     ],
     "button": "Zobrazit objednávku",
@@ -1041,7 +1041,7 @@ export const EMAIL_CS: EmailWords = {
     "heading": "Platba přijata",
     "paras": [
       "Děkujeme – za objednávku {{order.number}} jsme přijali {{order.paid_in}}. Tady jsou vaše vstupenky.",
-      "{{order.event.doors_at.date}} · Otevíráme v {{order.event.doors_at.time}} · {{order.event.room.name}}."
+      "{{order.event.doors_at.date}} · Otevíráme v {{order.event.doors_at.time}} · {{order.room.name}}."
     ],
     "button": "Zobrazit objednávku",
     "foot": "Objednávka {{order.number}}. Tlačítko otevře vaši objednávku – tento e-mail si uschovejte."
@@ -1177,10 +1177,10 @@ export const EMAIL_CS: EmailWords = {
   "tonight": {
     "name": "Uvidíme se dnes večer",
     "subject": "Dnes večer: {{order.event.name}}, otevíráme v {{order.event.doors_at.time}}",
-    "preheader": "Otevíráme v {{order.event.doors_at.time}} · {{order.event.room.name}}",
+    "preheader": "Otevíráme v {{order.event.doors_at.time}} · {{order.room.name}}",
     "heading": "Uvidíme se dnes večer",
     "paras": [
-      "Otevíráme v {{order.event.doors_at.time}} · konec nejpozději v {{order.event.curfew_at.time}} · {{order.event.room.name}}. Případný doplatek uhradíte u vchodu, kartou nebo hotově."
+      "Otevíráme v {{order.event.doors_at.time}} · konec nejpozději v {{order.event.curfew_at.time}} · {{order.room.name}}. Případný doplatek uhradíte u vchodu, kartou nebo hotově."
     ],
     "button": "Ukázat vstupenky",
     "foot": "Máte vstupenky na tuto akci · objednávka {{order.number}}."
@@ -1188,10 +1188,10 @@ export const EMAIL_CS: EmailWords = {
   "tomorrow": {
     "name": "Uvidíme se zítra",
     "subject": "Zítra: {{order.event.name}}, otevíráme v {{order.event.doors_at.time}}",
-    "preheader": "Otevíráme v {{order.event.doors_at.time}} · {{order.event.room.name}}",
+    "preheader": "Otevíráme v {{order.event.doors_at.time}} · {{order.room.name}}",
     "heading": "Uvidíme se zítra",
     "paras": [
-      "Otevíráme v {{order.event.doors_at.time}} · {{order.event.room.name}}. Případný doplatek uhradíte u vchodu, kartou nebo hotově."
+      "Otevíráme v {{order.event.doors_at.time}} · {{order.room.name}}. Případný doplatek uhradíte u vchodu, kartou nebo hotově."
     ],
     "button": "Ukázat vstupenky",
     "foot": "Máte vstupenky na tuto akci · objednávka {{order.number}}."
@@ -1283,7 +1283,7 @@ export const EMAIL_AR: EmailWords = {
     "preheader": "{{order.event.doors_at.date}} · فتح الأبواب {{order.event.doors_at.time}}",
     "heading": "أنت على موعد مع {{order.event.name}}",
     "paras": [
-      "{{order.event.doors_at.date}} · فتح الأبواب {{order.event.doors_at.time}} · على المسرح {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+      "{{order.event.doors_at.date}} · فتح الأبواب {{order.event.doors_at.time}} · على المسرح {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
       "اعرض رمز كل تذكرة عند الباب. أي مبلغ مستحق يُدفع هناك، بالبطاقة أو نقدا."
     ],
     "button": "عرض طلبي",
@@ -1295,7 +1295,7 @@ export const EMAIL_AR: EmailWords = {
     "preheader": "مدفوع · {{order.total}}",
     "heading": "أنت على موعد مع {{order.event.name}}",
     "paras": [
-      "{{order.event.doors_at.date}} · فتح الأبواب {{order.event.doors_at.time}} · على المسرح {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+      "{{order.event.doors_at.date}} · فتح الأبواب {{order.event.doors_at.time}} · على المسرح {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
       "المبلغ مدفوع بالكامل: {{order.total}}. اعرض رمز كل تذكرة عند الباب."
     ],
     "button": "عرض طلبي",
@@ -1355,7 +1355,7 @@ export const EMAIL_AR: EmailWords = {
     "heading": "تم استلام الدفعة",
     "paras": [
       "شكرا لك، استلمنا {{order.paid_in}} للطلب {{order.number}}. إليك تذاكرك.",
-      "{{order.event.doors_at.date}} · فتح الأبواب {{order.event.doors_at.time}} · {{order.event.room.name}}."
+      "{{order.event.doors_at.date}} · فتح الأبواب {{order.event.doors_at.time}} · {{order.room.name}}."
     ],
     "button": "عرض طلبي",
     "foot": "الطلب {{order.number}}. الزر يفتح طلبك، فاحتفظ بهذه الرسالة."
@@ -1491,10 +1491,10 @@ export const EMAIL_AR: EmailWords = {
   "tonight": {
     "name": "نراك الليلة",
     "subject": "الليلة: {{order.event.name}}، فتح الأبواب {{order.event.doors_at.time}}",
-    "preheader": "فتح الأبواب {{order.event.doors_at.time}} · {{order.event.room.name}}",
+    "preheader": "فتح الأبواب {{order.event.doors_at.time}} · {{order.room.name}}",
     "heading": "نراك الليلة",
     "paras": [
-      "فتح الأبواب {{order.event.doors_at.time}} · موعد الإغلاق {{order.event.curfew_at.time}} · {{order.event.room.name}}. أي مبلغ مستحق يُدفع عند الباب، بالبطاقة أو نقدا."
+      "فتح الأبواب {{order.event.doors_at.time}} · موعد الإغلاق {{order.event.curfew_at.time}} · {{order.room.name}}. أي مبلغ مستحق يُدفع عند الباب، بالبطاقة أو نقدا."
     ],
     "button": "عرض تذاكري",
     "foot": "لديك تذاكر لهذا الحفل · الطلب {{order.number}}."
@@ -1502,10 +1502,10 @@ export const EMAIL_AR: EmailWords = {
   "tomorrow": {
     "name": "نراك غدا",
     "subject": "غدا: {{order.event.name}}، فتح الأبواب {{order.event.doors_at.time}}",
-    "preheader": "فتح الأبواب {{order.event.doors_at.time}} · {{order.event.room.name}}",
+    "preheader": "فتح الأبواب {{order.event.doors_at.time}} · {{order.room.name}}",
     "heading": "نراك غدا",
     "paras": [
-      "فتح الأبواب {{order.event.doors_at.time}} · {{order.event.room.name}}. أي مبلغ مستحق يُدفع عند الباب، بالبطاقة أو نقدا."
+      "فتح الأبواب {{order.event.doors_at.time}} · {{order.room.name}}. أي مبلغ مستحق يُدفع عند الباب، بالبطاقة أو نقدا."
     ],
     "button": "عرض تذاكري",
     "foot": "لديك تذاكر لهذا الحفل · الطلب {{order.number}}."
@@ -1597,7 +1597,7 @@ export const EMAIL_ZH_CN: EmailWords = {
     "preheader": "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 开门",
     "heading": "{{order.event.name}}，不见不散",
     "paras": [
-      "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 开门 · {{order.event.starts_at.time}} 开演 · {{order.event.room.name}}。{{order.event.age_note}}",
+      "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 开门 · {{order.event.starts_at.time}} 开演 · {{order.room.name}}。{{order.event.age_note}}",
       "入场时请出示每张票的票码。如有待付款项，可在门口刷卡或付现金。"
     ],
     "button": "查看我的订单",
@@ -1609,7 +1609,7 @@ export const EMAIL_ZH_CN: EmailWords = {
     "preheader": "已付款 · {{order.total}}",
     "heading": "{{order.event.name}}，不见不散",
     "paras": [
-      "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 开门 · {{order.event.starts_at.time}} 开演 · {{order.event.room.name}}。{{order.event.age_note}}",
+      "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 开门 · {{order.event.starts_at.time}} 开演 · {{order.room.name}}。{{order.event.age_note}}",
       "已全额付款：{{order.total}}。入场时请出示每张票的票码。"
     ],
     "button": "查看我的订单",
@@ -1669,7 +1669,7 @@ export const EMAIL_ZH_CN: EmailWords = {
     "heading": "已收到付款",
     "paras": [
       "谢谢！我们已收到订单 {{order.number}} 的 {{order.paid_in}}。这是你的门票。",
-      "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 开门 · {{order.event.room.name}}。"
+      "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 开门 · {{order.room.name}}。"
     ],
     "button": "查看我的订单",
     "foot": "订单 {{order.number}}。点击按钮即可打开订单，请保留这封邮件。"
@@ -1805,10 +1805,10 @@ export const EMAIL_ZH_CN: EmailWords = {
   "tonight": {
     "name": "今晚见",
     "subject": "今晚：{{order.event.name}}，{{order.event.doors_at.time}} 开门",
-    "preheader": "{{order.event.doors_at.time}} 开门 · {{order.event.room.name}}",
+    "preheader": "{{order.event.doors_at.time}} 开门 · {{order.room.name}}",
     "heading": "今晚见",
     "paras": [
-      "{{order.event.doors_at.time}} 开门 · {{order.event.curfew_at.time}} 散场 · {{order.event.room.name}}。如有待付款项，可在门口刷卡或付现金。"
+      "{{order.event.doors_at.time}} 开门 · {{order.event.curfew_at.time}} 散场 · {{order.room.name}}。如有待付款项，可在门口刷卡或付现金。"
     ],
     "button": "出示我的门票",
     "foot": "你有这场演出的门票 · 订单 {{order.number}}。"
@@ -1816,10 +1816,10 @@ export const EMAIL_ZH_CN: EmailWords = {
   "tomorrow": {
     "name": "明天见",
     "subject": "明天：{{order.event.name}}，{{order.event.doors_at.time}} 开门",
-    "preheader": "{{order.event.doors_at.time}} 开门 · {{order.event.room.name}}",
+    "preheader": "{{order.event.doors_at.time}} 开门 · {{order.room.name}}",
     "heading": "明天见",
     "paras": [
-      "{{order.event.doors_at.time}} 开门 · {{order.event.room.name}}。如有待付款项，可在门口刷卡或付现金。"
+      "{{order.event.doors_at.time}} 开门 · {{order.room.name}}。如有待付款项，可在门口刷卡或付现金。"
     ],
     "button": "出示我的门票",
     "foot": "你有这场演出的门票 · 订单 {{order.number}}。"
@@ -1911,7 +1911,7 @@ export const EMAIL_ZH_TW: EmailWords = {
     "preheader": "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 入場",
     "heading": "{{order.event.name}}，等你來！",
     "paras": [
-      "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 入場 · {{order.event.starts_at.time}} 演出開始 · {{order.event.room.name}}。{{order.event.age_note}}",
+      "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 入場 · {{order.event.starts_at.time}} 演出開始 · {{order.room.name}}。{{order.event.age_note}}",
       "入場時請出示每張票的代碼。尚未付清的款項可在現場以刷卡或現金支付。"
     ],
     "button": "查看我的訂單",
@@ -1923,7 +1923,7 @@ export const EMAIL_ZH_TW: EmailWords = {
     "preheader": "已付款 · {{order.total}}",
     "heading": "{{order.event.name}}，等你來！",
     "paras": [
-      "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 入場 · {{order.event.starts_at.time}} 演出開始 · {{order.event.room.name}}。{{order.event.age_note}}",
+      "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 入場 · {{order.event.starts_at.time}} 演出開始 · {{order.room.name}}。{{order.event.age_note}}",
       "已全額付清：{{order.total}}。入場時請出示每張票的代碼。"
     ],
     "button": "查看我的訂單",
@@ -1983,7 +1983,7 @@ export const EMAIL_ZH_TW: EmailWords = {
     "heading": "已收到款項",
     "paras": [
       "謝謝你！我們已收到訂單 {{order.number}} 的 {{order.paid_in}}。這是你的票券。",
-      "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 入場 · {{order.event.room.name}}。"
+      "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 入場 · {{order.room.name}}。"
     ],
     "button": "查看我的訂單",
     "foot": "訂單 {{order.number}}。按下按鈕即可開啟你的訂單，請保留這封信。"
@@ -2119,10 +2119,10 @@ export const EMAIL_ZH_TW: EmailWords = {
   "tonight": {
     "name": "今晚見",
     "subject": "今晚：{{order.event.name}}，{{order.event.doors_at.time}} 入場",
-    "preheader": "{{order.event.doors_at.time}} 入場 · {{order.event.room.name}}",
+    "preheader": "{{order.event.doors_at.time}} 入場 · {{order.room.name}}",
     "heading": "今晚見",
     "paras": [
-      "{{order.event.doors_at.time}} 入場 · {{order.event.curfew_at.time}} 散場 · {{order.event.room.name}}。尚未付清的款項可在現場以刷卡或現金支付。"
+      "{{order.event.doors_at.time}} 入場 · {{order.event.curfew_at.time}} 散場 · {{order.room.name}}。尚未付清的款項可在現場以刷卡或現金支付。"
     ],
     "button": "出示我的票",
     "foot": "你持有這場演出的票 · 訂單 {{order.number}}。"
@@ -2130,10 +2130,10 @@ export const EMAIL_ZH_TW: EmailWords = {
   "tomorrow": {
     "name": "明天見",
     "subject": "明天：{{order.event.name}}，{{order.event.doors_at.time}} 入場",
-    "preheader": "{{order.event.doors_at.time}} 入場 · {{order.event.room.name}}",
+    "preheader": "{{order.event.doors_at.time}} 入場 · {{order.room.name}}",
     "heading": "明天見",
     "paras": [
-      "{{order.event.doors_at.time}} 入場 · {{order.event.room.name}}。尚未付清的款項可在現場以刷卡或現金支付。"
+      "{{order.event.doors_at.time}} 入場 · {{order.room.name}}。尚未付清的款項可在現場以刷卡或現金支付。"
     ],
     "button": "出示我的票",
     "foot": "你持有這場演出的票 · 訂單 {{order.number}}。"

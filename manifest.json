@@ -1639,6 +1639,50 @@
             }
           },
           {
+            "ref": "types_capacity",
+            "type": "int",
+            "nullable": true,
+            "label": {
+              "en-US": "Places in its ticket types",
+              "de-DE": "Plätze in seinen Ticketarten",
+              "fr-FR": "Places dans ses types de billets",
+              "da-DK": "Pladser i billettyperne",
+              "cs-CZ": "Místa v typech vstupenek",
+              "ar-EG": "الأماكن في أنواع تذاكره",
+              "zh-CN": "各票种的名额",
+              "zh-TW": "各票種的名額"
+            },
+            "rules": {
+              "rollup": {
+                "from": "ticket_types",
+                "via": "event_id",
+                "sum": "capacity"
+              }
+            }
+          },
+          {
+            "ref": "types_open",
+            "type": "int",
+            "nullable": true,
+            "label": {
+              "en-US": "Ticket types without a limit",
+              "de-DE": "Ticketarten ohne Limit",
+              "fr-FR": "Types de billets sans limite",
+              "da-DK": "Billettyper uden grænse",
+              "cs-CZ": "Typy vstupenek bez limitu",
+              "ar-EG": "أنواع تذاكر بلا حد",
+              "zh-CN": "无上限的票种",
+              "zh-TW": "無上限的票種"
+            },
+            "rules": {
+              "rollup": {
+                "from": "ticket_types",
+                "via": "event_id",
+                "sum": "open_one"
+              }
+            }
+          },
+          {
             "ref": "sell_limit",
             "type": "int",
             "nullable": true,
@@ -1654,9 +1698,35 @@
             },
             "rules": {
               "formula": {
-                "sub": [
-                  "room_capacity",
-                  "guest_places"
+                "if": [
+                  {
+                    "gt": [
+                      "types_open",
+                      0
+                    ]
+                  },
+                  {
+                    "sub": [
+                      "room_capacity",
+                      "guest_places"
+                    ]
+                  },
+                  {
+                    "min": [
+                      {
+                        "sub": [
+                          "room_capacity",
+                          "guest_places"
+                        ]
+                      },
+                      {
+                        "coalesce": [
+                          "types_capacity",
+                          0
+                        ]
+                      }
+                    ]
+                  }
                 ]
               }
             }
@@ -1893,10 +1963,10 @@
             "label": {
               "en-US": "Received",
               "de-DE": "Erhalten",
-              "fr-FR": "Reçu le",
+              "fr-FR": "Reçu",
               "da-DK": "Modtaget",
               "cs-CZ": "Obdrženo",
-              "ar-EG": "تم الاستلام",
+              "ar-EG": "المبلغ المستلم",
               "zh-CN": "已收到",
               "zh-TW": "已收到"
             },
@@ -2046,6 +2116,28 @@
                   "column": "status",
                   "eq": "overdue"
                 }
+              }
+            }
+          },
+          {
+            "ref": "reminder_count",
+            "type": "int",
+            "nullable": true,
+            "label": {
+              "en-US": "Reminders asked",
+              "de-DE": "Angefragte Erinnerungen",
+              "fr-FR": "Rappels demandés",
+              "da-DK": "Ønskede påmindelser",
+              "cs-CZ": "Vyžádané připomínky",
+              "ar-EG": "التذكيرات المطلوبة",
+              "zh-CN": "已订提醒",
+              "zh-TW": "已訂提醒"
+            },
+            "rules": {
+              "rollup": {
+                "from": "reminders",
+                "via": "event_id",
+                "count": true
               }
             }
           }
@@ -2766,6 +2858,32 @@
             "rules": {
               "validation": {
                 "min": 0
+              }
+            }
+          },
+          {
+            "ref": "open_one",
+            "type": "int",
+            "nullable": true,
+            "label": {
+              "en-US": "No limit of its own",
+              "de-DE": "Ohne eigenes Limit",
+              "fr-FR": "Sans limite propre",
+              "da-DK": "Ingen egen grænse",
+              "cs-CZ": "Bez vlastního limitu",
+              "ar-EG": "بلا حد خاص به",
+              "zh-CN": "无自身上限",
+              "zh-TW": "無自身上限"
+            },
+            "rules": {
+              "formula": {
+                "if": [
+                  {
+                    "isNull": "capacity"
+                  },
+                  1,
+                  0
+                ]
               }
             }
           },
@@ -5230,6 +5348,125 @@
                     "coalesce": [
                       "refunded",
                       0
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "ref": "received",
+            "type": "decimal",
+            "scale": "currency",
+            "nullable": true,
+            "label": {
+              "en-US": "Received",
+              "de-DE": "Erhalten",
+              "fr-FR": "Reçu",
+              "da-DK": "Modtaget",
+              "cs-CZ": "Obdrženo",
+              "ar-EG": "المبلغ المستلم",
+              "zh-CN": "已收到",
+              "zh-TW": "已收到"
+            },
+            "rules": {
+              "formula": {
+                "add": [
+                  {
+                    "coalesce": [
+                      "paid_in",
+                      0
+                    ]
+                  },
+                  {
+                    "coalesce": [
+                      "collected",
+                      0
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "ref": "owed",
+            "type": "decimal",
+            "scale": "currency",
+            "nullable": true,
+            "label": {
+              "en-US": "Still owed",
+              "de-DE": "Noch offen",
+              "fr-FR": "Encore dû",
+              "da-DK": "Stadig skyldigt",
+              "cs-CZ": "Ještě dlužné",
+              "ar-EG": "المستحق المتبقي",
+              "zh-CN": "待收",
+              "zh-TW": "待收"
+            },
+            "rules": {
+              "formula": {
+                "if": [
+                  {
+                    "or": [
+                      {
+                        "eq": [
+                          "status",
+                          "door"
+                        ]
+                      },
+                      {
+                        "eq": [
+                          "status",
+                          "awaiting_transfer"
+                        ]
+                      },
+                      {
+                        "eq": [
+                          "status",
+                          "overdue"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "coalesce": [
+                      "balance",
+                      0
+                    ]
+                  },
+                  0
+                ]
+              }
+            }
+          },
+          {
+            "ref": "refund_due",
+            "type": "decimal",
+            "scale": "currency",
+            "nullable": true,
+            "label": {
+              "en-US": "To give back",
+              "de-DE": "Zurückzuzahlen",
+              "fr-FR": "À rembourser",
+              "da-DK": "Skal betales tilbage",
+              "cs-CZ": "K vrácení",
+              "ar-EG": "للرد",
+              "zh-CN": "待退还",
+              "zh-TW": "待退還"
+            },
+            "rules": {
+              "formula": {
+                "max": [
+                  0,
+                  {
+                    "sub": [
+                      0,
+                      {
+                        "coalesce": [
+                          "balance",
+                          0
+                        ]
+                      }
                     ]
                   }
                 ]
@@ -11820,6 +12057,22 @@
       "config": {
         "layout": {
           "version": 1,
+          "toolbar": {
+            "link": {
+              "label": "Open the box office",
+              "labels": {
+                "de-DE": "Kasse öffnen",
+                "fr-FR": "Ouvrir la billetterie",
+                "da-DK": "Åbn billetlugen",
+                "cs-CZ": "Otevřít pokladnu",
+                "ar-EG": "افتح شباك التذاكر",
+                "zh-CN": "打开售票处",
+                "zh-TW": "開啟售票處"
+              },
+              "href": "@staff",
+              "icon": "external-link"
+            }
+          },
           "items": [
             {
               "i": "sold",
@@ -11829,21 +12082,32 @@
               "w": 3,
               "h": 3,
               "config": {
-                "title": "Tickets sold",
+                "title": "Tickets sold for coming shows",
                 "titles": {
-                  "en-US": "Tickets sold",
-                  "de-DE": "Verkaufte Tickets",
-                  "fr-FR": "Billets vendus",
-                  "da-DK": "Solgte billetter",
-                  "cs-CZ": "Prodané vstupenky",
-                  "ar-EG": "التذاكر المبيعة",
-                  "zh-CN": "已售门票",
-                  "zh-TW": "已售票數"
+                  "en-US": "Tickets sold for coming shows",
+                  "de-DE": "Verkaufte Tickets für kommende Shows",
+                  "fr-FR": "Billets vendus pour les prochains spectacles",
+                  "da-DK": "Solgte billetter til kommende arrangementer",
+                  "cs-CZ": "Prodané vstupenky na nadcházející akce",
+                  "ar-EG": "التذاكر المبيعة للحفلات القادمة",
+                  "zh-CN": "即将上演演出的已售门票",
+                  "zh-TW": "即將上演演出的已售票數"
+                },
+                "metricLabel": "comps included",
+                "metricLabels": {
+                  "de-DE": "Ehrenkarten eingeschlossen",
+                  "fr-FR": "invitations comprises",
+                  "da-DK": "billetter uden beregning medregnet",
+                  "cs-CZ": "včetně čestných vstupenek",
+                  "ar-EG": "تشمل الدعوات",
+                  "zh-CN": "含赠票",
+                  "zh-TW": "含公關票"
                 },
                 "metricFormat": "plain",
                 "deltaMode": "none",
                 "showSparkline": false,
                 "iconName": "ticket",
+                "href": "/p/events-tickets?f.status=in:valid,offered,refund_asked&f.order_status=in:door,awaiting_transfer,overdue,no_charge,paid&f.doors_at=gte:today",
                 "binding": {
                   "kind": "table-query",
                   "source": {
@@ -11871,15 +12135,22 @@
                       "column": "order_status",
                       "op": "in",
                       "value": [
-                        "held",
-                        "confirming",
-                        "offered",
                         "door",
                         "awaiting_transfer",
                         "overdue",
                         "no_charge",
                         "paid"
                       ]
+                    },
+                    {
+                      "column": "event_id.status",
+                      "op": "eq",
+                      "value": "published"
+                    },
+                    {
+                      "column": "event_id.curfew_at",
+                      "op": "gte",
+                      "day": "today"
                     }
                   ]
                 }
@@ -11908,6 +12179,7 @@
                 "deltaMode": "none",
                 "showSparkline": false,
                 "iconName": "door-open",
+                "href": "/p/events-orders?f.status=eq:door",
                 "binding": {
                   "kind": "table-query",
                   "source": {
@@ -11927,6 +12199,16 @@
                       "column": "status",
                       "op": "eq",
                       "value": "door"
+                    },
+                    {
+                      "column": "event_id.status",
+                      "op": "eq",
+                      "value": "published"
+                    },
+                    {
+                      "column": "event_id.curfew_at",
+                      "op": "gte",
+                      "day": "today"
                     }
                   ]
                 }
@@ -11955,6 +12237,8 @@
                 "deltaMode": "none",
                 "showSparkline": false,
                 "iconName": "landmark",
+                "iconTone": "warn",
+                "href": "/p/events-orders?f.status=in:awaiting_transfer,overdue",
                 "binding": {
                   "kind": "table-query",
                   "source": {
@@ -11983,28 +12267,40 @@
               }
             },
             {
-              "i": "overdue",
+              "i": "refunds",
               "widget": "kpi-stat-card",
               "x": 9,
               "y": 0,
               "w": 3,
               "h": 3,
               "config": {
-                "title": "Transfers overdue",
+                "title": "Refunds to make",
                 "titles": {
-                  "en-US": "Transfers overdue",
-                  "de-DE": "Überfällige Überweisungen",
-                  "fr-FR": "Virements en retard",
-                  "da-DK": "Forsinkede overførsler",
-                  "cs-CZ": "Převody po splatnosti",
-                  "ar-EG": "تحويلات متأخرة",
-                  "zh-CN": "逾期转账",
-                  "zh-TW": "逾期轉帳"
+                  "en-US": "Refunds to make",
+                  "de-DE": "Offene Erstattungen",
+                  "fr-FR": "Remboursements à faire",
+                  "da-DK": "Refusioner at udbetale",
+                  "cs-CZ": "Peníze k vrácení",
+                  "ar-EG": "مبالغ يجب ردّها",
+                  "zh-CN": "待退款项",
+                  "zh-TW": "待退款項"
                 },
-                "metricFormat": "plain",
+                "metricLabel": "paid, not yet given back",
+                "metricLabels": {
+                  "de-DE": "bezahlt, noch nicht zurückgezahlt",
+                  "fr-FR": "payé, pas encore remboursé",
+                  "da-DK": "betalt, endnu ikke tilbagebetalt",
+                  "cs-CZ": "zaplaceno, zatím nevráceno",
+                  "ar-EG": "مدفوع ولم يُرد بعد",
+                  "zh-CN": "已付款，尚未退还",
+                  "zh-TW": "已付款，尚未退還"
+                },
+                "metricFormat": "currency",
                 "deltaMode": "none",
                 "showSparkline": false,
-                "iconName": "clock-alert",
+                "iconName": "undo-2",
+                "iconTone": "danger",
+                "href": "/p/events-orders?f.balance=lt:0",
                 "binding": {
                   "kind": "table-query",
                   "source": {
@@ -12014,9 +12310,364 @@
                   "shape": "metric+delta",
                   "aggregations": [
                     {
-                      "fn": "count",
-                      "alias": "orders"
+                      "fn": "sum",
+                      "column": "refund_due",
+                      "alias": "to_give_back"
                     }
+                  ],
+                  "filters": [
+                    {
+                      "column": "balance",
+                      "op": "lt",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "i": "tonight",
+              "widget": "mini-table",
+              "x": 0,
+              "y": 3,
+              "w": 6,
+              "h": 5,
+              "config": {
+                "title": "Tonight",
+                "titles": {
+                  "en-US": "Tonight",
+                  "de-DE": "Heute Abend",
+                  "fr-FR": "Ce soir",
+                  "da-DK": "I aften",
+                  "cs-CZ": "Dnes večer",
+                  "ar-EG": "الليلة",
+                  "zh-CN": "今晚",
+                  "zh-TW": "今晚"
+                },
+                "subtitle": "Sold and held of what the show can sell",
+                "subtitles": {
+                  "de-DE": "Verkauft und reserviert, von dem, was die Show verkaufen kann",
+                  "fr-FR": "Vendus et réservés, sur ce que le spectacle peut vendre",
+                  "da-DK": "Solgt og reserveret af det, arrangementet kan sælge",
+                  "cs-CZ": "Prodáno a drženo z toho, co akce může prodat",
+                  "ar-EG": "المبيع والمحجوز مما يمكن للحفل بيعه",
+                  "zh-CN": "已售和保留占可售数量",
+                  "zh-TW": "已售出與保留佔可售數量"
+                },
+                "emptyState": {
+                  "titleKey": "No show tonight",
+                  "titles": {
+                    "de-DE": "Heute Abend keine Show",
+                    "fr-FR": "Pas de spectacle ce soir",
+                    "da-DK": "Intet arrangement i aften",
+                    "cs-CZ": "Dnes večer žádná akce",
+                    "ar-EG": "لا يوجد حفل الليلة",
+                    "zh-CN": "今晚没有演出",
+                    "zh-TW": "今晚沒有演出"
+                  }
+                },
+                "limit": 3,
+                "columns": [
+                  {
+                    "name": "name",
+                    "label": "Show",
+                    "labels": {
+                      "de-DE": "Show",
+                      "fr-FR": "Spectacle",
+                      "da-DK": "Arrangement",
+                      "cs-CZ": "Akce",
+                      "ar-EG": "الحفل",
+                      "zh-CN": "演出",
+                      "zh-TW": "演出"
+                    }
+                  },
+                  {
+                    "name": "doors_at",
+                    "label": "Doors",
+                    "labels": {
+                      "de-DE": "Einlass",
+                      "fr-FR": "Ouverture des portes",
+                      "da-DK": "Dørene åbner",
+                      "cs-CZ": "Otevření",
+                      "ar-EG": "فتح الأبواب",
+                      "zh-CN": "开门",
+                      "zh-TW": "入場時間"
+                    },
+                    "logicalType": "time"
+                  },
+                  {
+                    "name": "sold",
+                    "label": "Sold",
+                    "labels": {
+                      "de-DE": "Verkauft",
+                      "fr-FR": "Vendus",
+                      "da-DK": "Solgt",
+                      "cs-CZ": "Prodáno",
+                      "ar-EG": "المبيع",
+                      "zh-CN": "已售",
+                      "zh-TW": "已售出"
+                    },
+                    "semantic": "capacity-bar"
+                  }
+                ],
+                "secondary": [
+                  "room"
+                ],
+                "viewAllHref": "/p/events-shows?f.doors_at=gte:today&f.doors_at=lte:today",
+                "binding": {
+                  "kind": "table-query",
+                  "source": {
+                    "name": "events",
+                    "type": "table"
+                  },
+                  "shape": "record-list",
+                  "select": [
+                    "id",
+                    "name",
+                    "doors_at"
+                  ],
+                  "lookups": [
+                    "room:room_id.name"
+                  ],
+                  "filters": [
+                    {
+                      "column": "status",
+                      "op": "eq",
+                      "value": "published"
+                    },
+                    {
+                      "column": "doors_at",
+                      "op": "eq",
+                      "day": "today"
+                    }
+                  ],
+                  "orderBy": [
+                    {
+                      "column": "doors_at",
+                      "dir": "asc"
+                    }
+                  ],
+                  "limit": 3,
+                  "counts": {
+                    "table": "tickets",
+                    "as": "sold"
+                  }
+                }
+              }
+            },
+            {
+              "i": "tonight-door",
+              "widget": "kpi-stat-tile-compact",
+              "x": 0,
+              "y": 8,
+              "w": 3,
+              "h": 3,
+              "config": {
+                "title": "To collect at the door",
+                "titles": {
+                  "en-US": "To collect at the door",
+                  "de-DE": "Am Einlass zu kassieren",
+                  "fr-FR": "À encaisser à l'entrée",
+                  "da-DK": "Skal opkræves ved døren",
+                  "cs-CZ": "K vybrání u vchodu",
+                  "ar-EG": "للتحصيل عند الباب",
+                  "zh-CN": "门口待收",
+                  "zh-TW": "現場待收"
+                },
+                "metricFormat": "currency",
+                "deltaMode": "none",
+                "showSparkline": false,
+                "iconName": "door-open",
+                "href": "/p/events-orders?f.status=eq:door",
+                "binding": {
+                  "kind": "table-query",
+                  "source": {
+                    "name": "orders",
+                    "type": "table"
+                  },
+                  "shape": "metric+delta",
+                  "aggregations": [
+                    {
+                      "fn": "sum",
+                      "column": "balance",
+                      "alias": "to_collect"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "column": "status",
+                      "op": "eq",
+                      "value": "door"
+                    },
+                    {
+                      "column": "event_id.status",
+                      "op": "eq",
+                      "value": "published"
+                    },
+                    {
+                      "column": "event_id.doors_at",
+                      "op": "eq",
+                      "day": "today"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "i": "tonight-guests",
+              "widget": "kpi-stat-tile-compact",
+              "x": 3,
+              "y": 8,
+              "w": 3,
+              "h": 3,
+              "config": {
+                "title": "Guest list",
+                "titles": {
+                  "en-US": "Guest list",
+                  "de-DE": "Gästeliste",
+                  "fr-FR": "Liste d'invités",
+                  "da-DK": "Gæsteliste",
+                  "cs-CZ": "Seznam hostů",
+                  "ar-EG": "قائمة الضيوف",
+                  "zh-CN": "嘉宾名单",
+                  "zh-TW": "貴賓名單"
+                },
+                "metricLabel": "people",
+                "metricLabels": {
+                  "de-DE": "Personen",
+                  "fr-FR": "personnes",
+                  "da-DK": "personer",
+                  "cs-CZ": "lidí",
+                  "ar-EG": "أشخاص",
+                  "zh-CN": "人",
+                  "zh-TW": "人"
+                },
+                "metricFormat": "plain",
+                "deltaMode": "none",
+                "showSparkline": false,
+                "iconName": "list-checks",
+                "href": "/p/events-guest-lists",
+                "binding": {
+                  "kind": "table-query",
+                  "source": {
+                    "name": "guest_list",
+                    "type": "table"
+                  },
+                  "shape": "metric+delta",
+                  "aggregations": [
+                    {
+                      "fn": "sum",
+                      "column": "people",
+                      "alias": "people"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "column": "event_id.status",
+                      "op": "eq",
+                      "value": "published"
+                    },
+                    {
+                      "column": "event_id.doors_at",
+                      "op": "eq",
+                      "day": "today"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "i": "overdue",
+              "widget": "mini-table",
+              "x": 6,
+              "y": 3,
+              "w": 6,
+              "h": 4,
+              "config": {
+                "title": "Bank transfers past their deadline",
+                "titles": {
+                  "en-US": "Bank transfers past their deadline",
+                  "de-DE": "Überweisungen nach Fristablauf",
+                  "fr-FR": "Virements après l'échéance",
+                  "da-DK": "Overførsler efter fristen",
+                  "cs-CZ": "Převody po termínu splatnosti",
+                  "ar-EG": "تحويلات بعد انتهاء موعدها",
+                  "zh-CN": "已过期限的转账",
+                  "zh-TW": "已過期限的轉帳"
+                },
+                "subtitle": "Mark them paid, or they go back on sale",
+                "subtitles": {
+                  "de-DE": "Als bezahlt markieren, sonst gehen sie wieder in den Verkauf",
+                  "fr-FR": "Marquez-les payés, sinon ils sont remis en vente",
+                  "da-DK": "Markér dem som betalt, ellers kommer de til salg igen",
+                  "cs-CZ": "Označte je jako zaplacené, jinak se vrátí do prodeje",
+                  "ar-EG": "سجّلها مدفوعة، وإلا تعود إلى البيع",
+                  "zh-CN": "标记为已付，否则将重新开售",
+                  "zh-TW": "標記為已付，否則將重新開賣"
+                },
+                "emptyState": {
+                  "titleKey": "No transfers past their deadline.",
+                  "titles": {
+                    "de-DE": "Keine Überweisungen nach Fristablauf.",
+                    "fr-FR": "Aucun virement après l'échéance.",
+                    "da-DK": "Ingen overførsler efter fristen.",
+                    "cs-CZ": "Žádné převody po termínu splatnosti.",
+                    "ar-EG": "لا توجد تحويلات بعد انتهاء موعدها.",
+                    "zh-CN": "没有已过期限的转账。",
+                    "zh-TW": "沒有已過期限的轉帳。"
+                  }
+                },
+                "limit": 6,
+                "columns": [
+                  {
+                    "name": "buyer_name",
+                    "label": "Buyer",
+                    "labels": {
+                      "de-DE": "Käufer",
+                      "fr-FR": "Acheteur",
+                      "da-DK": "Køber",
+                      "cs-CZ": "Kupující",
+                      "ar-EG": "المشتري",
+                      "zh-CN": "购票人",
+                      "zh-TW": "購票人"
+                    }
+                  },
+                  {
+                    "name": "balance",
+                    "label": "Owed",
+                    "labels": {
+                      "de-DE": "Offen",
+                      "fr-FR": "Reste dû",
+                      "da-DK": "Skyldigt",
+                      "cs-CZ": "K úhradě",
+                      "ar-EG": "المبلغ المستحق",
+                      "zh-CN": "待付",
+                      "zh-TW": "待付"
+                    },
+                    "logicalType": "decimal",
+                    "semantic": "money"
+                  }
+                ],
+                "secondary": [
+                  "number",
+                  "show"
+                ],
+                "viewAllHref": "/p/events-orders?f.status=eq:overdue",
+                "binding": {
+                  "kind": "table-query",
+                  "source": {
+                    "name": "orders",
+                    "type": "table"
+                  },
+                  "shape": "record-list",
+                  "select": [
+                    "id",
+                    "number",
+                    "buyer_name",
+                    "balance"
+                  ],
+                  "lookups": [
+                    "show:event_id.name"
                   ],
                   "filters": [
                     {
@@ -12024,68 +12675,603 @@
                       "op": "eq",
                       "value": "overdue"
                     }
-                  ]
+                  ],
+                  "orderBy": [
+                    {
+                      "column": "pay_by",
+                      "dir": "asc"
+                    }
+                  ],
+                  "limit": 6
                 }
               }
             },
             {
-              "i": "orders-by-week",
+              "i": "refund-requests",
+              "widget": "mini-table",
+              "x": 6,
+              "y": 7,
+              "w": 6,
+              "h": 4,
+              "config": {
+                "title": "Refund requests",
+                "titles": {
+                  "en-US": "Refund requests",
+                  "de-DE": "Erstattungsanfragen",
+                  "fr-FR": "Demandes de remboursement",
+                  "da-DK": "Anmodninger om refusion",
+                  "cs-CZ": "Žádosti o vrácení peněz",
+                  "ar-EG": "طلبات الاسترداد",
+                  "zh-CN": "退款申请",
+                  "zh-TW": "退款申請"
+                },
+                "emptyState": {
+                  "titleKey": "No refund requests.",
+                  "titles": {
+                    "de-DE": "Keine Erstattungsanfragen.",
+                    "fr-FR": "Aucune demande de remboursement.",
+                    "da-DK": "Ingen anmodninger om refusion.",
+                    "cs-CZ": "Žádné žádosti o vrácení peněz.",
+                    "ar-EG": "لا توجد طلبات استرداد.",
+                    "zh-CN": "没有退款申请。",
+                    "zh-TW": "沒有退款申請。"
+                  }
+                },
+                "limit": 6,
+                "columns": [
+                  {
+                    "name": "holder_name",
+                    "label": "Ticket holder",
+                    "labels": {
+                      "de-DE": "Ticketinhaber",
+                      "fr-FR": "Titulaire du billet",
+                      "da-DK": "Billetindehaver",
+                      "cs-CZ": "Držitel vstupenky",
+                      "ar-EG": "حامل التذكرة",
+                      "zh-CN": "持票人",
+                      "zh-TW": "持票人"
+                    }
+                  },
+                  {
+                    "name": "refund_asked_at",
+                    "label": "Asked",
+                    "labels": {
+                      "de-DE": "Gefragt",
+                      "fr-FR": "Demandé",
+                      "da-DK": "Anmodet",
+                      "cs-CZ": "Vyžádáno",
+                      "ar-EG": "طُلب",
+                      "zh-CN": "申请时间",
+                      "zh-TW": "提出時間"
+                    },
+                    "logicalType": "datetime"
+                  }
+                ],
+                "secondary": [
+                  "order",
+                  "show"
+                ],
+                "viewAllHref": "/p/events-tickets?f.status=eq:refund_asked",
+                "binding": {
+                  "kind": "table-query",
+                  "source": {
+                    "name": "tickets",
+                    "type": "table"
+                  },
+                  "shape": "record-list",
+                  "select": [
+                    "id",
+                    "holder_name",
+                    "refund_asked_at"
+                  ],
+                  "lookups": [
+                    "order:order_id.number",
+                    "show:event_id.name"
+                  ],
+                  "filters": [
+                    {
+                      "column": "status",
+                      "op": "eq",
+                      "value": "refund_asked"
+                    }
+                  ],
+                  "orderBy": [
+                    {
+                      "column": "refund_asked_at",
+                      "dir": "asc"
+                    }
+                  ],
+                  "limit": 6
+                }
+              }
+            },
+            {
+              "i": "waiting",
+              "widget": "mini-table",
+              "x": 0,
+              "y": 11,
+              "w": 6,
+              "h": 4,
+              "config": {
+                "title": "Messages waiting",
+                "titles": {
+                  "en-US": "Messages waiting",
+                  "de-DE": "Wartende Nachrichten",
+                  "fr-FR": "Messages en attente",
+                  "da-DK": "Ventende beskeder",
+                  "cs-CZ": "Čekající zprávy",
+                  "ar-EG": "رسائل بانتظار الإرسال",
+                  "zh-CN": "待发送的消息",
+                  "zh-TW": "待寄出的訊息"
+                },
+                "subtitle": "Written, not sent yet",
+                "subtitles": {
+                  "de-DE": "Geschrieben, noch nicht gesendet",
+                  "fr-FR": "Rédigés, pas encore envoyés",
+                  "da-DK": "Skrevet, ikke sendt endnu",
+                  "cs-CZ": "Napsané, zatím neodeslané",
+                  "ar-EG": "مكتوبة ولم تُرسل بعد",
+                  "zh-CN": "已撰写，尚未发送",
+                  "zh-TW": "已撰寫，尚未寄出"
+                },
+                "emptyState": {
+                  "titleKey": "No messages waiting.",
+                  "titles": {
+                    "de-DE": "Keine wartenden Nachrichten.",
+                    "fr-FR": "Aucun message en attente.",
+                    "da-DK": "Ingen ventende beskeder.",
+                    "cs-CZ": "Žádné čekající zprávy.",
+                    "ar-EG": "لا توجد رسائل بانتظار الإرسال.",
+                    "zh-CN": "没有待发送的消息。",
+                    "zh-TW": "沒有待寄出的訊息。"
+                  }
+                },
+                "limit": 6,
+                "columns": [
+                  {
+                    "name": "subject",
+                    "label": "Message",
+                    "labels": {
+                      "de-DE": "Nachricht",
+                      "fr-FR": "Message",
+                      "da-DK": "Besked",
+                      "cs-CZ": "Zpráva",
+                      "ar-EG": "الرسالة",
+                      "zh-CN": "消息",
+                      "zh-TW": "訊息"
+                    }
+                  },
+                  {
+                    "name": "people",
+                    "label": "People",
+                    "labels": {
+                      "de-DE": "Personen",
+                      "fr-FR": "Personnes",
+                      "da-DK": "Personer",
+                      "cs-CZ": "Lidé",
+                      "ar-EG": "الأشخاص",
+                      "zh-CN": "人数",
+                      "zh-TW": "人數"
+                    },
+                    "logicalType": "integer"
+                  }
+                ],
+                "secondary": [
+                  "show"
+                ],
+                "viewAllHref": "/p/events-broadcasts?f.sent_at=unset",
+                "binding": {
+                  "kind": "table-query",
+                  "source": {
+                    "name": "broadcasts",
+                    "type": "table"
+                  },
+                  "shape": "record-list",
+                  "select": [
+                    "id",
+                    "subject",
+                    "people"
+                  ],
+                  "lookups": [
+                    "show:event_id.name"
+                  ],
+                  "filters": [
+                    {
+                      "column": "sent_at",
+                      "op": "is_null"
+                    }
+                  ],
+                  "orderBy": [
+                    {
+                      "column": "id",
+                      "dir": "asc"
+                    }
+                  ],
+                  "limit": 6
+                }
+              }
+            },
+            {
+              "i": "on-sale",
+              "widget": "mini-table",
+              "x": 6,
+              "y": 11,
+              "w": 6,
+              "h": 4,
+              "config": {
+                "title": "Going on sale",
+                "titles": {
+                  "en-US": "Going on sale",
+                  "de-DE": "Verkaufsstart",
+                  "fr-FR": "Mise en vente",
+                  "da-DK": "Salgsstart",
+                  "cs-CZ": "Zahájení prodeje",
+                  "ar-EG": "يبدأ البيع",
+                  "zh-CN": "即将开售",
+                  "zh-TW": "即將開賣"
+                },
+                "subtitle": "In the next 7 days",
+                "subtitles": {
+                  "de-DE": "In den nächsten 7 Tagen",
+                  "fr-FR": "Dans les 7 prochains jours",
+                  "da-DK": "I de næste 7 dage",
+                  "cs-CZ": "V příštích 7 dnech",
+                  "ar-EG": "خلال الأيام السبعة القادمة",
+                  "zh-CN": "未来 7 天内",
+                  "zh-TW": "未來 7 天內"
+                },
+                "emptyState": {
+                  "titleKey": "Nothing going on sale.",
+                  "titles": {
+                    "de-DE": "Kein Verkaufsstart in Sicht.",
+                    "fr-FR": "Aucune mise en vente prévue.",
+                    "da-DK": "Intet salg starter snart.",
+                    "cs-CZ": "Žádný prodej nezačíná.",
+                    "ar-EG": "لا يبدأ بيع أي حفل قريبا.",
+                    "zh-CN": "近期没有演出开售。",
+                    "zh-TW": "近期沒有演出開賣。"
+                  }
+                },
+                "limit": 6,
+                "columns": [
+                  {
+                    "name": "name",
+                    "label": "Show",
+                    "labels": {
+                      "de-DE": "Show",
+                      "fr-FR": "Spectacle",
+                      "da-DK": "Arrangement",
+                      "cs-CZ": "Akce",
+                      "ar-EG": "الحفل",
+                      "zh-CN": "演出",
+                      "zh-TW": "演出"
+                    }
+                  },
+                  {
+                    "name": "on_sale_at",
+                    "label": "On sale",
+                    "labels": {
+                      "de-DE": "Im Verkauf",
+                      "fr-FR": "En vente",
+                      "da-DK": "Til salg",
+                      "cs-CZ": "V prodeji",
+                      "ar-EG": "معروضة للبيع",
+                      "zh-CN": "售票中",
+                      "zh-TW": "販售中"
+                    },
+                    "logicalType": "datetime"
+                  },
+                  {
+                    "name": "reminder_count",
+                    "label": "Reminders",
+                    "labels": {
+                      "de-DE": "Erinnerungen",
+                      "fr-FR": "Rappels",
+                      "da-DK": "Påmindelser",
+                      "cs-CZ": "Připomínky",
+                      "ar-EG": "التذكيرات",
+                      "zh-CN": "提醒",
+                      "zh-TW": "提醒"
+                    },
+                    "logicalType": "integer"
+                  }
+                ],
+                "viewAllHref": "/p/events-reminders",
+                "binding": {
+                  "kind": "table-query",
+                  "source": {
+                    "name": "events",
+                    "type": "table"
+                  },
+                  "shape": "record-list",
+                  "select": [
+                    "id",
+                    "name",
+                    "on_sale_at",
+                    "reminder_count"
+                  ],
+                  "filters": [
+                    {
+                      "column": "status",
+                      "op": "eq",
+                      "value": "published"
+                    },
+                    {
+                      "column": "on_sale_at",
+                      "op": "gte",
+                      "day": "today"
+                    },
+                    {
+                      "column": "on_sale_at",
+                      "op": "lte",
+                      "day": "today+7"
+                    }
+                  ],
+                  "orderBy": [
+                    {
+                      "column": "on_sale_at",
+                      "dir": "asc"
+                    }
+                  ],
+                  "limit": 6
+                }
+              }
+            },
+            {
+              "i": "coming",
+              "widget": "mini-table",
+              "x": 0,
+              "y": 15,
+              "w": 12,
+              "h": 9,
+              "config": {
+                "title": "Coming shows",
+                "titles": {
+                  "en-US": "Coming shows",
+                  "de-DE": "Kommende Shows",
+                  "fr-FR": "Prochains spectacles",
+                  "da-DK": "Kommende arrangementer",
+                  "cs-CZ": "Nadcházející akce",
+                  "ar-EG": "الحفلات القادمة",
+                  "zh-CN": "即将上演",
+                  "zh-TW": "即將上演"
+                },
+                "subtitle": "Sold of capacity, in date order",
+                "subtitles": {
+                  "de-DE": "Verkauft von der Kapazität, nach Datum",
+                  "fr-FR": "Vendus sur la capacité, par date",
+                  "da-DK": "Solgt af kapaciteten, efter dato",
+                  "cs-CZ": "Prodáno z kapacity, podle data",
+                  "ar-EG": "المبيع من السعة، حسب التاريخ",
+                  "zh-CN": "已售占容量，按日期排序",
+                  "zh-TW": "已售出佔容量，依日期排序"
+                },
+                "emptyState": {
+                  "titleKey": "No shows coming up.",
+                  "titles": {
+                    "de-DE": "Keine kommenden Shows.",
+                    "fr-FR": "Aucun spectacle à venir.",
+                    "da-DK": "Ingen kommende arrangementer.",
+                    "cs-CZ": "Žádné nadcházející akce.",
+                    "ar-EG": "لا توجد حفلات قادمة.",
+                    "zh-CN": "暂无即将上演的演出。",
+                    "zh-TW": "暫無即將上演的演出。"
+                  }
+                },
+                "limit": 20,
+                "columns": [
+                  {
+                    "name": "doors_at",
+                    "label": "Date",
+                    "labels": {
+                      "de-DE": "Datum",
+                      "fr-FR": "Date",
+                      "da-DK": "Dato",
+                      "cs-CZ": "Datum",
+                      "ar-EG": "التاريخ",
+                      "zh-CN": "日期",
+                      "zh-TW": "日期"
+                    },
+                    "logicalType": "date"
+                  },
+                  {
+                    "name": "name",
+                    "label": "Show",
+                    "labels": {
+                      "de-DE": "Show",
+                      "fr-FR": "Spectacle",
+                      "da-DK": "Arrangement",
+                      "cs-CZ": "Akce",
+                      "ar-EG": "الحفل",
+                      "zh-CN": "演出",
+                      "zh-TW": "演出"
+                    }
+                  },
+                  {
+                    "name": "sold",
+                    "label": "Sold",
+                    "labels": {
+                      "de-DE": "Verkauft",
+                      "fr-FR": "Vendus",
+                      "da-DK": "Solgt",
+                      "cs-CZ": "Prodáno",
+                      "ar-EG": "المبيع",
+                      "zh-CN": "已售",
+                      "zh-TW": "已售出"
+                    },
+                    "semantic": "capacity-bar"
+                  }
+                ],
+                "secondary": [
+                  "room"
+                ],
+                "viewAllHref": "/p/events-shows?f.status=eq:published&f.curfew_at=gte:today",
+                "binding": {
+                  "kind": "table-query",
+                  "source": {
+                    "name": "events",
+                    "type": "table"
+                  },
+                  "shape": "record-list",
+                  "select": [
+                    "id",
+                    "name",
+                    "doors_at"
+                  ],
+                  "lookups": [
+                    "room:room_id.name"
+                  ],
+                  "filters": [
+                    {
+                      "column": "status",
+                      "op": "eq",
+                      "value": "published"
+                    },
+                    {
+                      "column": "curfew_at",
+                      "op": "gte",
+                      "day": "today"
+                    }
+                  ],
+                  "orderBy": [
+                    {
+                      "column": "doors_at",
+                      "dir": "asc"
+                    }
+                  ],
+                  "limit": 20,
+                  "counts": {
+                    "table": "tickets",
+                    "as": "sold"
+                  }
+                }
+              }
+            },
+            {
+              "i": "money",
               "widget": "chart-bar",
               "x": 0,
-              "y": 3,
+              "y": 24,
               "w": 12,
               "h": 8,
               "config": {
-                "title": "Orders each week",
+                "title": "Money by show",
                 "titles": {
-                  "en-US": "Orders each week",
-                  "de-DE": "Bestellungen pro Woche",
-                  "fr-FR": "Commandes par semaine",
-                  "da-DK": "Ordrer pr. uge",
-                  "cs-CZ": "Objednávky po týdnech",
-                  "ar-EG": "الطلبات كل أسبوع",
-                  "zh-CN": "每周订单",
-                  "zh-TW": "每週訂單"
+                  "en-US": "Money by show",
+                  "de-DE": "Geld nach Show",
+                  "fr-FR": "Argent par spectacle",
+                  "da-DK": "Penge pr. arrangement",
+                  "cs-CZ": "Peníze podle akce",
+                  "ar-EG": "المال حسب الحفل",
+                  "zh-CN": "按演出统计的款项",
+                  "zh-TW": "依演出統計的款項"
                 },
+                "subtitle": "Received counts payments staff recorded; owed is at the door or by bank transfer.",
+                "subtitles": {
+                  "de-DE": "Erhalten zählt die vom Team erfassten Zahlungen; offen ist, was am Einlass oder per Überweisung zu zahlen ist.",
+                  "fr-FR": "Reçu compte les paiements enregistrés par l'équipe ; dû, c'est ce qui reste à payer à l'entrée ou par virement.",
+                  "da-DK": "Modtaget tæller betalinger, som personalet har registreret; skyldigt er det, der skal betales ved døren eller via bankoverførsel.",
+                  "cs-CZ": "Přijato zahrnuje platby zaznamenané personálem; dlužné je to, co se platí u vchodu nebo bankovním převodem.",
+                  "ar-EG": "المستلم يشمل المدفوعات التي سجّلها الفريق؛ والمستحق هو ما يُدفع عند الباب أو بالتحويل البنكي.",
+                  "zh-CN": "已收为工作人员记录的付款；待收为现场或银行转账待付的金额。",
+                  "zh-TW": "已收為工作人員記錄的付款；待收為現場或銀行轉帳待付的金額。"
+                },
+                "emptyState": {
+                  "titleKey": "No money taken or owed for coming shows.",
+                  "titles": {
+                    "de-DE": "Für kommende Shows ist kein Geld eingegangen oder offen.",
+                    "fr-FR": "Aucun argent reçu ni dû pour les prochains spectacles.",
+                    "da-DK": "Ingen penge modtaget eller skyldige for kommende arrangementer.",
+                    "cs-CZ": "U nadcházejících akcí nejsou žádné přijaté ani dlužné peníze.",
+                    "ar-EG": "لا أموال مستلمة أو مستحقة للحفلات القادمة.",
+                    "zh-CN": "即将上演的演出没有已收或待收款项。",
+                    "zh-TW": "即將上演的演出沒有已收或待收款項。"
+                  }
+                },
+                "metricFormat": "currency",
+                "href": "/p/events-payments",
+                "series": [
+                  {
+                    "label": "Received",
+                    "labels": {
+                      "de-DE": "Erhalten",
+                      "fr-FR": "Reçu",
+                      "da-DK": "Modtaget",
+                      "cs-CZ": "Obdrženo",
+                      "ar-EG": "المبلغ المستلم",
+                      "zh-CN": "已收到",
+                      "zh-TW": "已收到"
+                    }
+                  },
+                  {
+                    "label": "Still owed",
+                    "labels": {
+                      "de-DE": "Noch offen",
+                      "fr-FR": "Encore dû",
+                      "da-DK": "Stadig skyldigt",
+                      "cs-CZ": "Ještě dlužné",
+                      "ar-EG": "المستحق المتبقي",
+                      "zh-CN": "待收",
+                      "zh-TW": "待收"
+                    }
+                  }
+                ],
                 "binding": {
                   "kind": "table-query",
                   "source": {
                     "name": "orders",
                     "type": "table"
                   },
-                  "shape": "timeseries",
+                  "shape": "categorical",
+                  "groupBy": [
+                    "event_id"
+                  ],
+                  "groupLabel": "event_id.name",
                   "aggregations": [
                     {
-                      "fn": "count",
-                      "alias": "orders"
+                      "fn": "sum",
+                      "column": "received",
+                      "alias": "received"
+                    },
+                    {
+                      "fn": "sum",
+                      "column": "owed",
+                      "alias": "owed"
                     }
                   ],
                   "filters": [
                     {
-                      "column": "status",
-                      "op": "in",
-                      "value": [
-                        "held",
-                        "confirming",
-                        "offered",
-                        "door",
-                        "awaiting_transfer",
-                        "overdue",
-                        "no_charge",
-                        "paid"
+                      "or": [
+                        {
+                          "column": "received",
+                          "op": "gt",
+                          "value": 0
+                        },
+                        {
+                          "column": "owed",
+                          "op": "gt",
+                          "value": 0
+                        }
                       ]
+                    },
+                    {
+                      "column": "event_id.status",
+                      "op": "eq",
+                      "value": "published"
+                    },
+                    {
+                      "column": "event_id.curfew_at",
+                      "op": "gte",
+                      "day": "today"
                     }
                   ],
-                  "bucket": {
-                    "column": "created_at",
-                    "unit": "week"
-                  },
-                  "window": {
-                    "column": "created_at",
-                    "last": 8,
-                    "unit": "week",
-                    "calendar": true
-                  }
+                  "orderBy": [
+                    {
+                      "column": "event_id.doors_at",
+                      "dir": "asc"
+                    }
+                  ],
+                  "limit": 20
                 }
               }
             }
@@ -14262,7 +15448,8 @@
             "status",
             "buyer_name",
             "channel",
-            "note"
+            "note",
+            "paid_method"
           ],
           "writableValues": {
             "status": [
@@ -14271,6 +15458,10 @@
             ],
             "channel": [
               "door"
+            ],
+            "paid_method": [
+              "card",
+              "cash"
             ]
           }
         },
@@ -16432,10 +17623,10 @@
         "order.event.doors_at.date",
         "order.event.doors_at.time",
         "order.event.name",
-        "order.event.room.name",
         "order.event.starts_at.time",
         "order.link_token",
         "order.number",
+        "order.room.name",
         "practice.address",
         "practice.contact_email"
       ],
@@ -16456,7 +17647,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.date}} · Doors {{order.event.doors_at.time}} · on stage {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+                  "{{order.event.doors_at.date}} · Doors {{order.event.doors_at.time}} · on stage {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
                   "Show each ticket's code at the door. Anything owed is paid there, by card or cash."
                 ]
               }
@@ -16514,7 +17705,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.date}} · Einlass {{order.event.doors_at.time}} · Beginn {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+                  "{{order.event.doors_at.date}} · Einlass {{order.event.doors_at.time}} · Beginn {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
                   "Zeig am Einlass den Code jedes Tickets. Was noch offen ist, zahlst du dort, mit Karte oder bar."
                 ]
               }
@@ -16572,7 +17763,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.date}} · Ouverture des portes à {{order.event.doors_at.time}} · sur scène à {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+                  "{{order.event.doors_at.date}} · Ouverture des portes à {{order.event.doors_at.time}} · sur scène à {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
                   "Présentez le code de chaque billet à l'entrée. S'il reste quelque chose à régler, cela se fait sur place, par carte ou en espèces."
                 ]
               }
@@ -16630,7 +17821,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.date}} · Dørene åbner {{order.event.doors_at.time}} · på scenen {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+                  "{{order.event.doors_at.date}} · Dørene åbner {{order.event.doors_at.time}} · på scenen {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
                   "Vis hver billets kode ved døren. Et eventuelt restbeløb betales dér, med kort eller kontant."
                 ]
               }
@@ -16688,7 +17879,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.date}} · Otevíráme v {{order.event.doors_at.time}} · na pódiu od {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+                  "{{order.event.doors_at.date}} · Otevíráme v {{order.event.doors_at.time}} · na pódiu od {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
                   "U vchodu ukažte kód každé vstupenky. Případný doplatek uhradíte tam, kartou nebo hotově."
                 ]
               }
@@ -16746,7 +17937,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.date}} · فتح الأبواب {{order.event.doors_at.time}} · على المسرح {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+                  "{{order.event.doors_at.date}} · فتح الأبواب {{order.event.doors_at.time}} · على المسرح {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
                   "اعرض رمز كل تذكرة عند الباب. أي مبلغ مستحق يُدفع هناك، بالبطاقة أو نقدا."
                 ]
               }
@@ -16804,7 +17995,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 开门 · {{order.event.starts_at.time}} 开演 · {{order.event.room.name}}。{{order.event.age_note}}",
+                  "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 开门 · {{order.event.starts_at.time}} 开演 · {{order.room.name}}。{{order.event.age_note}}",
                   "入场时请出示每张票的票码。如有待付款项，可在门口刷卡或付现金。"
                 ]
               }
@@ -16862,7 +18053,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 入場 · {{order.event.starts_at.time}} 演出開始 · {{order.event.room.name}}。{{order.event.age_note}}",
+                  "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 入場 · {{order.event.starts_at.time}} 演出開始 · {{order.room.name}}。{{order.event.age_note}}",
                   "入場時請出示每張票的代碼。尚未付清的款項可在現場以刷卡或現金支付。"
                 ]
               }
@@ -16924,10 +18115,10 @@
         "order.event.doors_at.date",
         "order.event.doors_at.time",
         "order.event.name",
-        "order.event.room.name",
         "order.event.starts_at.time",
         "order.link_token",
         "order.number",
+        "order.room.name",
         "order.total",
         "practice.address",
         "practice.contact_email"
@@ -16949,7 +18140,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.date}} · Doors {{order.event.doors_at.time}} · on stage {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+                  "{{order.event.doors_at.date}} · Doors {{order.event.doors_at.time}} · on stage {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
                   "Paid in full: {{order.total}}. Show each ticket's code at the door."
                 ]
               }
@@ -17007,7 +18198,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.date}} · Einlass {{order.event.doors_at.time}} · Beginn {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+                  "{{order.event.doors_at.date}} · Einlass {{order.event.doors_at.time}} · Beginn {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
                   "Vollständig bezahlt: {{order.total}}. Zeig am Einlass den Code jedes Tickets."
                 ]
               }
@@ -17065,7 +18256,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.date}} · Ouverture des portes à {{order.event.doors_at.time}} · sur scène à {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+                  "{{order.event.doors_at.date}} · Ouverture des portes à {{order.event.doors_at.time}} · sur scène à {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
                   "Tout est réglé : {{order.total}}. Présentez le code de chaque billet à l'entrée."
                 ]
               }
@@ -17123,7 +18314,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.date}} · Dørene åbner {{order.event.doors_at.time}} · på scenen {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+                  "{{order.event.doors_at.date}} · Dørene åbner {{order.event.doors_at.time}} · på scenen {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
                   "Betalt fuldt ud: {{order.total}}. Vis hver billets kode ved døren."
                 ]
               }
@@ -17181,7 +18372,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.date}} · Otevíráme v {{order.event.doors_at.time}} · na pódiu od {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+                  "{{order.event.doors_at.date}} · Otevíráme v {{order.event.doors_at.time}} · na pódiu od {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
                   "Zaplaceno v plné výši: {{order.total}}. U vchodu ukažte kód každé vstupenky."
                 ]
               }
@@ -17239,7 +18430,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.date}} · فتح الأبواب {{order.event.doors_at.time}} · على المسرح {{order.event.starts_at.time}} · {{order.event.room.name}}. {{order.event.age_note}}",
+                  "{{order.event.doors_at.date}} · فتح الأبواب {{order.event.doors_at.time}} · على المسرح {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
                   "المبلغ مدفوع بالكامل: {{order.total}}. اعرض رمز كل تذكرة عند الباب."
                 ]
               }
@@ -17297,7 +18488,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 开门 · {{order.event.starts_at.time}} 开演 · {{order.event.room.name}}。{{order.event.age_note}}",
+                  "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 开门 · {{order.event.starts_at.time}} 开演 · {{order.room.name}}。{{order.event.age_note}}",
                   "已全额付款：{{order.total}}。入场时请出示每张票的票码。"
                 ]
               }
@@ -17355,7 +18546,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 入場 · {{order.event.starts_at.time}} 演出開始 · {{order.event.room.name}}。{{order.event.age_note}}",
+                  "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 入場 · {{order.event.starts_at.time}} 演出開始 · {{order.room.name}}。{{order.event.age_note}}",
                   "已全額付清：{{order.total}}。入場時請出示每張票的代碼。"
                 ]
               }
@@ -18987,10 +20178,10 @@
         "order.event.doors_at.date",
         "order.event.doors_at.time",
         "order.event.name",
-        "order.event.room.name",
         "order.link_token",
         "order.number",
         "order.paid_in",
+        "order.room.name",
         "practice.address",
         "practice.contact_email"
       ],
@@ -19017,7 +20208,7 @@
               "data": {
                 "paras": [
                   "Thank you — we received {{order.paid_in}} for order {{order.number}}. Here are your tickets.",
-                  "{{order.event.doors_at.date}} · Doors {{order.event.doors_at.time}} · {{order.event.room.name}}."
+                  "{{order.event.doors_at.date}} · Doors {{order.event.doors_at.time}} · {{order.room.name}}."
                 ]
               }
             },
@@ -19085,7 +20276,7 @@
               "data": {
                 "paras": [
                   "Danke – wir haben {{order.paid_in}} für Bestellung {{order.number}} erhalten. Hier sind deine Tickets.",
-                  "{{order.event.doors_at.date}} · Einlass {{order.event.doors_at.time}} · {{order.event.room.name}}."
+                  "{{order.event.doors_at.date}} · Einlass {{order.event.doors_at.time}} · {{order.room.name}}."
                 ]
               }
             },
@@ -19153,7 +20344,7 @@
               "data": {
                 "paras": [
                   "Merci ! Nous avons bien reçu {{order.paid_in}} pour la commande {{order.number}}. Voici vos billets.",
-                  "{{order.event.doors_at.date}} · Ouverture des portes à {{order.event.doors_at.time}} · {{order.event.room.name}}."
+                  "{{order.event.doors_at.date}} · Ouverture des portes à {{order.event.doors_at.time}} · {{order.room.name}}."
                 ]
               }
             },
@@ -19221,7 +20412,7 @@
               "data": {
                 "paras": [
                   "Tak – vi har modtaget {{order.paid_in}} for ordre {{order.number}}. Her er dine billetter.",
-                  "{{order.event.doors_at.date}} · Dørene åbner {{order.event.doors_at.time}} · {{order.event.room.name}}."
+                  "{{order.event.doors_at.date}} · Dørene åbner {{order.event.doors_at.time}} · {{order.room.name}}."
                 ]
               }
             },
@@ -19289,7 +20480,7 @@
               "data": {
                 "paras": [
                   "Děkujeme – za objednávku {{order.number}} jsme přijali {{order.paid_in}}. Tady jsou vaše vstupenky.",
-                  "{{order.event.doors_at.date}} · Otevíráme v {{order.event.doors_at.time}} · {{order.event.room.name}}."
+                  "{{order.event.doors_at.date}} · Otevíráme v {{order.event.doors_at.time}} · {{order.room.name}}."
                 ]
               }
             },
@@ -19357,7 +20548,7 @@
               "data": {
                 "paras": [
                   "شكرا لك، استلمنا {{order.paid_in}} للطلب {{order.number}}. إليك تذاكرك.",
-                  "{{order.event.doors_at.date}} · فتح الأبواب {{order.event.doors_at.time}} · {{order.event.room.name}}."
+                  "{{order.event.doors_at.date}} · فتح الأبواب {{order.event.doors_at.time}} · {{order.room.name}}."
                 ]
               }
             },
@@ -19425,7 +20616,7 @@
               "data": {
                 "paras": [
                   "谢谢！我们已收到订单 {{order.number}} 的 {{order.paid_in}}。这是你的门票。",
-                  "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 开门 · {{order.event.room.name}}。"
+                  "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 开门 · {{order.room.name}}。"
                 ]
               }
             },
@@ -19493,7 +20684,7 @@
               "data": {
                 "paras": [
                   "謝謝你！我們已收到訂單 {{order.number}} 的 {{order.paid_in}}。這是你的票券。",
-                  "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 入場 · {{order.event.room.name}}。"
+                  "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 入場 · {{order.room.name}}。"
                 ]
               }
             },
@@ -22565,16 +23756,16 @@
         "order.event.curfew_at.time",
         "order.event.doors_at.time",
         "order.event.name",
-        "order.event.room.name",
         "order.link_token",
         "order.number",
+        "order.room.name",
         "practice.address",
         "practice.contact_email"
       ],
       "locales": {
         "en-US": {
           "subject": "Tonight: {{order.event.name}}, doors {{order.event.doors_at.time}}",
-          "preheader": "Doors {{order.event.doors_at.time}} · {{order.event.room.name}}",
+          "preheader": "Doors {{order.event.doors_at.time}} · {{order.room.name}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -22588,7 +23779,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Doors {{order.event.doors_at.time}} · curfew {{order.event.curfew_at.time}} · {{order.event.room.name}}. Anything owed is paid at the door, by card or cash."
+                  "Doors {{order.event.doors_at.time}} · curfew {{order.event.curfew_at.time}} · {{order.room.name}}. Anything owed is paid at the door, by card or cash."
                 ]
               }
             },
@@ -22631,7 +23822,7 @@
         },
         "de-DE": {
           "subject": "Heute Abend: {{order.event.name}}, Einlass {{order.event.doors_at.time}}",
-          "preheader": "Einlass {{order.event.doors_at.time}} · {{order.event.room.name}}",
+          "preheader": "Einlass {{order.event.doors_at.time}} · {{order.room.name}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -22645,7 +23836,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Einlass {{order.event.doors_at.time}} · Schluss spätestens {{order.event.curfew_at.time}} · {{order.event.room.name}}. Was noch offen ist, zahlst du am Einlass, mit Karte oder bar."
+                  "Einlass {{order.event.doors_at.time}} · Schluss spätestens {{order.event.curfew_at.time}} · {{order.room.name}}. Was noch offen ist, zahlst du am Einlass, mit Karte oder bar."
                 ]
               }
             },
@@ -22688,7 +23879,7 @@
         },
         "fr-FR": {
           "subject": "Ce soir : {{order.event.name}}, ouverture des portes à {{order.event.doors_at.time}}",
-          "preheader": "Ouverture des portes à {{order.event.doors_at.time}} · {{order.event.room.name}}",
+          "preheader": "Ouverture des portes à {{order.event.doors_at.time}} · {{order.room.name}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -22702,7 +23893,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Ouverture des portes à {{order.event.doors_at.time}} · fin de soirée à {{order.event.curfew_at.time}} · {{order.event.room.name}}. S'il reste quelque chose à régler, cela se fait à l'entrée, par carte ou en espèces."
+                  "Ouverture des portes à {{order.event.doors_at.time}} · fin de soirée à {{order.event.curfew_at.time}} · {{order.room.name}}. S'il reste quelque chose à régler, cela se fait à l'entrée, par carte ou en espèces."
                 ]
               }
             },
@@ -22745,7 +23936,7 @@
         },
         "da-DK": {
           "subject": "I aften: {{order.event.name}}, dørene åbner {{order.event.doors_at.time}}",
-          "preheader": "Dørene åbner {{order.event.doors_at.time}} · {{order.event.room.name}}",
+          "preheader": "Dørene åbner {{order.event.doors_at.time}} · {{order.room.name}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -22759,7 +23950,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Dørene åbner {{order.event.doors_at.time}} · slut senest {{order.event.curfew_at.time}} · {{order.event.room.name}}. Et eventuelt restbeløb betales ved døren, med kort eller kontant."
+                  "Dørene åbner {{order.event.doors_at.time}} · slut senest {{order.event.curfew_at.time}} · {{order.room.name}}. Et eventuelt restbeløb betales ved døren, med kort eller kontant."
                 ]
               }
             },
@@ -22802,7 +23993,7 @@
         },
         "cs-CZ": {
           "subject": "Dnes večer: {{order.event.name}}, otevíráme v {{order.event.doors_at.time}}",
-          "preheader": "Otevíráme v {{order.event.doors_at.time}} · {{order.event.room.name}}",
+          "preheader": "Otevíráme v {{order.event.doors_at.time}} · {{order.room.name}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -22816,7 +24007,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Otevíráme v {{order.event.doors_at.time}} · konec nejpozději v {{order.event.curfew_at.time}} · {{order.event.room.name}}. Případný doplatek uhradíte u vchodu, kartou nebo hotově."
+                  "Otevíráme v {{order.event.doors_at.time}} · konec nejpozději v {{order.event.curfew_at.time}} · {{order.room.name}}. Případný doplatek uhradíte u vchodu, kartou nebo hotově."
                 ]
               }
             },
@@ -22859,7 +24050,7 @@
         },
         "ar-EG": {
           "subject": "الليلة: {{order.event.name}}، فتح الأبواب {{order.event.doors_at.time}}",
-          "preheader": "فتح الأبواب {{order.event.doors_at.time}} · {{order.event.room.name}}",
+          "preheader": "فتح الأبواب {{order.event.doors_at.time}} · {{order.room.name}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -22873,7 +24064,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "فتح الأبواب {{order.event.doors_at.time}} · موعد الإغلاق {{order.event.curfew_at.time}} · {{order.event.room.name}}. أي مبلغ مستحق يُدفع عند الباب، بالبطاقة أو نقدا."
+                  "فتح الأبواب {{order.event.doors_at.time}} · موعد الإغلاق {{order.event.curfew_at.time}} · {{order.room.name}}. أي مبلغ مستحق يُدفع عند الباب، بالبطاقة أو نقدا."
                 ]
               }
             },
@@ -22916,7 +24107,7 @@
         },
         "zh-CN": {
           "subject": "今晚：{{order.event.name}}，{{order.event.doors_at.time}} 开门",
-          "preheader": "{{order.event.doors_at.time}} 开门 · {{order.event.room.name}}",
+          "preheader": "{{order.event.doors_at.time}} 开门 · {{order.room.name}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -22930,7 +24121,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.time}} 开门 · {{order.event.curfew_at.time}} 散场 · {{order.event.room.name}}。如有待付款项，可在门口刷卡或付现金。"
+                  "{{order.event.doors_at.time}} 开门 · {{order.event.curfew_at.time}} 散场 · {{order.room.name}}。如有待付款项，可在门口刷卡或付现金。"
                 ]
               }
             },
@@ -22973,7 +24164,7 @@
         },
         "zh-TW": {
           "subject": "今晚：{{order.event.name}}，{{order.event.doors_at.time}} 入場",
-          "preheader": "{{order.event.doors_at.time}} 入場 · {{order.event.room.name}}",
+          "preheader": "{{order.event.doors_at.time}} 入場 · {{order.room.name}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -22987,7 +24178,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.time}} 入場 · {{order.event.curfew_at.time}} 散場 · {{order.event.room.name}}。尚未付清的款項可在現場以刷卡或現金支付。"
+                  "{{order.event.doors_at.time}} 入場 · {{order.event.curfew_at.time}} 散場 · {{order.room.name}}。尚未付清的款項可在現場以刷卡或現金支付。"
                 ]
               }
             },
@@ -23046,16 +24237,16 @@
         "manage_url",
         "order.event.doors_at.time",
         "order.event.name",
-        "order.event.room.name",
         "order.link_token",
         "order.number",
+        "order.room.name",
         "practice.address",
         "practice.contact_email"
       ],
       "locales": {
         "en-US": {
           "subject": "Tomorrow: {{order.event.name}}, doors {{order.event.doors_at.time}}",
-          "preheader": "Doors {{order.event.doors_at.time}} · {{order.event.room.name}}",
+          "preheader": "Doors {{order.event.doors_at.time}} · {{order.room.name}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -23069,7 +24260,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Doors {{order.event.doors_at.time}} · {{order.event.room.name}}. Anything owed is paid at the door, by card or cash."
+                  "Doors {{order.event.doors_at.time}} · {{order.room.name}}. Anything owed is paid at the door, by card or cash."
                 ]
               }
             },
@@ -23112,7 +24303,7 @@
         },
         "de-DE": {
           "subject": "Morgen: {{order.event.name}}, Einlass {{order.event.doors_at.time}}",
-          "preheader": "Einlass {{order.event.doors_at.time}} · {{order.event.room.name}}",
+          "preheader": "Einlass {{order.event.doors_at.time}} · {{order.room.name}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -23126,7 +24317,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Einlass {{order.event.doors_at.time}} · {{order.event.room.name}}. Was noch offen ist, zahlst du am Einlass, mit Karte oder bar."
+                  "Einlass {{order.event.doors_at.time}} · {{order.room.name}}. Was noch offen ist, zahlst du am Einlass, mit Karte oder bar."
                 ]
               }
             },
@@ -23169,7 +24360,7 @@
         },
         "fr-FR": {
           "subject": "Demain : {{order.event.name}}, ouverture des portes à {{order.event.doors_at.time}}",
-          "preheader": "Ouverture des portes à {{order.event.doors_at.time}} · {{order.event.room.name}}",
+          "preheader": "Ouverture des portes à {{order.event.doors_at.time}} · {{order.room.name}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -23183,7 +24374,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Ouverture des portes à {{order.event.doors_at.time}} · {{order.event.room.name}}. S'il reste quelque chose à régler, cela se fait à l'entrée, par carte ou en espèces."
+                  "Ouverture des portes à {{order.event.doors_at.time}} · {{order.room.name}}. S'il reste quelque chose à régler, cela se fait à l'entrée, par carte ou en espèces."
                 ]
               }
             },
@@ -23226,7 +24417,7 @@
         },
         "da-DK": {
           "subject": "I morgen: {{order.event.name}}, dørene åbner {{order.event.doors_at.time}}",
-          "preheader": "Dørene åbner {{order.event.doors_at.time}} · {{order.event.room.name}}",
+          "preheader": "Dørene åbner {{order.event.doors_at.time}} · {{order.room.name}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -23240,7 +24431,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Dørene åbner {{order.event.doors_at.time}} · {{order.event.room.name}}. Et eventuelt restbeløb betales ved døren, med kort eller kontant."
+                  "Dørene åbner {{order.event.doors_at.time}} · {{order.room.name}}. Et eventuelt restbeløb betales ved døren, med kort eller kontant."
                 ]
               }
             },
@@ -23283,7 +24474,7 @@
         },
         "cs-CZ": {
           "subject": "Zítra: {{order.event.name}}, otevíráme v {{order.event.doors_at.time}}",
-          "preheader": "Otevíráme v {{order.event.doors_at.time}} · {{order.event.room.name}}",
+          "preheader": "Otevíráme v {{order.event.doors_at.time}} · {{order.room.name}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -23297,7 +24488,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Otevíráme v {{order.event.doors_at.time}} · {{order.event.room.name}}. Případný doplatek uhradíte u vchodu, kartou nebo hotově."
+                  "Otevíráme v {{order.event.doors_at.time}} · {{order.room.name}}. Případný doplatek uhradíte u vchodu, kartou nebo hotově."
                 ]
               }
             },
@@ -23340,7 +24531,7 @@
         },
         "ar-EG": {
           "subject": "غدا: {{order.event.name}}، فتح الأبواب {{order.event.doors_at.time}}",
-          "preheader": "فتح الأبواب {{order.event.doors_at.time}} · {{order.event.room.name}}",
+          "preheader": "فتح الأبواب {{order.event.doors_at.time}} · {{order.room.name}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -23354,7 +24545,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "فتح الأبواب {{order.event.doors_at.time}} · {{order.event.room.name}}. أي مبلغ مستحق يُدفع عند الباب، بالبطاقة أو نقدا."
+                  "فتح الأبواب {{order.event.doors_at.time}} · {{order.room.name}}. أي مبلغ مستحق يُدفع عند الباب، بالبطاقة أو نقدا."
                 ]
               }
             },
@@ -23397,7 +24588,7 @@
         },
         "zh-CN": {
           "subject": "明天：{{order.event.name}}，{{order.event.doors_at.time}} 开门",
-          "preheader": "{{order.event.doors_at.time}} 开门 · {{order.event.room.name}}",
+          "preheader": "{{order.event.doors_at.time}} 开门 · {{order.room.name}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -23411,7 +24602,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.time}} 开门 · {{order.event.room.name}}。如有待付款项，可在门口刷卡或付现金。"
+                  "{{order.event.doors_at.time}} 开门 · {{order.room.name}}。如有待付款项，可在门口刷卡或付现金。"
                 ]
               }
             },
@@ -23454,7 +24645,7 @@
         },
         "zh-TW": {
           "subject": "明天：{{order.event.name}}，{{order.event.doors_at.time}} 入場",
-          "preheader": "{{order.event.doors_at.time}} 入場 · {{order.event.room.name}}",
+          "preheader": "{{order.event.doors_at.time}} 入場 · {{order.room.name}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -23468,7 +24659,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "{{order.event.doors_at.time}} 入場 · {{order.event.room.name}}。尚未付清的款項可在現場以刷卡或現金支付。"
+                  "{{order.event.doors_at.time}} 入場 · {{order.room.name}}。尚未付清的款項可在現場以刷卡或現金支付。"
                 ]
               }
             },

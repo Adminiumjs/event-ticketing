@@ -30,6 +30,8 @@ export interface AudienceConfig {
   publicKeys?: Readonly<Record<string, string>>;
   /** The app's tables' real names by their short ones. */
   tables?: Readonly<Record<string, string>>;
+  /** Whether an add-on that draws receipts is attached to the app (the hosted page's configuration says). */
+  receipts?: boolean;
 }
 
 export interface AudienceOptions {
@@ -121,9 +123,15 @@ export class AdminiumAudience implements AudiencePort {
   /** The address the person signed in with, when Adminium cannot read their own row yet. */
   private signedAs: Person | null = null;
   private endedListeners: ((reason: string) => void)[] = [];
+  /** Each key's browser key, for a download the page makes itself. */
+  private readonly keys: Partial<Record<Key, string>> = {};
+  private readonly fetchImpl: typeof fetch;
+  private readonly receiptsOn: boolean;
 
   constructor(config: AudienceConfig, options: AudienceOptions = {}) {
     this.refs = publicRefs(config.tables);
+    this.fetchImpl = options.fetch ?? ((input, init) => fetch(input, init));
+    this.receiptsOn = config.receipts === true;
     const storage = options.storage === undefined ? tabStorage() : options.storage;
     const keys: Record<Key, string | undefined> = {
       customer: config.publishableKey,
@@ -148,7 +156,10 @@ export class AdminiumAudience implements AudiencePort {
         // The customer key's writes ask a person check: solved before sending rather than after a refusal.
         ...(key === "customer" ? { humanCheck: { refs: [this.refs.buy, this.refs.join, this.refs.remind], claim: true } } : {}),
       });
-      if (client !== null) this.clients[key] = client;
+      if (client !== null) {
+        this.clients[key] = client;
+        this.keys[key] = publishableKey;
+      }
     }
     if (this.clients.customer === undefined) throw new Error("the audience's pages need Adminium's address and the venue's browser key");
   }
@@ -180,7 +191,7 @@ export class AdminiumAudience implements AudiencePort {
   config(): Promise<Config> {
     return answer(async () => {
       const c = await this.customer.config();
-      return { timezone: c.timezone, currency: c.currency ?? "", ...(c.now === undefined ? {} : { now: c.now }) };
+      return { timezone: c.timezone, currency: c.currency ?? "", ...(c.now === undefined ? {} : { now: c.now }), receipts: this.receiptsOn };
     });
   }
 
@@ -507,6 +518,22 @@ export class AdminiumAudience implements AudiencePort {
         // Tickets a friend sent them: those not of their own orders.
         held: held.filter((t) => !mine.has(t.id)),
       };
+    });
+  }
+
+  receipt(orderId: Id): Promise<Blob> {
+    return answer(async () => {
+      const viaLink = this.byLink(orderId);
+      const key: Key = viaLink ? "link" : "customer";
+      const client = viaLink ? this.client("link") : this.customer;
+      const drawn = await client.documents.render({ kind: "receipt", ref: viaLink ? this.refs.linkOrder : this.refs.myOrders, id: String(orderId) });
+      // The bytes answer the session, which a plain link does not send: fetched here, saved by the page.
+      const session = client.session()?.token;
+      const res = await this.fetchImpl(client.documents.contentUrl(drawn.id), {
+        headers: { authorization: `Bearer ${this.keys[key]!}`, ...(session === undefined ? {} : { "x-adminium-public-session": session }) },
+      });
+      if (!res.ok) throw new ApiError(res.status, "PUBLIC_DOCUMENT_UNAVAILABLE");
+      return res.blob();
     });
   }
 

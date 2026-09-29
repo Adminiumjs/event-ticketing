@@ -107,6 +107,8 @@ export interface AudiencePort {
   myOrders(): Promise<{ orders: OrderWithTickets[]; held: Row[] }>;
   /** One of the signed-in person's orders (its own page). */
   myOrder(orderId: Id): Promise<OrderWithTickets>;
+  /** A paid order's receipt, as a file to save: drawn by the add-on that makes receipts. */
+  receipt(orderId: Id): Promise<Blob>;
   /** The signed-in person's places on waitlists (with any live offer's order). */
   myWaitlist(): Promise<Row[]>;
   leaveWaitlist(waitlistId: Id): Promise<Row>;

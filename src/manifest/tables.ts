@@ -130,6 +130,8 @@ const DOORS = { column: "doors_at", via: "event_id" };
 const copyOf = (via: string, from: string, follow = false) => ({ copy: { via, from, mode: "always", ...(follow ? { follow: true } : {}) } });
 /** A 1 or a 0 a condition reads: a formula fills only a number. */
 const yes = (condition: unknown) => ({ formula: { if: [condition, 1, 0] } });
+/** A room's places less the show's guest-list places. */
+const ROOM_LEFT = { sub: ["room_capacity", "guest_places"] };
 const eq = (column: string, value: string | number | boolean) => ({ eq: [column, value] });
 
 // ── the words the tables share ──────────────────────────────────────────────
@@ -559,7 +561,12 @@ export const TABLES: Table[] = [
       int("guest_places", "Guest-list places", { default: 0, rules: { validation: { min: 0, max: 1000 } } }),
       at("guest_list_closes_at", "Guest list closes", opt),
       int("room_capacity", "Room capacity", { ...opt, rules: copyOf("room_id", "capacity") }),
-      worked("sell_limit", "On sale at most", { formula: { sub: ["room_capacity", "guest_places"] } }),
+      // At most the room less its guest places, and never more than its ticket types hold when each has a limit of its own.
+      worked("types_capacity", "Places in its ticket types", { rollup: { from: "ticket_types", via: "event_id", sum: "capacity" } }),
+      worked("types_open", "Ticket types without a limit", { rollup: { from: "ticket_types", via: "event_id", sum: "open_one" } }),
+      worked("sell_limit", "On sale at most", {
+        formula: { if: [{ gt: ["types_open", 0] }, ROOM_LEFT, { min: [ROOM_LEFT, { coalesce: ["types_capacity", 0] }] }] },
+      }),
       choice("status", "Status", { draft: "Draft", published: "Published", cancelled: "Cancelled" }, {
         default: "draft",
         tones: { draft: "neutral", published: "pos", cancelled: "danger" },
@@ -579,6 +586,7 @@ export const TABLES: Table[] = [
       worked("owed_door_n", "Orders to pay at the door", { rollup: { from: "orders", via: "event_id", count: true, where: { column: "status", eq: "door" } } }),
       money("owed_transfer", "Awaiting transfer", { rollup: { from: "orders", via: "event_id", sum: "balance", where: { column: "status", eq: "awaiting_transfer" } } }),
       money("owed_overdue", "Transfers overdue", { rollup: { from: "orders", via: "event_id", sum: "balance", where: { column: "status", eq: "overdue" } } }),
+      worked("reminder_count", "Reminders asked", { rollup: { from: "reminders", via: "event_id", count: true } }),
     ],
   },
   {
@@ -632,6 +640,7 @@ export const TABLES: Table[] = [
       text("description", 300, "Description", opt),
       price("price", "Price", { default: 0, rules: { validation: { min: 0 } } }),
       int("capacity", "How many", { ...opt, rules: { validation: { min: 0 } } }),
+      worked("open_one", "No limit of its own", { formula: { if: [{ isNull: "capacity" }, 1, 0] } }),
       int("min_per_order", "At least", { ...opt, rules: { validation: { min: 1, max: 12 } } }),
       int("max_per_order", "At most in one order", { default: 8, rules: { validation: { min: 1, max: 12 } } }),
       choice("visibility", "Who can buy", { public: "Everyone", code: "With a code", box: "Box office only" }, { default: "public" }),
@@ -789,6 +798,10 @@ export const TABLES: Table[] = [
           ],
         },
       }),
+      // The same money as the Overview reads it: what came in, what is still to come, what is to go back.
+      money("received", "Received", { formula: { add: [{ coalesce: ["paid_in", 0] }, { coalesce: ["collected", 0] }] } }),
+      money("owed", "Still owed", { formula: { if: [{ or: ["door", "awaiting_transfer", "overdue"].map((s) => eq("status", s)) }, { coalesce: ["balance", 0] }, 0] } }),
+      money("refund_due", "To give back", { formula: { max: [0, { sub: [0, { coalesce: ["balance", 0] }] }] } }),
       worked("no_door", "Tickets that can't be paid at the door", { rollup: { from: "tickets", via: "order_id", sum: "no_door" } }),
       worked("no_transfer", "Tickets that can't be paid by transfer", { rollup: { from: "tickets", via: "order_id", sum: "no_transfer" } }),
       at("held_until", "Held until", {

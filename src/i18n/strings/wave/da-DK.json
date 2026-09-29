@@ -1380,5 +1380,7 @@
  "Guest-list places": "Pladser på gæstelisten",
  "Price": "Pris",
  "{who} is cancelled and {amount} becomes due back. {buyer} is told.": "{who} annulleres, og {amount} skal betales tilbage. {buyer} får besked.",
- "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "{who} annulleres, og {amount} skal betales tilbage. {buyer} får besked."
+ "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "{who} annulleres, og {amount} skal betales tilbage. {buyer} får besked.",
+ "Receipt downloaded": "Kvittering hentet",
+ "The receipt couldn't be made just now. Try again in a minute.": "Kvitteringen kunne ikke laves lige nu. Prøv igen om et minut."
 }

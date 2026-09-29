@@ -171,6 +171,9 @@ class PreviewAudience implements AudiencePort {
   myOrder(): Promise<OrderWithTickets> {
     return inert();
   }
+  receipt(): Promise<Blob> {
+    return inert();
+  }
   async myWaitlist(): Promise<Row[]> {
     return [];
   }

@@ -37,6 +37,8 @@ export interface Config {
   timezone: string;
   currency: string;
   now?: string;
+  /** Whether the venue's receipts are drawn (an add-on that makes them is installed): a paid order offers one. */
+  receipts?: boolean;
 }
 
 /**

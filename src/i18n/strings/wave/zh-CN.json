@@ -1380,5 +1380,7 @@
  "Guest-list places": "嘉宾名额",
  "Price": "价格",
  "{who} is cancelled and {amount} becomes due back. {buyer} is told.": "{who}将被取消，需退还 {amount}。系统会通知 {buyer}。",
- "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "{who}将被取消，需退还 {amount}。系统会通知 {buyer}。"
+ "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "{who}将被取消，需退还 {amount}。系统会通知 {buyer}。",
+ "Receipt downloaded": "收据已下载",
+ "The receipt couldn't be made just now. Try again in a minute.": "暂时无法生成收据，请一分钟后再试。"
 }

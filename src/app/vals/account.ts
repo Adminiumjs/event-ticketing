@@ -462,8 +462,8 @@ function goingVals(app: WaveApp, w: World): V {
     paidOn: paid && !canc,
     paidHow: paidWords(order["paid_method"]),
     paidDate: fD(order["paid_at"]),
-    receiptOn: false,
-    receipt: () => undefined,
+    receiptOn: paid && app.receipts,
+    receipt: () => void app.receipt(order),
     dueChip: `display:inline-flex; align-items:center; min-height:26px; padding:0 10px; border-radius:999px; background:${overdue ? "var(--danger-soft)" : "var(--warn-soft)"}; color:${overdue ? "var(--danger)" : "var(--warn)"}; font-family:var(--mono); font-size:12px; font-weight:700;`,
     dlCols: nar ? "1fr" : "repeat(3,minmax(0,1fr))",
     bank: [

@@ -1380,5 +1380,7 @@
  "Guest-list places": "Plätze auf der Gästeliste",
  "Price": "Preis",
  "{who} is cancelled and {amount} becomes due back. {buyer} is told.": "{who} wird storniert und {amount} wird zur Erstattung fällig. {buyer} wird informiert.",
- "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "{who} werden storniert und {amount} wird zur Erstattung fällig. {buyer} wird informiert."
+ "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "{who} werden storniert und {amount} wird zur Erstattung fällig. {buyer} wird informiert.",
+ "Receipt downloaded": "Beleg heruntergeladen",
+ "The receipt couldn't be made just now. Try again in a minute.": "Der Beleg konnte gerade nicht erstellt werden. Versuch es in einer Minute noch einmal."
 }
