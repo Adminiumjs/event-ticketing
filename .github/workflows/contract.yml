@@ -21,6 +21,15 @@
 # Both product checkouts are moved out of the workspace before the suite
 # runs: vitest collects every `*.test.ts` under the repo root, and the
 # products' own suites are not this repo's to run.
+#
+# WHICH ADMINIUM. The contract runs against a NAMED Adminium, never whatever
+# its default branch is that day: by default the release tag this app's
+# manifest floors on (`compatibility.minAdminiumVersion` → `v<floor>`), so a
+# pull request proves the floor it ships and a core commit cannot turn this
+# check red or green on its own. A manual run may name another ref (a release
+# candidate, a branch) through the `adminium_ref` input, or the repository
+# variable `ADMINIUM_REF` may hold one for every run; the add-ons likewise
+# (`add_ons_ref` / `ADD_ONS_REF`, their default branch when unset).
 
 name: contract
 
@@ -29,6 +38,15 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      adminium_ref:
+        description: "Adminium ref to prove against (default: v<the manifest's minAdminiumVersion>)"
+        required: false
+        default: ""
+      add_ons_ref:
+        description: "add-ons ref (default: its default branch)"
+        required: false
+        default: ""
 
 jobs:
   contract:
@@ -67,16 +85,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The input, else the repository variable, else the release this app floors on.
+      - name: Which Adminium
+        id: refs
+        env:
+          INPUT_ADMINIUM: ${{ github.event.inputs.adminium_ref || vars.ADMINIUM_REF || '' }}
+          INPUT_ADD_ONS: ${{ github.event.inputs.add_ons_ref || vars.ADD_ONS_REF || '' }}
+        run: |
+          floor=$(node -p "require('./manifest.json').compatibility.minAdminiumVersion")
+          case "$floor" in ''|undefined) echo "manifest.json names no minAdminiumVersion" >&2; exit 1 ;; esac
+          echo "adminium=${INPUT_ADMINIUM:-v$floor}" >> "$GITHUB_OUTPUT"
+          echo "add_ons=$INPUT_ADD_ONS" >> "$GITHUB_OUTPUT"
+          echo "Adminium: ${INPUT_ADMINIUM:-v$floor} · add-ons: ${INPUT_ADD_ONS:-default branch}"
+
       - name: Check out Adminium
         uses: actions/checkout@v4
         with:
           repository: MoSofi/Adminium
+          ref: ${{ steps.refs.outputs.adminium }}
           path: .adminium-product
 
       - name: Check out the add-ons
         uses: actions/checkout@v4
         with:
           repository: Adminiumjs/add-ons
+          ref: ${{ steps.refs.outputs.add_ons }}
           path: .add-ons
 
       # The e2e boot script serves the built server and the built dashboard, on
