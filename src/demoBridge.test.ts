@@ -64,11 +64,12 @@ describe("the state the card reads", () => {
     expect(state().screen).toBe("404");
   });
 
-  it("stays put on a screen that is about something not on this page yet", async () => {
+  it("gives a screen that is about something one of its own before it opens it", async () => {
     const { app, demo, state } = await open();
-    await send(app, demo, { type: "adminium:demo:go", screen: "checkout" });
     await send(app, demo, { type: "adminium:demo:go", screen: "friend" });
-    expect(state().screen).toBe("home");
+    await vi.waitFor(() => expect(state().screen).toBe("friend"), { timeout: 20_000 });
+    await send(app, demo, { type: "adminium:demo:go", screen: "checkout" });
+    await vi.waitFor(() => expect(state().screen).toBe("checkout"), { timeout: 20_000 });
   });
 
   it("switches sides: the box office opens on Today, a box screen switches with it", async () => {

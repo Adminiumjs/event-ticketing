@@ -46,7 +46,7 @@ export function StaffView({ v }: { v: any }) {
             ))}
           </nav>
           {" "}
-          <div style={st("flex:1; min-width:0; min-height:0; display:flex; flex-direction:column;")}>
+          <main style={st("flex:1; min-width:0; min-height:0; display:flex; flex-direction:column;")}>
             <div style={st(`position:relative; z-index:5; flex-shrink:0; display:flex; align-items:center; gap:10px; height:58px; padding-inline:${v.bo.padX}; border-block-end:1px solid var(--border); background:var(--surface);`)}>
               {v.bo.searchOn ? (
                 <>
@@ -3140,7 +3140,7 @@ export function StaffView({ v }: { v: any }) {
               {v.bo.s.door ? <DoorView d={v.dd} s={v.s} bo={v.bo} /> : null}
               {" "}
             </div>
-          </div>
+          </main>
         </div>
       </>
     ) : null}

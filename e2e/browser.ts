@@ -115,7 +115,7 @@ export interface WaveHandles {
     buyer: { openByLink(token: string): Promise<void> };
   };
   demo: { world: { all(table: string): Record<string, unknown>[] } };
-  card: { go(screen: string): void; play(shortcut: string): Promise<void>; send(message: Record<string, unknown>): void };
+  card: { go(screen: string): Promise<void>; play(shortcut: string): Promise<void>; send(message: Record<string, unknown>): void };
 }
 
 /** Waits for the demo venue to have started and drawn its first screen. */
@@ -130,7 +130,7 @@ type Handles = { __wave: WaveHandles };
 export async function goTo(page: Page, screen: string): Promise<void> {
   await page.evaluate(async (s) => {
     const h = (window as unknown as Handles).__wave;
-    h.card.go(s);
+    await h.card.go(s);
     await h.app.idle();
   }, screen);
 }

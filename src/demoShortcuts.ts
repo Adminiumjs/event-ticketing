@@ -344,3 +344,56 @@ export async function runShortcut(id: string, app: WaveApp, demo: DemoAdminium):
       return;
   }
 }
+
+/**
+ * What a card screen needs before it can show: a screen about something — a
+ * checkout, an order, a friend's ticket, a waitlist offer, the buyer's own
+ * tickets — is given one, as a visitor who had got there would have. A screen
+ * that already has its thing is left as it is.
+ */
+/** The card screens that are about something, and so are given one before they open. */
+export const PREPARED_SCREENS: readonly string[] = ["checkout", "going", "offer", "friend", "tickets", "doormode"];
+
+export async function prepareScreen(id: string, app: WaveApp, demo: DemoAdminium): Promise<void> {
+  const s = app.state;
+  switch (id) {
+    case "checkout":
+      if (s.co === null) await runShortcut("fill", app, demo);
+      return;
+    case "going":
+      if (s.going === null) await openOrder(app, demo, "WV-S8790");
+      return;
+    case "offer": {
+      if (s.going !== null && demo.world.get("orders", s.going.orderId)?.["status"] === "offered") return;
+      const offered = demo.world.all("orders").find((o) => o["status"] === "offered");
+      if (offered !== undefined) await openOrder(app, demo, String(offered["number"]));
+      return;
+    }
+    case "friend": {
+      if (s.fr.token !== null) return;
+      // A ticket of a paid order sent on to a friend by its buyer, and the friend's link opened.
+      await openOrder(app, demo, "WV-S8790");
+      const ticket = demo.world.all("tickets").find((t) => t["order_id"] === order(demo, "WV-S8790")?.id && t["status"] === "valid" && t["pending_email"] == null && t["holder_customer_id"] == null);
+      if (ticket === undefined) return;
+      await app.ports.audience!.sendTicket(ticket.id, "kai.renner@example.com", "Kai Renner");
+      const sent = demo.world.get("tickets", ticket.id);
+      if (sent !== undefined && typeof sent["link_token"] === "string") await app.arrive("/t", `#${sent["link_token"]}`);
+      return;
+    }
+    case "tickets":
+      await audience(app);
+      await signInMia(app, demo);
+      return;
+    case "doormode":
+      await audience(app);
+      await signInMia(app, demo);
+      if (s.dm === null) {
+        app.goTickets();
+        await app.idle();
+        app.setState({ dm: { orderId: -1, i: 0, via: "me" } });
+      }
+      return;
+    default:
+      return;
+  }
+}

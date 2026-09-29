@@ -13,7 +13,7 @@ import type { BoxScreen, WaveApp } from "./app/wave.ts";
 import { doorOf } from "./app/door.ts";
 import type { DemoAdminium } from "./demo/adminium.ts";
 import { DEMO_APP_KEY, DEMO_DOORS_AT, DEMO_PERSONAS, DEMO_SCREENS, DEMO_SHORTCUT_IDS, type CardPersona } from "./demo-card.ts";
-import { runShortcut } from "./demoShortcuts.ts";
+import { PREPARED_SCREENS, prepareScreen, runShortcut } from "./demoShortcuts.ts";
 import { DEMO_PROTOCOL_VERSION, isDemoMessage, type DemoMessage } from "./demo-types.ts";
 import { isLocaleTag } from "./i18n/locales.ts";
 
@@ -129,16 +129,22 @@ export function goToScreen(app: WaveApp, id: string): void {
   }
 }
 
+/** A card screen opened: on the demo's own Adminium, given what it is about first (a checkout, an order, a ticket…). */
+function openScreen(app: WaveApp, clock: DemoClock, id: string): void {
+  if (!isDemo(clock) || !PREPARED_SCREENS.includes(id)) return goToScreen(app, id);
+  void prepareScreen(id, app, clock).then(() => goToScreen(app, id));
+}
+
 export function applyDemoMessage(message: DemoMessage, app: WaveApp, clock: DemoClock): void {
   switch (message.type) {
     case "adminium:demo:init":
       if (isLocaleTag(message.locale)) app.setState({ lang: message.locale });
       app.setState({ theme: message.theme });
       setPersona(app, message.persona);
-      if (message.screen !== undefined) goToScreen(app, message.screen);
+      if (message.screen !== undefined) openScreen(app, clock, message.screen);
       return;
     case "adminium:demo:go":
-      goToScreen(app, message.screen);
+      openScreen(app, clock, message.screen);
       return;
     case "adminium:demo:set":
       if (message.theme !== undefined) app.setState({ theme: message.theme });

@@ -14,7 +14,8 @@ import { renderVals } from "./app/vals/base.ts";
 import { DemoAdminium } from "./demo/adminium.ts";
 import { DEMO_APP_KEY, DEMO_CLOCK, DEMO_DIR, DEMO_FRAMES, DEMO_PERSONAS, DEMO_SCREENS, DEMO_SHORTCUT_IDS, DEMO_TOGGLES } from "./demo-card.ts";
 import { demoJsonIssues } from "./demo-types.ts";
-import { runShortcut } from "./demoShortcuts.ts";
+import { prepareScreen, runShortcut } from "./demoShortcuts.ts";
+import { currentScreen, goToScreen } from "./demoBridge.ts";
 import { DEMO_CARD_MESSAGES } from "./i18n/strings/card.ts";
 
 vi.setConfig({ testTimeout: 60_000 });
@@ -145,5 +146,24 @@ describe("demo.json", () => {
       expect([lang, Object.keys(words).sort()]).toEqual([lang, Object.keys(en).sort()]);
       for (const [k, v] of Object.entries(words)) expect([lang, k, (v.match(/\{\w+\}/g) ?? []).sort()]).toEqual([lang, k, (en[k]!.match(/\{\w+\}/g) ?? []).sort()]);
     }
+  });
+});
+
+describe("the card's screens about something", () => {
+  // A visitor pressing one of these on the card has no checkout, order, friend's ticket or offer of their own yet.
+  it.each(["checkout", "going", "offer", "friend", "tickets", "doormode"])("opens %s on a fresh Tuesday", async (id) => {
+    const demo = new DemoAdminium();
+    const app = new WaveApp({ audience: demo.audience, boxOffice: demo.boxOffice, door: demo.door }, "audience", { lang: "en-US", theme: "dark" });
+    app.demo = { onClock: (fn) => demo.onClock(fn), doorDevice: "Door 1", nextScan: (d) => demo.nextInQueue(d) };
+    await app.start({ timers: false });
+    renderVals(app);
+    await app.idle();
+    await prepareScreen(id, app, demo);
+    goToScreen(app, id);
+    for (let i = 0; i < 4; i += 1) {
+      renderVals(app);
+      await app.idle();
+    }
+    expect(currentScreen(app)).toBe(id);
   });
 });
