@@ -155,8 +155,8 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
       return this.t.mutate<T>(path, method, body);
     }
   }
-  private async page(table: string, filter: string | null, limit: number, offset: number, order: string | null): Promise<Page> {
-    const q = [`limit=${String(limit)}`, `offset=${String(offset)}`, ...(filter === null ? [] : [`where=${filter}`]), ...(order === null ? [] : [`order=${encodeURIComponent(order)}`])];
+  private async page(table: string, filter: string | null, limit: number, offset: number, order: string | null, counted = false): Promise<Page> {
+    const q = [`limit=${String(limit)}`, `offset=${String(offset)}`, ...(counted ? ["count=exact"] : []), ...(filter === null ? [] : [`where=${filter}`]), ...(order === null ? [] : [`order=${encodeURIComponent(order)}`])];
     return this.t.get<Page>(await this.path(table, `?${q.join("&")}`));
   }
   private async one(table: string, id: Id): Promise<Row> {
@@ -203,9 +203,13 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
       const want = Math.min(query.limit ?? 50, MOST_ROWS);
       const rows: Row[] = [];
       let total = 0;
-      for (let offset = query.offset ?? 0; rows.length < want; offset += PAGE) {
+      // Only a count asked for (a chip's number): Adminium counts; the one row that comes with it goes unused.
+      if (want === 0) return { rows, total: (await this.page(table, filter, 1, 0, null, true)).page?.total ?? 0 };
+      const start = query.offset ?? 0;
+      for (let offset = start; rows.length < want; offset += PAGE) {
         const size = Math.min(PAGE, want - rows.length);
-        const got = await this.page(table, filter, size, offset, order);
+        // The first page is counted: "Showing 50 of 812" needs the whole, not what came back.
+        const got = await this.page(table, filter, size, offset, order, offset === start);
         total = got.page?.total ?? total;
         rows.push(...got.data.map((r) => this.row(r)));
         if (got.data.length < size) break;

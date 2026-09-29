@@ -157,7 +157,9 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         // For the box office, taken includes what checkouts hold. WV-S8815's hold is 10 minutes from 16:30:
         // an engine that took longer to add the sample has let it go already.
         const hold = (await rows("orders")).find((o) => o["number"] === "WV-S8815")!;
-        const held = hold["status"] === "held" ? 3 : 0;
+        // A hold counts until its end, whether or not its timed move has run yet: judged on the server's clock.
+        const serverNow = Date.parse(ok(await staff.get<{ now: string }>("/apps/events/staff/surface-config.json")).now);
+        const held = hold["status"] === "held" && Date.parse(String(hold["held_until"])) > serverNow ? 3 : 0;
         expect([pool.size, pool.taken - (pool.held ?? 0), pool.held ?? 0]).toEqual([260, 243, held]);
       }, 60_000);
 
