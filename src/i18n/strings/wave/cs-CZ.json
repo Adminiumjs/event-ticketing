@@ -728,7 +728,6 @@
  "Turn off {code}": "Vypnout {code}",
  "Turn on {code}": "Zapnout {code}",
  "Edit {code}": "Upravit {code}",
- "{n} check-in hasn't synced yet|{n} check-ins haven't synced yet": "{n} odbavení se ještě nesynchronizovalo|{n} odbavení se ještě nesynchronizovala|{n} odbavení se ještě nesynchronizovalo",
  "They are only on this phone. Signing out now loses them.": "Jsou jen v tomto telefonu. Když se teď odhlásíte, přijdete o ně.",
  "Stay signed in": "Zůstat přihlášen(a)",
  "Sign out anyway": "Přesto se odhlásit",
@@ -1398,5 +1397,15 @@
  "{name} is cancelled, but cancelling stopped part-way: {orders} still to cancel. Finish it — nobody is told twice.": "{name} je zrušeno, ale rušení se zastavilo v půlce: zbývá zrušit {orders}. Dokončete ho — nikdo nedostane zprávu dvakrát.",
  "{name} is cancelled, but not everyone has been told yet. Finish it — nobody is told twice.": "{name} je zrušeno, ale ještě ne všichni dostali zprávu. Dokončete to — nikdo nedostane zprávu dvakrát.",
  "Finish cancelling": "Dokončit zrušení",
- "Tell ticket holders": "Informujte držitele vstupenek"
+ "Tell ticket holders": "Informujte držitele vstupenek",
+ "No list": "Žádný seznam",
+ "This phone has no list for this show yet — wait for the signal.": "Tento telefon zatím nemá seznam pro toto představení — počkejte na signál.",
+ "{n} × {type} sold · {total} — {m} not checked in: {reason}": "{n} × {type} prodáno · {total} — {m} neodbaveno: {reason}",
+ "Signed out — {n} check-in will sync once you sign in again|Signed out — {n} check-ins will sync once you sign in again": "Odhlášeno — {n} odbavení se synchronizuje po opětovném přihlášení|Odhlášeno — {n} odbavení se synchronizují po opětovném přihlášení|Odhlášeno — {n} odbavení se synchronizuje po opětovném přihlášení",
+ "Sign in again": "Znovu se přihlásit",
+ "Sign in again to sell at the door.": "Pro prodej u vstupu se znovu přihlaste.",
+ "You're signed out — sign in again.": "Jste odhlášeni — přihlaste se znovu.",
+ "You're signed out": "Jste odhlášeni",
+ "Adminium isn't taking anything from this page until you sign in again. What the door lets in meanwhile stays on this phone and is sent then.": "Adminium z této stránky nic nepřijme, dokud se znovu nepřihlásíte. Co mezitím u vstupu odbavíte, zůstane v tomto telefonu a odešle se pak.",
+ "{n} check-in or payment hasn't synced yet|{n} check-ins and payments haven't synced yet": "{n} odbavení nebo platba ještě není synchronizována|{n} odbavení a platby ještě nejsou synchronizovány|{n} odbavení a plateb ještě není synchronizováno"
 }

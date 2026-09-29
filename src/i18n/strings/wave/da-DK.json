@@ -728,7 +728,6 @@
  "Turn off {code}": "Slå {code} fra",
  "Turn on {code}": "Slå {code} til",
  "Edit {code}": "Rediger {code}",
- "{n} check-in hasn't synced yet|{n} check-ins haven't synced yet": "{n} check-in er ikke synkroniseret endnu|{n} check-ins er ikke synkroniseret endnu",
  "They are only on this phone. Signing out now loses them.": "De findes kun på denne telefon. Logger du ud nu, mister du dem.",
  "Stay signed in": "Forbliv logget ind",
  "Sign out anyway": "Log ud alligevel",
@@ -1398,5 +1397,15 @@
  "{name} is cancelled, but cancelling stopped part-way: {orders} still to cancel. Finish it — nobody is told twice.": "{name} er aflyst, men annulleringen stoppede halvvejs: {orders} mangler stadig. Gør det færdigt — ingen får besked to gange.",
  "{name} is cancelled, but not everyone has been told yet. Finish it — nobody is told twice.": "{name} er aflyst, men ikke alle har fået besked endnu. Gør det færdigt — ingen får besked to gange.",
  "Finish cancelling": "Gør annulleringen færdig",
- "Tell ticket holders": "Giv billetindehaverne besked"
+ "Tell ticket holders": "Giv billetindehaverne besked",
+ "No list": "Ingen liste",
+ "This phone has no list for this show yet — wait for the signal.": "Denne telefon har endnu ingen liste til dette show — vent på signal.",
+ "{n} × {type} sold · {total} — {m} not checked in: {reason}": "{n} × {type} solgt · {total} — {m} ikke tjekket ind: {reason}",
+ "Signed out — {n} check-in will sync once you sign in again|Signed out — {n} check-ins will sync once you sign in again": "Logget ud — {n} check-in synkroniseres, når du logger ind igen|Logget ud — {n} check-ins synkroniseres, når du logger ind igen",
+ "Sign in again": "Log ind igen",
+ "Sign in again to sell at the door.": "Log ind igen for at sælge ved døren.",
+ "You're signed out — sign in again.": "Du er logget ud — log ind igen.",
+ "You're signed out": "Du er logget ud",
+ "Adminium isn't taking anything from this page until you sign in again. What the door lets in meanwhile stays on this phone and is sent then.": "Adminium tager ikke imod noget fra denne side, før du logger ind igen. Det, døren lukker ind i mellemtiden, bliver på denne telefon og sendes så.",
+ "{n} check-in or payment hasn't synced yet|{n} check-ins and payments haven't synced yet": "{n} check-in eller betaling er ikke synkroniseret endnu|{n} check-ins og betalinger er ikke synkroniseret endnu"
 }

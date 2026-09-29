@@ -137,10 +137,15 @@ export function DoorView({ d, s, bo }: { d: any; s: any; bo: any }) {
         {" "}
         {d.offOn ? (
           <div role="status" style={st("display:flex; align-items:center; gap:10px; padding:12px 16px; background:var(--warn-soft); font-size:14px; font-weight:800;")}>
-            <Icon name={"wifi-off"} style={st("width:17px;height:17px;color:var(--warn);")} />
-            <span>
+            <Icon name={d.signInOn ? "log-in" : "wifi-off"} style={st("width:17px;height:17px;color:var(--warn);")} />
+            <span style={st("flex:1;")}>
               <Line segs={d.offTxt} />
             </span>
+            {d.signInOn ? (
+              <button className="wv-gi" onClick={d.signIn} style={st(`${s.btnS}min-height:32px;`)}>
+                {d.signInTxt}
+              </button>
+            ) : null}
           </div>
         ) : null}
         {" "}

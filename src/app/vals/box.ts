@@ -8,7 +8,8 @@
 import { yes, type Id, type Row, type Where } from "../../data/wire.ts";
 import { tr } from "../../i18n/tr.ts";
 import { svgData, wave, hsh } from "../art.ts";
-import { boxOf, LIVE, LIVE_TICKET, plural, type Box } from "../box.ts";
+import { boxOf, LIVE, LIVE_TICKET, plural, unsentScans, type Box } from "../box.ts";
+import { doorOf } from "../door.ts";
 export { plural };
 import type { BoxWorld } from "../boxWorld.ts";
 import { dur, fD, fT, fsi, iso, money, ms, num, sameDay } from "../fmt.ts";
@@ -73,6 +74,8 @@ const BOX_SCREENS = ["refunds", "today", "events", "editor", "sales", "orders", 
 
 export function boxVals(app: WaveApp, v: V): V {
   const box = boxOf(app);
+  // Check-ins and payments a door phone kept without the signal go as soon as the staff side is open, whichever screen.
+  if (unsentScans() > 0) doorOf(app);
   const s = box.s;
   const nar = app.narrow();
   const B = boxStyles(nar);

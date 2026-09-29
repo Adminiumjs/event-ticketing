@@ -103,6 +103,30 @@ export interface SessionPortOptions {
   sleep?: (ms: number) => Promise<void>;
 }
 
+/** How long one request may take when its caller gives it a deadline (the door's scans and payments). */
+export interface CallOptions {
+  /** Past this many milliseconds the request is given up and answers {@link NoAnswerError}. */
+  deadlineMs?: number;
+}
+
+/**
+ * NO ANSWER IN TIME. Venue Wi-Fi that stays joined but drops packets never
+ * fails a request — it hangs, and a door that waits on it lets nobody in. A
+ * request given a deadline is abandoned when it passes, and says so with this:
+ * not a refusal (Adminium said nothing), so a caller reads it as it reads a
+ * lost connection. A write abandoned this way may still have landed; the
+ * caller's own retry rule (a retry key, a row that is its own) settles that.
+ */
+export class NoAnswerError extends Error {
+  constructor(ms: number) {
+    super(`No answer from Adminium within ${String(Math.round(ms / 1000))} s.`);
+    this.name = "NoAnswerError";
+  }
+}
+
+/** Whether a refusal says the session is over: the person must sign in again before anything is taken. */
+const sessionOver = (status: number, code: string | undefined): boolean => status === 401 && (code === undefined || code === "UNAUTHENTICATED" || code === "SESSION_EXPIRED");
+
 /*
  * A READ REFUSED FOR RATE is read again. Adminium answers 429 before it runs
  * anything, so repeating a GET is safe, and the desk opening needs a burst of
@@ -262,12 +286,44 @@ function buildTransport(opts: SessionPortOptions): SessionTransport {
    */
   let pausedNames: string[] = [];
 
-  async function call<T>(path: string, init?: RequestInit): Promise<T> {
+  /** Who wants to hear that the session ended (signed out here, elsewhere, or timed out). */
+  const endedListeners: ((code: string) => void)[] = [];
+
+  async function call<T>(path: string, init?: RequestInit, options: CallOptions = {}): Promise<T> {
+    const deadline = options.deadlineMs;
+    return deadline === undefined ? exchange<T>(path, init, undefined) : within(deadline, (signal) => exchange<T>(path, init, signal, true));
+  }
+
+  /**
+   * One request given `ms` to answer, its body read included: the fetch is
+   * aborted then, and the wait ends then even if the fetch ignores the abort.
+   */
+  async function within<T>(ms: number, run: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    const ctl = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        ctl.abort();
+        reject(new NoAnswerError(ms));
+      }, ms);
+    });
+    try {
+      return await Promise.race([run(ctl.signal).catch((error: unknown) => {
+        if (ctl.signal.aborted) throw new NoAnswerError(ms);
+        throw error;
+      }), late]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function exchange<T>(path: string, init: RequestInit | undefined, signal: AbortSignal | undefined, hurried = false): Promise<T> {
     const mutating = (init?.method ?? "GET").toUpperCase() !== "GET";
     const send = () =>
       doFetch(path, {
         credentials: "same-origin",
         ...init,
+        ...(signal === undefined ? {} : { signal }),
         headers: {
           accept: "application/json",
           ...(init?.body !== undefined ? { "content-type": "application/json" } : {}),
@@ -276,7 +332,8 @@ function buildTransport(opts: SessionPortOptions): SessionTransport {
         },
       });
     let response = await send();
-    for (let retry = 0; !mutating && response.status === 429 && retry < RATE_RETRIES; retry += 1) {
+    // A request on a deadline never waits out a rate limit: its caller keeps the work and tries again later.
+    for (let retry = 0; !mutating && !hurried && response.status === 429 && retry < RATE_RETRIES; retry += 1) {
       await sleep(rateLimitWait(response.headers.get("retry-after")));
       response = await send();
     }
@@ -290,6 +347,7 @@ function buildTransport(opts: SessionPortOptions): SessionTransport {
 
     if (!response.ok) {
       const envelope = body as { error?: { code?: string; message?: string; details?: unknown } } | null;
+      if (sessionOver(response.status, envelope?.error?.code)) for (const hear of endedListeners) hear(envelope?.error?.code ?? "UNAUTHENTICATED");
       throw new SessionPortError(
         envelope?.error?.message ?? `Request failed with status ${String(response.status)}.`,
         response.status,
@@ -609,16 +667,17 @@ function buildTransport(opts: SessionPortOptions): SessionTransport {
       const boot = await call<BootstrapReply>("/api/v1/bootstrap");
       csrfToken = boot.data?.csrfToken ?? null;
     },
-    async get<T>(path: string): Promise<T> {
+    async get<T>(path: string, options?: CallOptions): Promise<T> {
       // The connection is discovered first so a booted-from-config transport
       // has its session, exactly as a list would.
       await discover();
-      return call<T>(path);
+      return call<T>(path, undefined, options);
     },
     async mutate<T>(
       path: string,
       method: "POST" | "PUT" | "PATCH" | "DELETE",
       body?: unknown,
+      options?: CallOptions,
     ): Promise<T> {
       if (csrfToken === null) {
         // Not a fallback: a tokenless write answers CSRF_FAILED, which reads
@@ -629,10 +688,20 @@ function buildTransport(opts: SessionPortOptions): SessionTransport {
           "CSRF_TOKEN_MISSING",
         );
       }
-      return call<T>(path, {
-        method,
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      });
+      return call<T>(
+        path,
+        {
+          method,
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        },
+        options,
+      );
+    },
+    onSessionEnded(listener: (code: string) => void): void {
+      endedListeners.push(listener);
+    },
+    csrf(): string | null {
+      return csrfToken;
     },
   };
 }
@@ -656,7 +725,7 @@ export interface SessionTransport {
    * token does not exist before then, and a tokenless write fails with a
    * `CSRF_FAILED` that looks like a permissions problem.
    */
-  mutate: <T>(path: string, method: "POST" | "PUT" | "PATCH" | "DELETE", body?: unknown) => Promise<T>;
+  mutate: <T>(path: string, method: "POST" | "PUT" | "PATCH" | "DELETE", body?: unknown, options?: CallOptions) => Promise<T>;
   /**
    * A `GET` of a dashboard route through the same session, for the reads a
    * `SnapshotPort` has no method for — a booking table's free times, one
@@ -664,7 +733,7 @@ export interface SessionTransport {
    * route's own envelope. Never carries the CSRF token (the server checks
    * none on a read).
    */
-  get: <T>(path: string) => Promise<T>;
+  get: <T>(path: string, options?: CallOptions) => Promise<T>;
   /** The connection the app's tables are in (discovered on first use). */
   connection: () => Promise<string>;
   /**
@@ -682,6 +751,15 @@ export interface SessionTransport {
    * rotates with the session, and one retry with the new one is the answer.
    */
   refresh: () => Promise<void>;
+  /**
+   * Told whenever Adminium answers that the session is over (401: signed out
+   * here or on another device, timed out, or every session ended by an
+   * admin). Nothing written after that is taken until the person signs in
+   * again, so the screens say so instead of calling each write refused.
+   */
+  onSessionEnded: (listener: (code: string) => void) => void;
+  /** The CSRF token the session holds now (refreshed after a sign-in elsewhere), for a request made outside this transport. */
+  csrf: () => string | null;
 }
 
 export function createSessionTransport(opts: SessionPortOptions): SessionTransport {

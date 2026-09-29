@@ -9329,6 +9329,34 @@
             ]
           }
         },
+        "states": {
+          "column": "state",
+          "initial": "taken",
+          "moves": {
+            "taken": [
+              "voided"
+            ]
+          },
+          "create": {
+            "requires": {
+              "linked": [
+                {
+                  "via": "ticket_id",
+                  "where": [
+                    {
+                      "column": "order_status",
+                      "in": [
+                        "held",
+                        "door",
+                        "paid"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
         "columns": [
           {
             "ref": "id",
@@ -15707,7 +15735,6 @@
         "table:@check_ins:create",
         "table:@check_ins:delete",
         "table:@door_collections:create",
-        "table:@door_collections:update",
         "table:@orders:create",
         "table:@orders:update",
         "table:@tickets:create",
@@ -15717,32 +15744,15 @@
         "orders": {
           "writable": [
             "status",
-            "buyer_name",
-            "channel",
-            "note",
             "paid_method"
           ],
           "writableValues": {
             "status": [
-              "door",
               "paid"
-            ],
-            "channel": [
-              "door"
             ],
             "paid_method": [
               "card",
               "cash"
-            ]
-          }
-        },
-        "door_collections": {
-          "writable": [
-            "state"
-          ],
-          "writableValues": {
-            "state": [
-              "voided"
             ]
           }
         },

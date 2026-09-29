@@ -104,15 +104,27 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
     });
   }
 
-  // Signing out with check-ins this phone has not sent yet.
+  // Signing out with check-ins or payments this phone has not sent yet.
   if (k === "drSignOut") {
     const n = unsentScans();
     Object.assign(o, {
       icon: "wifi-off",
       tone: "warn",
-      title: tr("{n} check-in hasn't synced yet|{n} check-ins haven't synced yet", { n }),
+      title: tr("{n} check-in or payment hasn't synced yet|{n} check-ins and payments haven't synced yet", { n }),
       body: tr("They are only on this phone. Signing out now loses them."),
       btns: [P(tr("Stay signed in"), () => app.closeSheet()), P(tr("Sign out anyway"), () => box.signOut(true), "d")],
+    });
+  }
+
+  // The session ended (signed out elsewhere, timed out, or its access changed): nothing is taken until the person
+  // signs in again. The door keeps judging from its list, and keeps what it lets in until then.
+  if (k === "stSignedOut") {
+    Object.assign(o, {
+      icon: "log-in",
+      tone: "warn",
+      title: tr("You're signed out"),
+      body: tr("Adminium isn't taking anything from this page until you sign in again. What the door lets in meanwhile stays on this phone and is sent then."),
+      btns: [P(tr("Sign in again"), () => app.ports.door?.signInAgain?.()), P(tr("Not now"), () => app.closeSheet(), "g")],
     });
   }
 

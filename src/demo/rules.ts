@@ -1665,6 +1665,34 @@ export const MANIFEST_RULES = {
         }
       }
     },
+    "door_collections": {
+      "column": "state",
+      "initial": "taken",
+      "moves": {
+        "taken": [
+          "voided"
+        ]
+      },
+      "create": {
+        "requires": {
+          "linked": [
+            {
+              "via": "ticket_id",
+              "where": [
+                {
+                  "column": "order_status",
+                  "in": [
+                    "held",
+                    "door",
+                    "paid"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
     "guest_list": {
       "column": "status",
       "initial": "not_in",
@@ -3580,8 +3608,7 @@ export const MANIFEST_RULES = {
         ],
         "door_collections": [
           "read",
-          "create",
-          "update"
+          "create"
         ],
         "payments": [
           "read"
@@ -3598,32 +3625,15 @@ export const MANIFEST_RULES = {
         "orders": {
           "writable": [
             "status",
-            "buyer_name",
-            "channel",
-            "note",
             "paid_method"
           ],
           "writableValues": {
             "status": [
-              "door",
               "paid"
-            ],
-            "channel": [
-              "door"
             ],
             "paid_method": [
               "card",
               "cash"
-            ]
-          }
-        },
-        "door_collections": {
-          "writable": [
-            "state"
-          ],
-          "writableValues": {
-            "state": [
-              "voided"
             ]
           }
         },

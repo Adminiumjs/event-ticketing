@@ -1044,6 +1044,15 @@ export const TABLES: Table[] = [
     keyField: "taken_at",
     // A ticket's door money is taken once.
     capacity: { kind: "parent", via: "ticket_id", size: 1, countWhere: { column: "state", values: ["taken"] } },
+    // Money is taken only on a door sale being made (held) or an order to pay at the door — never on an order let
+    // go, run out, cancelled or waiting for a transfer. Paid is let through so that a second phone taking money
+    // the first one just took is refused as taken (the one-a-ticket limit), not as a wrong order.
+    states: {
+      column: "state",
+      initial: "taken",
+      moves: { taken: ["voided"] },
+      create: { requires: { linked: [{ via: "ticket_id", where: [{ column: "order_status", in: ["held", "door", "paid"] }] }] } },
+    },
     columns: [
       id,
       fk("ticket_id", "tickets", "Ticket", { index: true }),

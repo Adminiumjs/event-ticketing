@@ -917,13 +917,22 @@ export class DemoDoor implements DoorPort {
 
   async collect(ticketId: Id, method: "card" | "cash", deviceId: Id | null, occurredAt?: number): Promise<Row> {
     const engine = this.engine;
-    return engine.transaction(() => {
-      const made = engine.create("door_collections", { ticket_id: ticketId, method, device_id: deviceId }, this.writer(occurredAt)).row;
-      const order = engine.world.get("orders", engine.world.get("tickets", ticketId)!["order_id"] as Id)!;
-      // Nothing owed any more: the door moves the order to paid itself.
-      if (order["status"] === "door" && Number(order["balance"] ?? 0) <= 0) engine.update("orders", order.id, { status: "paid", paid_method: method }, this.writer());
-      return made;
-    });
+    const made = engine.create("door_collections", { ticket_id: ticketId, method, device_id: deviceId }, this.writer(occurredAt)).row;
+    // Its own step, as on the server: the order paid once nothing is owed (a held door sale, or at the door).
+    await this.settle(engine.world.get("tickets", ticketId)!["order_id"] as Id, method);
+    return made;
+  }
+
+  async settle(orderId: Id, method: "card" | "cash"): Promise<Row> {
+    const engine = this.engine;
+    const order = engine.world.get("orders", orderId)!;
+    const from = String(order["status"] ?? "");
+    if ((from !== "door" && from !== "held") || Number(order["balance"] ?? 0) > 0) return copy(order);
+    return engine.update("orders", order.id, { status: "paid", paid_method: method }, this.writer());
+  }
+
+  async ping(): Promise<void> {
+    // The demo's Adminium is always there; the signal is lost only by hand.
   }
 
   async checkIn(ticketId: Id, eventDayId: Id, deviceId: Id | null, occurredAt?: number): Promise<Row> {

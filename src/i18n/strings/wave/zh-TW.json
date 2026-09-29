@@ -728,7 +728,6 @@
  "Turn off {code}": "停用 {code}",
  "Turn on {code}": "啟用 {code}",
  "Edit {code}": "編輯 {code}",
- "{n} check-in hasn't synced yet|{n} check-ins haven't synced yet": "還有 {n} 筆驗票尚未同步",
  "They are only on this phone. Signing out now loses them.": "這些紀錄只存在這支手機上。現在登出就會遺失。",
  "Stay signed in": "保持登入",
  "Sign out anyway": "仍要登出",
@@ -1398,5 +1397,15 @@
  "{name} is cancelled, but cancelling stopped part-way: {orders} still to cancel. Finish it — nobody is told twice.": "{name} 已取消，但取消在中途停止：還有{orders}待取消。請完成 — 不會有人收到兩次通知。",
  "{name} is cancelled, but not everyone has been told yet. Finish it — nobody is told twice.": "{name} 已取消，但還沒有通知到所有人。請完成 — 不會有人收到兩次通知。",
  "Finish cancelling": "完成取消",
- "Tell ticket holders": "通知持票人"
+ "Tell ticket holders": "通知持票人",
+ "No list": "無名單",
+ "This phone has no list for this show yet — wait for the signal.": "這支手機還沒有這場演出的名單 — 請等訊號恢復。",
+ "{n} × {type} sold · {total} — {m} not checked in: {reason}": "{n} × {type} 已售出 · {total} — {m} 張未驗票：{reason}",
+ "Signed out — {n} check-in will sync once you sign in again|Signed out — {n} check-ins will sync once you sign in again": "已登出 — {n} 筆驗票會在重新登入後同步",
+ "Sign in again": "重新登入",
+ "Sign in again to sell at the door.": "請重新登入才能在門口販售。",
+ "You're signed out — sign in again.": "你已登出 — 請重新登入。",
+ "You're signed out": "你已登出",
+ "Adminium isn't taking anything from this page until you sign in again. What the door lets in meanwhile stays on this phone and is sent then.": "在你重新登入之前，Adminium 不會接收這個頁面的任何操作。這段時間門口的驗票會存在這支手機上，屆時再送出。",
+ "{n} check-in or payment hasn't synced yet|{n} check-ins and payments haven't synced yet": "還有 {n} 筆驗票或付款尚未同步"
 }

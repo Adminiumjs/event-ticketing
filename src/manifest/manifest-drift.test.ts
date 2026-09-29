@@ -207,8 +207,18 @@ describe("the door takes a ticket's money, not payments of another kind", () => 
     expect(door.permissions.filter((p) => /:(payments|refunds):(create|update|delete)$/.test(p))).toEqual([]);
   });
 
-  it("moves an order only to the door or to paid, and says it was paid by card or cash", () => {
-    expect((door.limits?.["orders"] as Json)["writableValues"]).toEqual({ status: ["door", "paid"], channel: ["door"], paid_method: ["card", "cash"] });
+  it("moves an order only to paid, and says it was paid by card or cash — never its buyer, channel or note", () => {
+    expect(door.limits?.["orders"]).toEqual({ writable: ["status", "paid_method"], writableValues: { status: ["paid"], paid_method: ["card", "cash"] } });
+  });
+
+  it("records door money and never voids it", () => {
+    expect(door.permissions.filter((p) => p.includes("@door_collections:"))).toEqual(["table:@door_collections:read", "table:@door_collections:create"]);
+    expect(door.limits?.["door_collections"]).toBeUndefined();
+  });
+
+  it("takes door money only on a door sale being made, an order to pay at the door, or one paid already (a second phone's is then refused as taken)", () => {
+    const states = table("door_collections")["states"] as Json;
+    expect((states["create"] as Json)["requires"]).toEqual({ linked: [{ via: "ticket_id", where: [{ column: "order_status", in: ["held", "door", "paid"] }] }] });
   });
 
   it("works from the door screen only", () => {

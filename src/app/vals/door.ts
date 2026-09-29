@@ -52,7 +52,12 @@ export function doorVals(app: WaveApp, nar: boolean): V {
     dotCls: online ? "" : "wv-pulse",
     clock,
     offOn: !online,
-    offTxt: segs("Offline — {n} check-in will sync|Offline — {n} check-ins will sync", { n: String(queued) }, { n: queued }),
+    offTxt: s.signedOut
+      ? segs("Signed out — {n} check-in will sync once you sign in again|Signed out — {n} check-ins will sync once you sign in again", { n: String(queued) }, { n: queued })
+      : segs("Offline — {n} check-in will sync|Offline — {n} check-ins will sync", { n: String(queued) }, { n: queued }),
+    signInOn: s.signedOut,
+    signInTxt: tr("Sign in again"),
+    signIn: () => door.signIn(),
     clashOn: s.clash.length > 0,
     clash: s.clash,
     clearClash: () => door.set({ clash: [] }),
@@ -99,6 +104,8 @@ export function doorVals(app: WaveApp, nar: boolean): V {
   const show = t.show;
   const fest = show.days.length > 1;
   const phase = door.phase(t);
+  const before = phase === "before";
+  const after = phase === "after";
   const admitsToday = fest ? [{ column: `admits_day${String(t.day.day)}`, eq: true }] : [];
   const liveWhere = [
     { column: "event_id", eq: show.id },
@@ -118,8 +125,9 @@ export function doorVals(app: WaveApp, nar: boolean): V {
 
   // The numbers before check-in opens (and after it closes).
   const byKind = (kind: string) => show.types.filter((x) => x.kind === kind);
+  // Read only on the numbers' screen (before check-in opens and after it closes), never while scanning.
   const kindCount = (kind: string) =>
-    byKind(kind).length === 0
+    byKind(kind).length === 0 || !(before || after)
       ? null
       : box.count("tickets", [
           { column: "event_id", eq: show.id },
@@ -224,8 +232,10 @@ export function doorVals(app: WaveApp, nar: boolean): V {
   const namesIn = guestRows.filter((g) => door.arrivedOf(g) > 0).length;
   const gTxt = `${tr("{n} of {total} names in|{n} of {total} names in", { n: namesIn, total: guestRows.length })} · ${tr("{n} of {total} person|{n} of {total} people", { n: gIn, total: gPeople })}`;
 
-  // Sell: the show's types (a festival's, those that let in today) with what is left for the box office.
-  const sold = box.sold(show);
+  // Sell: the show's types (a festival's, those that let in today) with what is left for the box office — read,
+  // and priced by a dry run, only while the Sell tab is open.
+  const selling = phase === "open" && tab === "sell";
+  const sold = selling ? box.sold(show) : null;
   const types = show.types
     .filter((x) => !fest || x.admits.includes(t.day.day))
     .map((x) => ({ x, left: Math.max(0, sold?.byType.get(x.id)?.left ?? 0) }));
@@ -233,7 +243,7 @@ export function doorVals(app: WaveApp, nar: boolean): V {
   const maxQ = cur === undefined ? 0 : Math.max(0, Math.min(cur.left, cur.x.max > 0 ? cur.x.max : cur.left));
   const qn = Math.max(0, Math.min(s.sellQ, maxQ));
   const quote =
-    cur === undefined || qn === 0 || !online
+    cur === undefined || qn === 0 || !online || !selling
       ? undefined
       : app.get(`box:dquote:${String(show.id)}:${String(cur.x.id)}:${String(qn)}`, () =>
           box.port.quote({ values: { event_id: show.id, buyer_name: tr("Door sale"), channel: "door" }, tickets: Array.from({ length: qn }, () => ({ ticket_type_id: cur.x.id, holder_name: null })) }),
@@ -323,8 +333,6 @@ export function doorVals(app: WaveApp, nar: boolean): V {
     door.cameraState(cam === "on" ? "off" : "on");
   };
 
-  const before = phase === "before";
-  const after = phase === "after";
   return {
     ...base,
     title,
@@ -375,7 +383,9 @@ export function doorVals(app: WaveApp, nar: boolean): V {
     onQ: (e: { target: { value: string } }) => door.set({ q: e.target.value }),
     find: (e: { preventDefault: () => void }) => {
       e.preventDefault();
-      if (looksLikeCode(s.q)) void door.scan(typedCode(s.q), "find");
+      // One result found for what was typed (a name, or the code itself): that one. Else a code is scanned as typed.
+      if (res.length === 1) (res[0]!["go"] as () => void)();
+      else if (looksLikeCode(s.q)) void door.scan(typedCode(s.q), "find");
     },
     res,
     resNone: findOn && res.length === 0,
@@ -398,7 +408,7 @@ export function doorVals(app: WaveApp, nar: boolean): V {
     sellCard: () => cur !== undefined && void door.sell(t, cur.x.id, qn, "card"),
     sellCash: () => cur !== undefined && void door.sell(t, cur.x.id, qn, "cash"),
     sellIssue: () => cur !== undefined && void door.sell(t, cur.x.id, qn, "none"),
-    sellHint: online ? tr("Tickets sold here are checked in straight away.") : tr("Selling needs the signal — tickets and their codes come from Adminium."),
+    sellHint: online ? tr("Tickets sold here are checked in straight away.") : s.signedOut ? tr("Sign in again to sell at the door.") : tr("Selling needs the signal — tickets and their codes come from Adminium."),
     vOn: v !== null,
     v: vv,
   };

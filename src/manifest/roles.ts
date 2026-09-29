@@ -9,10 +9,11 @@
  *   door         the door screen only: reads tonight's shows, their tickets,
  *                orders, check-ins, door money and guest list; lets people in
  *                (a check-in row), takes a ticket's door money, sells at the
- *                door (an order held, then at the door, then paid once every
- *                ticket's money is taken), ticks guest-list arrivals. Never a
- *                payment of another kind, a refund, a cancel, a setting, a code
- *                or a message; never marks an order paid while money is owed.
+ *                door (an order held, each ticket's money taken on it, then
+ *                paid), ticks guest-list arrivals. Never a payment of another
+ *                kind, a refund, a cancel, a void, a setting, a code or a
+ *                message; never marks an order paid while money is owed, and
+ *                never changes an order's buyer, channel or note.
  *
  * Adminium's own admins see everything, as ever.
  *
@@ -65,20 +66,20 @@ export const ROLES = [
       "app:@:staff",
       ...DOOR_READS.flatMap((table) => grant(table, "read")),
       ...grant("check_ins", "create", "delete"),
-      ...grant("door_collections", "create", "update"),
-      // A door sale: the order and its tickets in one write, then its moves.
+      // Money taken at the door is recorded, never voided here (the box office does that).
+      ...grant("door_collections", "create"),
+      // A door sale: the order and its tickets in one write, then paid.
       ...grant("orders", "create", "update"),
       ...grant("tickets", "create"),
       ...grant("guest_list", "update"),
     ],
     limits: {
-      // At the door: an order is sold held, moved to the door, and paid once nothing is owed.
+      // At the door: an order is sold held and paid once nothing is owed (Adminium refuses paid while money is
+      // owed). A sale never needs "Pay at the door", which is the buyers' own choice.
       orders: {
-        writable: ["status", "buyer_name", "channel", "note", "paid_method"],
-        writableValues: { status: ["door", "paid"], channel: ["door"], paid_method: ["card", "cash"] },
+        writable: ["status", "paid_method"],
+        writableValues: { status: ["paid"], paid_method: ["card", "cash"] },
       },
-      // A collection taken by mistake is voided; nothing else of it changes.
-      door_collections: { writable: ["state"], writableValues: { state: ["voided"] } },
       guest_list: { writable: ["status", "arrived"] },
     },
   },
