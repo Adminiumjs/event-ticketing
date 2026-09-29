@@ -1491,7 +1491,8 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
           // Put back: waiting again, joined now (at the end of the list).
           const back = await box.update("waitlist", missed.id, { status: "waiting", qty: 1, order_id: null }, "missed");
           expect(back["status"]).toBe("waiting");
-          expect(Date.parse(String(back["joined_at"]))).toBeGreaterThan(Date.parse(String(people[1]!["joined_at"])));
+          // Stamped again on the move back (MySQL keeps whole seconds, so it can share the last join's second).
+          expect(Date.parse(String(back["joined_at"]))).toBeGreaterThanOrEqual(Date.parse(String(people[1]!["joined_at"])));
         }, 240_000);
 
         it("moves a show and its days in one write, and a save sends only what changed, keeping a colleague's new type", async (ctx) => {
