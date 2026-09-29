@@ -16,6 +16,7 @@
 import type { BoxOfficePort, DoorPort, EventChildren, StaffPerson } from "./ports.ts";
 import { SessionPortError, type SessionTransport } from "./sessionSource.ts";
 import type { StaffConfig } from "../staffConnection.ts";
+import { zoneOffsetMs } from "../lib/venueTime.ts";
 import { ApiError, type Config, type HistoryEntry, type Id, type ListQuery, type ListReply, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type Where } from "./wire.ts";
 
 /** The app's key: its roles are named `events-<role>`, its tables `events_<table>` when the server does not say. */
@@ -26,12 +27,33 @@ const MOST_ROWS = 20_000;
 /** The columns the data API answers as decimal strings, read as numbers here. */
 const MONEY = new Set(["price", "subtotal", "discount", "adjusted", "total", "collected", "paid_in", "refunded", "balance", "due", "code_value", "value", "live_price", "live_discount", "amount", "received", "owed_door", "owed_transfer", "owed_overdue"]);
 
-/** A row as the screens read one: ids and money as numbers. */
-export function rowOf(row: Record<string, unknown>): Row {
+/** A time with no zone, as a database that keeps none answers it: `2026-07-29 01:59:17.183`. */
+const WALL = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(\.\d+)?)?$/;
+
+/**
+ * A wall time on the server's own clock as the moment it names. A database
+ * that keeps no zone (SQLite) keeps a time on the server's clock, and the
+ * data API answers it as it is; the server's zone (the staff config's) says
+ * which moment that was.
+ */
+export function wallToIso(text: string, zone: string): string {
+  const m = WALL.exec(text);
+  if (m === null) return text;
+  const [, y, mo, d, h, mi, sec, frac] = m;
+  const naive = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(sec ?? 0), Math.round(Number(frac ?? 0) * 1000));
+  // The zone's offset at that moment (twice: near a clock change the first guess can be an hour out).
+  let at = naive - zoneOffsetMs(zone, naive);
+  at = naive - zoneOffsetMs(zone, at);
+  return new Date(at).toISOString();
+}
+
+/** A row as the screens read one: ids and money as numbers, times as moments. */
+export function rowOf(row: Record<string, unknown>, zone: string | null = null): Row {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(row)) {
     if ((k === "id" || k.endsWith("_id")) && typeof v === "string" && /^\d+$/.test(v)) out[k] = Number(v);
     else if (MONEY.has(k) && typeof v === "string" && v !== "") out[k] = Number(v);
+    else if (zone !== null && typeof v === "string" && WALL.test(v)) out[k] = wallToIso(v, zone);
     else out[k] = v;
   }
   return out as Row;
@@ -93,10 +115,17 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
   private readonly cfg: StaffConfig;
   private readonly opts: StaffOptions;
 
+  /** The zone the server keeps zone-less times in. */
+  private readonly serverZone: string;
+
   constructor(transport: SessionTransport, config: StaffConfig, options: StaffOptions = {}) {
     this.t = transport;
     this.cfg = config;
     this.opts = options;
+    this.serverZone = config.serverTimezone ?? "UTC";
+  }
+  private row(r: Record<string, unknown>): Row {
+    return rowOf(r, this.serverZone);
   }
 
   // ── the wire ──────────────────────────────────────────────────────────────
@@ -127,13 +156,13 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
     return this.t.get<Page>(await this.path(table, `?${q.join("&")}`));
   }
   private async one(table: string, id: Id): Promise<Row> {
-    return rowOf((await this.t.get<{ data: Record<string, unknown> }>(await this.path(table, `/${encodeURIComponent(String(id))}`))).data);
+    return this.row((await this.t.get<{ data: Record<string, unknown> }>(await this.path(table, `/${encodeURIComponent(String(id))}`))).data);
   }
   private async insert(table: string, values: Record<string, unknown>, extra: Record<string, unknown> = {}): Promise<Row> {
-    return rowOf((await this.mutate<{ data: Record<string, unknown> }>(await this.path(table), "POST", { values, ...extra })).data);
+    return this.row((await this.mutate<{ data: Record<string, unknown> }>(await this.path(table), "POST", { values, ...extra })).data);
   }
   private async change(table: string, id: Id, values: Record<string, unknown>, extra: Record<string, unknown> = {}): Promise<Row> {
-    return rowOf((await this.mutate<{ data: Record<string, unknown> }>(await this.path(table, `/${encodeURIComponent(String(id))}`), "PATCH", { values, ...extra })).data);
+    return this.row((await this.mutate<{ data: Record<string, unknown> }>(await this.path(table, `/${encodeURIComponent(String(id))}`), "PATCH", { values, ...extra })).data);
   }
   /** Adminium's clock, from the config's `now` (never the phone's). */
   private now(): number {
@@ -173,7 +202,7 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
         const size = Math.min(PAGE, want - rows.length);
         const got = await this.page(table, filter, size, offset, order);
         total = got.page?.total ?? total;
-        rows.push(...got.data.map(rowOf));
+        rows.push(...got.data.map((r) => this.row(r)));
         if (got.data.length < size) break;
       }
       return { rows, total: Math.max(total, rows.length) };
@@ -247,7 +276,7 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
       }
       const body = { values, children: kids };
       const saved = id === null ? await this.mutate<{ data: Record<string, unknown> }>(await this.path("events"), "POST", body) : await this.mutate<{ data: Record<string, unknown> }>(await this.path("events", `/${encodeURIComponent(String(id))}`), "PATCH", body);
-      return rowOf(saved.data);
+      return this.row(saved.data);
     });
   }
 
@@ -334,7 +363,7 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
       const write = await this.orderWrite(body);
       const got = await this.mutate<{ data: Record<string, unknown>; children?: Record<string, { data: Record<string, unknown> }[]> }>(await this.path("orders", "/dry-run"), "POST", write);
       const lines = Object.values(got.children ?? {})[0] ?? [];
-      return { data: rowOf(got.data), tickets: lines.map((c) => rowOf(c.data)) };
+      return { data: this.row(got.data), tickets: lines.map((c) => this.row(c.data)) };
     });
   }
 
@@ -346,7 +375,7 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
         clientKey,
         ...(body.expect === undefined ? {} : { expect: { total: body.expect.total.toFixed(2) } }),
       });
-      const data = rowOf(reply.data);
+      const data = this.row(reply.data);
       // The create answers the order alone: its tickets are read after it.
       const tickets = (await this.list("tickets", { where: [{ column: "order_id", eq: data.id }], sort: [{ column: "id" }], limit: 200 })).rows;
       return { data, tickets, ...(reply.replayed === true ? { replayed: true as const } : {}) };
