@@ -810,7 +810,7 @@ export class Box {
       },
       plural(who.people, "Sent to {n} person", "Sent to {n} people"),
       "send",
-      { tables: ["broadcasts", "messages"] },
+      { tables: ["broadcasts", "messages"], words: (error) => (sentByAnother(error) ? tr("Someone else is sending this message already — it goes out once.") : null) },
     );
     if (ok) this.set((s) => ({ msg: { ...s.msg, subj: null, body: null, waiting: null } }));
   }
@@ -1213,6 +1213,16 @@ export function hashKey(text: string): string {
 
 /** Rows as a list reads them (undefined while Adminium has not answered). */
 const rowsOf = (rows: Row[] | undefined): { rows: Row[] } | undefined => (rows === undefined ? undefined : { rows });
+
+/**
+ * A message someone else claimed first: Adminium answers the second claim that the message is going out
+ * already (`STATE_UNCHANGED`), or, once it has gone, that it is no longer waiting.
+ */
+export function sentByAnother(error: unknown): boolean {
+  if (!isApiError(error)) return false;
+  if (error.code === "STATE_UNCHANGED") return error.params["column"] === "status";
+  return error.code === "STATE_MOVE_REFUSED" && error.params["column"] === "status" && error.params["named"] === "waiting";
+}
 
 /** A refusal in the box office's words: what Adminium refused, and why when it says. */
 export function refusalOf(error: unknown): string {

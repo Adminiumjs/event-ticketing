@@ -403,8 +403,10 @@ const TICKET_STATES = {
   ],
   // "Stop selling": a type the box office stopped takes no new ticket, from anyone; nor does a type of a show that
   // is not on sale (cancelled, or taken back to a draft).
+  // A ticket is sent with its show, which must be its type's and its order's.
   create: {
     requires: {
+      where: [{ column: "right_show", eq: 1 }],
       linked: [{ via: "ticket_type_id", where: [{ column: "selling", eq: true }, { column: "event_status", eq: "published" }] }],
     },
   },
@@ -926,6 +928,20 @@ export const TABLES: Table[] = [
       fk("order_id", "orders", "Order", { index: true }),
       fk("ticket_type_id", "ticket_types", "Ticket type", { index: true }),
       fk("event_id", "events", "Show", { ...opt, rules: copyOf("ticket_type_id", "event_id") }),
+      // The show again, as whoever makes the ticket sends it, so the show's doors, waitlist and reminder are copied
+      // straight from the show when the ticket is made. It must be its type's show and its order's, or no ticket.
+      fk("show_id", "events", "Show as sent", opt),
+      worked("show_no", "Show number", copyOf("show_id", "id")),
+      worked("type_show_no", "Type's show number", copyOf("ticket_type_id", "event_id")),
+      worked("order_show_no", "Order's show number", copyOf("order_id", "event_id")),
+      worked("right_show", "Right show", yes({
+        and: [
+          { gte: ["show_no", "type_show_no"] },
+          { lte: ["show_no", "type_show_no"] },
+          { gte: ["show_no", "order_show_no"] },
+          { lte: ["show_no", "order_show_no"] },
+        ],
+      })),
       choice("status", "Status", TICKET_STATUSES, {
         default: "valid",
         tones: { valid: "pos", offered: "accent", refund_asked: "warn", returned: "info", released: "neutral", cancelled: "danger" },
@@ -933,10 +949,10 @@ export const TABLES: Table[] = [
       choice("order_status", "Order", ORDER_STATUSES, { ...opt, rules: copyOf("order_id", "status", true) }),
       choice("order_cancel_cause", "Why the order was cancelled", CANCEL_CAUSES, { ...opt, rules: copyOf("order_id", "cancel_cause", true) }),
       // The show's doors, kept in step with it: places still back for the waitlist go on sale then.
-      at("doors_at", "Doors", { ...opt, rules: copyOf("event_id", "doors_at", true) }),
+      at("doors_at", "Doors", { ...opt, rules: copyOf("show_id", "doors_at", true) }),
       // Whether the show keeps a waitlist, kept in step with it: a buyer's own cancel hands the place to it.
-      bool("waitlist_on", "Waitlist when sold out", false, { rules: copyOf("event_id", "waitlist_on", true) }),
-      bool("eve_email", "Remind the evening before", false, { rules: copyOf("event_id", "eve_email", true) }),
+      bool("waitlist_on", "Waitlist when sold out", false, { rules: copyOf("show_id", "waitlist_on", true) }),
+      bool("eve_email", "Remind the evening before", false, { rules: copyOf("show_id", "eve_email", true) }),
       at("eve_at", "The evening before", { ...opt, rules: stamp({ moment: { column: "doors_at", minus: { days: 1 } } }, { columns: ["doors_at"] }) }),
       // A friend holding the ticket gets the show's reminder too: 1 at noon on the day, 2 the evening before.
       worked("holder_reminder", "Holder's reminder", {

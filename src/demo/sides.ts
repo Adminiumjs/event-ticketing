@@ -11,7 +11,7 @@
 import { broadcastKind } from "../data/messageKinds.ts";
 import type { AudiencePort, BankDoor, BoxOfficePort, DoorPort, EventChildren, OrderWithTickets, Person, StaffPerson, Venue } from "../data/ports.ts";
 import { cancelShowOrders, offerPlan, recipientKey } from "../data/boxSteps.ts";
-import { ApiError, type ClaimReply, type Config, type HistoryEntry, type Id, type ListQuery, type ListReply, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type TypeLeft, type Where } from "../data/wire.ts";
+import { ApiError, type ClaimReply, type Config, type HistoryEntry, type Id, type ListQuery, type ListReply, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type TypeLeft, type Where, ticketRows } from "../data/wire.ts";
 import { toMs } from "../lib/venueTime.ts";
 import { normalizeCode, randomCode } from "./codes.ts";
 import { holds, type Engine, type Writer } from "./engine.ts";
@@ -256,7 +256,7 @@ export class DemoAudience implements AudiencePort {
     let reply: QuoteReply | null = null;
     try {
       engine.transaction(() => {
-        const made = engine.create("orders", this.orderValues(body, true), this.writer, { table: "tickets", via: "order_id", rows: body.tickets.map((t) => ({ ...t })) });
+        const made = engine.create("orders", this.orderValues(body, true), this.writer, { table: "tickets", via: "order_id", rows: ticketRows(body) });
         reply = { data: shown(made.row, READ.buy), tickets: made.children.map((t) => this.child(t)) };
         throw new DryRun();
       });
@@ -280,7 +280,7 @@ export class DemoAudience implements AudiencePort {
       const out = engine.create("orders", { ...this.orderValues(body), customer_id: customer, client_key: clientKey }, this.writer, {
         table: "tickets",
         via: "order_id",
-        rows: body.tickets.map((t) => ({ ...t })),
+        rows: ticketRows(body),
       });
       if (body.expect !== undefined && Number(out.row["total"]) !== body.expect.total) {
         throw new ApiError(409, "PUBLIC_PRICE_CHANGED", { total: out.row["total"], lines: out.children.map((t) => ({ id: t.id, due: t["due"] })) });
@@ -745,15 +745,20 @@ export class DemoBoxOffice implements BoxOfficePort {
   }
 
   async update(table: string, id: Id, values: Record<string, unknown>, from?: string): Promise<Row> {
-    this.seen(table, id, from);
+    this.seen(table, id, from, values["status"]);
     return this.engine.update(table as Table, id, values, this.writer);
   }
 
-  /** A change that names the state it saw: refused, as Adminium refuses it, when the row has moved on. */
-  private seen(table: string, id: Id, from: string | undefined): void {
+  /**
+   * A change that names the state it saw, refused as Adminium refuses it: first one naming the state a
+   * once-only row already holds (a message a colleague is sending already), then one whose row has moved on.
+   */
+  private seen(table: string, id: Id, from: string | undefined, to?: unknown): void {
     if (from === undefined) return;
     const now = this.engine.world.get(table as Table, id)?.["status"];
-    if (now !== from) throw new ApiError(409, "STATE_MOVE_REFUSED", { column: "status", from: now ?? null, named: from });
+    const strict = (MANIFEST_RULES.states as Record<string, { strict?: boolean } | undefined>)[table]?.strict === true;
+    if (strict && to !== undefined && to === now) throw new ApiError(409, "STATE_UNCHANGED", { column: "status", state: now });
+    if (now !== from) throw new ApiError(409, "STATE_MOVE_REFUSED", { column: "status", from: now ?? null, ...(to === undefined ? {} : { to }), named: from });
   }
 
   async remove(table: string, id: Id): Promise<void> {
@@ -824,7 +829,7 @@ export class DemoBoxOffice implements BoxOfficePort {
   private sendNow(b: Row, values: Record<string, unknown>, to: Record<string, unknown>[]): void {
     const engine = this.engine;
     if (b["status"] !== "sending") {
-      this.seen("broadcasts", b.id, "waiting");
+      this.seen("broadcasts", b.id, "waiting", "sending");
       engine.update("broadcasts", b.id, { ...values, status: "sending" }, this.writer);
     }
     this.queueBroadcast(engine.world.get("broadcasts", b.id)!, to);
@@ -851,7 +856,7 @@ export class DemoBoxOffice implements BoxOfficePort {
     let reply: QuoteReply | null = null;
     try {
       engine.transaction(() => {
-        const made = engine.create("orders", { channel: "box_office", ...body.values, room_id: event?.["room_id"] ?? null }, this.writer, { table: "tickets", via: "order_id", rows: body.tickets.map((t) => ({ ...t })) });
+        const made = engine.create("orders", { channel: "box_office", ...body.values, room_id: event?.["room_id"] ?? null }, this.writer, { table: "tickets", via: "order_id", rows: ticketRows(body) });
         reply = { data: made.row, tickets: made.children };
         throw new DryRun();
       });
@@ -870,7 +875,7 @@ export class DemoBoxOffice implements BoxOfficePort {
       const out = engine.create("orders", { channel: "box_office", ...body.values, room_id: event?.["room_id"] ?? null, client_key: clientKey }, this.writer, {
         table: "tickets",
         via: "order_id",
-        rows: body.tickets.map((t) => ({ ...t })),
+        rows: ticketRows(body),
       });
       // The total the box office was shown: another one writes nothing, as Adminium's price check refuses it.
       if (body.expect !== undefined && Math.abs(Number(out.row["total"] ?? 0) - body.expect.total) > 0.004) throw new ApiError(409, "PRICE_CHANGED", { column: "total", total: Number(out.row["total"] ?? 0).toFixed(2) });
@@ -881,7 +886,7 @@ export class DemoBoxOffice implements BoxOfficePort {
   }
 
   async move(orderId: Id, status: string, values: Record<string, unknown> = {}, from?: string): Promise<Row> {
-    this.seen("orders", orderId, from);
+    this.seen("orders", orderId, from, status);
     return this.engine.update("orders", orderId, { ...values, status }, this.writer);
   }
 
@@ -934,7 +939,7 @@ export class DemoBoxOffice implements BoxOfficePort {
           "orders",
           { event_id: eventId, room_id: engine.world.get("events", eventId)!["room_id"], channel: "box_office", email: entry["email"], buyer_name: customer?.["name"] ?? null, customer_id: entry["customer_id"], waitlist_id: entry.id },
           this.writer,
-          { table: "tickets", via: "order_id", rows: types.map((ticket_type_id) => ({ ticket_type_id })) },
+          { table: "tickets", via: "order_id", rows: types.map((ticket_type_id) => ({ ticket_type_id, show_id: eventId })) },
         );
         offers.push(engine.update("orders", made.row.id, { status: "offered" }, this.writer));
         engine.update("waitlist", entry.id, { status: "offered", order_id: made.row.id }, this.writer);

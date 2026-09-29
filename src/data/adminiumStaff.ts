@@ -19,7 +19,7 @@ import { cancelShowOrders, offerPlan, recipientKey } from "./boxSteps.ts";
 import { SessionPortError, type CallOptions, type SessionTransport } from "./sessionSource.ts";
 import type { StaffConfig } from "../staffConnection.ts";
 import { zoneOffsetMs } from "../lib/venueTime.ts";
-import { ApiError, yes, type Config, type HistoryEntry, type Id, type ListQuery, type ListReply, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type Where } from "./wire.ts";
+import { ApiError, yes, type Config, type HistoryEntry, type Id, type ListQuery, type ListReply, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type Where, ticketRows } from "./wire.ts";
 
 /** The app's key: its roles are named `events-<role>`, its tables `events_<table>` when the server does not say. */
 const APP_KEY = "events";
@@ -130,20 +130,25 @@ export interface StaffOptions {
 }
 
 /**
- * A box-office write refused for rate (429) is sent again, the same request, once the person's bucket has
- * room: Adminium answers 429 before it runs anything, so nothing was written and a resend cannot write
- * twice. A long run (a show cancelled, a message to hundreds) goes at the pace the bucket allows instead
- * of stopping part-way. The door's own writes are never held back here: a scan must answer at once.
+ * A box-office request refused for rate (429) — a write or a read — is sent again, the same request, once
+ * the person's bucket has room: Adminium answers 429 before it runs anything, so nothing was written and a
+ * resend cannot write twice. A long run (a show cancelled, a message to hundreds) goes at the pace the
+ * bucket allows instead of stopping part-way, for as long as Adminium asks — up to {@link RATE_PATIENCE_MS}
+ * of waiting for any one request, then the refusal stands (and the run can be finished later). The door's
+ * own requests are never held back here: a scan must answer at once.
  */
-const WRITE_RATE_TRIES = 8;
-const WRITE_RATE_WAIT_MS = 5_000;
-const WRITE_RATE_WAIT_CAP_MS = 60_000;
+export const RATE_PATIENCE_MS = 5 * 60_000;
+const RATE_WAIT_MS = 5_000;
 
-/** How long a 429 on a write asks to wait: until the bucket's reset it names, else a default. */
-export function writeRateWait(details: unknown, now = Date.now()): number {
+/**
+ * How long a 429 asks to wait: what `Retry-After` says (counted from the answer), else until the reset the
+ * refusal names, read on Adminium's clock (`now`), else a default. Never less than a second.
+ */
+export function writeRateWait(details: unknown, now = Date.now(), retryAfter: number | null = null): number {
+  if (retryAfter !== null && Number.isFinite(retryAfter) && retryAfter >= 0) return Math.max(1_000, retryAfter + 250);
   const reset = details !== null && typeof details === "object" ? Date.parse(String((details as { resetAt?: unknown }).resetAt ?? "")) : Number.NaN;
-  if (Number.isNaN(reset)) return WRITE_RATE_WAIT_MS;
-  return Math.min(WRITE_RATE_WAIT_CAP_MS, Math.max(1_000, reset - now + 250));
+  if (Number.isNaN(reset)) return RATE_WAIT_MS;
+  return Math.max(1_000, reset - now + 250);
 }
 
 export class AdminiumStaff implements BoxOfficePort, DoorPort {
@@ -194,21 +199,48 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
         return this.t.mutate<T>(path, method, body, options);
       }
     };
-    for (let tries = 1; ; tries += 1) {
+    return paced ? this.paced(send) : send();
+  }
+
+  /** Who hears that a request is waiting out the rate limit, and until when (null: going again). */
+  private readonly rateListeners = new Set<(until: number | null) => void>();
+
+  onRateWait(hear: (until: number | null) => void): () => void {
+    this.rateListeners.add(hear);
+    return () => this.rateListeners.delete(hear);
+  }
+
+  /** A request sent again after each 429, as long as Adminium asks, within {@link RATE_PATIENCE_MS} of waiting. */
+  private async paced<T>(send: () => Promise<T>): Promise<T> {
+    const sleep = this.opts.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+    let waited = 0;
+    for (;;) {
       try {
         return await send();
       } catch (error) {
-        if (!paced || tries >= WRITE_RATE_TRIES || !(error instanceof SessionPortError) || error.status !== 429) throw error;
-        await (this.opts.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))))(writeRateWait(error.details));
+        if (!(error instanceof SessionPortError) || error.status !== 429) throw error;
+        const ms = writeRateWait(error.details, this.now(), error.retryAfterMs);
+        if (waited + ms > RATE_PATIENCE_MS) throw error;
+        waited += ms;
+        for (const hear of this.rateListeners) hear(Date.now() + ms);
+        try {
+          await sleep(ms);
+        } finally {
+          for (const hear of this.rateListeners) hear(null);
+        }
       }
     }
   }
+  /** A read, paced as a write is — unless it has a deadline (the door's). */
+  private read<T>(path: string, options?: CallOptions): Promise<T> {
+    return options?.deadlineMs === undefined ? this.paced(() => this.t.get<T>(path, options)) : this.t.get<T>(path, options);
+  }
   private async page(table: string, filter: string | null, limit: number, offset: number, order: string | null, counted = false, options?: CallOptions): Promise<Page> {
     const q = [`limit=${String(limit)}`, `offset=${String(offset)}`, ...(counted ? ["count=exact"] : []), ...(filter === null ? [] : [`where=${filter}`]), ...(order === null ? [] : [`order=${encodeURIComponent(order)}`])];
-    return this.t.get<Page>(await this.path(table, `?${q.join("&")}`), options);
+    return this.read<Page>(await this.path(table, `?${q.join("&")}`), options);
   }
   private async one(table: string, id: Id, options?: CallOptions): Promise<Row> {
-    return this.row((await this.t.get<{ data: Record<string, unknown> }>(await this.path(table, `/${encodeURIComponent(String(id))}`), options)).data);
+    return this.row((await this.read<{ data: Record<string, unknown> }>(await this.path(table, `/${encodeURIComponent(String(id))}`), options)).data);
   }
   private async insert(table: string, values: Record<string, unknown>, extra: Record<string, unknown> = {}, options?: CallOptions): Promise<Row> {
     return this.row((await this.mutate<{ data: Record<string, unknown> }>(await this.path(table), "POST", { values, ...extra }, options)).data);
@@ -271,7 +303,7 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
   count(table: string, where: Where[] = []): Promise<number> {
     return answer(async () => {
       const filter = filterOf(where);
-      const got = await this.t.get<Page>(await this.path(table, `?limit=1&count=exact${filter === null ? "" : `&where=${filter}`}`));
+      const got = await this.read<Page>(await this.path(table, `?limit=1&count=exact${filter === null ? "" : `&where=${filter}`}`));
       return got.page?.total ?? got.data.length;
     });
   }
@@ -286,7 +318,7 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
 
   counts(eventId: Id): Promise<PoolCount[]> {
     return answer(async () => {
-      const got = await this.t.get<{ data: { rows: { id: string; size: number | null; taken: number; held?: number; kept?: number; left?: number; also?: { key: string; size: number | null; taken: number; held?: number }[] }[] } }>(
+      const got = await this.read<{ data: { rows: { id: string; size: number | null; taken: number; held?: number; kept?: number; left?: number; also?: { key: string; size: number | null; taken: number; held?: number }[] }[] } }>(
         await this.path("tickets", `/capacity-counts?rule=0&under=event_id&value=${encodeURIComponent(String(eventId))}`),
       );
       const rows = got.data.rows;
@@ -418,7 +450,7 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
     const rel = await this.t.relation(this.real("tickets"), "order_id");
     return {
       values: { channel: "box_office", ...body.values, room_id: event["room_id"] ?? null },
-      children: { [rel]: body.tickets.map((t) => ({ values: { ...t } })) },
+      children: { [rel]: ticketRows(body).map((t) => ({ values: { ...t } })) },
     };
   }
 

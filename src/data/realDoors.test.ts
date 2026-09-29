@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { asApiError as audienceError, rowOf as audienceRow } from "./adminiumAudience.ts";
 import manifest from "../../manifest.json" with { type: "json" };
-import { AdminiumStaff, BOOLS, filterOf, normalizeCode, rowOf, wallToIso, writeRateWait } from "./adminiumStaff.ts";
+import { AdminiumStaff, BOOLS, filterOf, normalizeCode, RATE_PATIENCE_MS, rowOf, wallToIso, writeRateWait } from "./adminiumStaff.ts";
 import { offerPlan } from "./boxSteps.ts";
 import { SessionPortError, type SessionTransport } from "./sessionSource.ts";
 import { yes, type Row } from "./wire.ts";
@@ -124,11 +124,12 @@ describe("a list the box office reads", () => {
 
 describe("the box office's writes and reads against a real Adminium's answers", () => {
   // A transport that keeps the rows written in memory and answers the data API's shapes.
-  function fakeServer(opts: { refuse?: (method: string, path: string, n: number) => number | null; total?: number } = {}) {
+  function fakeServer(opts: { refuse?: (method: string, path: string, n: number) => number | null; total?: number; refuseGet?: (path: string, n: number) => SessionPortError | null } = {}) {
     const tables = new Map<string, Record<string, unknown>[]>();
     const writes: { method: string; path: string; body: unknown }[] = [];
     let id = 100;
     let n = 0;
+    let reads = 0;
     const tableOf = (path: string) => decodeURIComponent(path.split("/")[5] ?? "").replace(/^events_/, "");
     const t = {
       connection: async () => "c1",
@@ -136,6 +137,8 @@ describe("the box office's writes and reads against a real Adminium's answers", 
       relation: async (child: string) => child,
       tableId: async (name: string) => name,
       get: async (path: string) => {
+        const no = opts.refuseGet?.(path, (reads += 1)) ?? null;
+        if (no !== null) throw no;
         const rows = tables.get(tableOf(path.split("?")[0]!)) ?? [];
         const one = /^\/api\/v1\/data\/[^/]+\/[^/?]+\/(\d+)$/.exec(path);
         if (one !== null) return { data: rows.find((r) => r["id"] === Number(one[1])) };
@@ -199,6 +202,43 @@ describe("the box office's writes and reads against a real Adminium's answers", 
     expect(waits.length).toBe(2);
     expect(writeRateWait({ resetAt: new Date(10_000).toISOString() }, 0)).toBe(10_250);
     expect(writeRateWait({}, 0)).toBe(5_000);
+  });
+
+  it("waits a 429 out for as long as Retry-After asks, whatever the server's clock says — reads too — telling who listens, within its patience", async () => {
+    // A server whose clock is weeks from this device's (a test clock, a phone set wrong): its reset time says
+    // nothing here, its Retry-After does.
+    const limited = (ms: number) => new SessionPortError("Too many requests. Try again in 48 seconds.", 429, "RATE_LIMITED", { bucket: "api", limit: 300, resetAt: "2026-07-29T20:32:01.014Z" }, ms);
+    const waits: number[] = [];
+    const server = fakeServer({
+      refuse: (method, path, n) => (method === "PATCH" && path.includes("messages") && n <= 2 ? 429 : null),
+      refuseGet: (path, n) => (path.includes("orders") && n <= 1 ? limited(48_000) : null),
+    });
+    const t = server.t as unknown as { mutate: (...a: unknown[]) => Promise<unknown> };
+    const mutate = t.mutate;
+    t.mutate = async (...a: unknown[]) => {
+      try {
+        return await mutate(...a);
+      } catch (error) {
+        throw error instanceof SessionPortError && error.status === 429 ? limited(48_000) : error;
+      }
+    };
+    server.tables.set("messages", [{ id: 5, status: "held" }]);
+    server.tables.set("orders", [{ id: 7, status: "door" }]);
+    const port = new AdminiumStaff(server.t, config, { sleep: async (ms) => void waits.push(ms) });
+    const heard: (number | null)[] = [];
+    const stop = port.onRateWait((until) => heard.push(until));
+    expect((await port.update("messages", 5, { status: "queued" }))["status"]).toBe("queued");
+    expect((await port.list("orders")).rows.map((r) => r.id)).toEqual([7]);
+    expect(waits).toEqual([48_250, 48_250, 48_250]);
+    expect(heard.length).toBe(6);
+    expect(heard.filter((x) => x === null).length).toBe(3);
+    stop();
+    // Asked to wait longer than its patience in all: the refusal stands.
+    const forever = fakeServer({ refuseGet: () => limited(RATE_PATIENCE_MS / 2) });
+    const patient = new AdminiumStaff(forever.t, config, { sleep: async (ms) => void waits.push(ms) });
+    await expect(patient.list("orders")).rejects.toMatchObject({ status: 429, code: "RATE_LIMITED" });
+    expect(waits.slice(3)).toEqual([RATE_PATIENCE_MS / 2 + 250]);
+    expect(writeRateWait({ resetAt: "2026-07-29T20:32:01.014Z" }, Date.parse("2026-09-29T00:00:00Z"), 41_000)).toBe(41_250);
   });
 
   it("says so when asked for every row and there are more than one read brings back", async () => {

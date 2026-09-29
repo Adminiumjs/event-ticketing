@@ -298,9 +298,11 @@ export class Caller {
       });
       const set = res.headers.getSetCookie?.() ?? [];
       if (set.length > 0) this.cookie = set.map((c) => c.split(";")[0]).join("; ");
-      // A burst the rate limit refused is the limit's, not the contract's: wait it out.
-      if (res.status === 429 && attempt < 6) {
-        await new Promise((resolve) => setTimeout(resolve, 5_000));
+      // A burst the rate limit refused is the limit's, not the contract's: wait it out, as long as it asks
+      // (a person's bucket is a minute's: a step before may have spent it).
+      if (res.status === 429 && attempt < 4) {
+        const asked = Number(res.headers.get("retry-after"));
+        await new Promise((resolve) => setTimeout(resolve, Number.isFinite(asked) && asked > 0 ? Math.min(asked, 70) * 1_000 + 250 : 5_000));
         continue;
       }
       const text = await res.text();

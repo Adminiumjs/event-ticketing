@@ -12,7 +12,8 @@ import { DemoBoxOffice } from "../demo/sides.ts";
 import { cancelRun, CANCELS } from "../data/boxSteps.ts";
 import type { BoxOfficePort } from "../data/ports.ts";
 import { ApiError, type Id } from "../data/wire.ts";
-import { boxOf, type BoxState } from "./box.ts";
+import { boxOf, sentByAnother, type BoxState } from "./box.ts";
+import { fT } from "./fmt.ts";
 import { mergeDraft, type SaveRows } from "./vals/editor.ts";
 import { renderVals } from "./vals/base.ts";
 import { WaveApp } from "./wave.ts";
@@ -493,6 +494,58 @@ describe("box fixes", () => {
     await cancelRun(demo.boxOffice, low, words);
     expect(demo.world.all("messages").length).toBe(before);
     expect((((await v())["pc"] as V)["finishOn"])).toBe(false);
+  });
+
+  it("says, while a cancel waits out Adminium's limit for the sign-in, when it goes on — and then goes on", async () => {
+    const until = Date.parse("2026-07-28T20:31:00Z");
+    const seen: (number | null | undefined)[] = [];
+    const { app, demo, box, v, idOf } = await boot("pc", {}, (d) => {
+      const port = d.boxOffice;
+      const hear = new Set<(u: number | null) => void>();
+      const list = port.list.bind(port);
+      let waited = false;
+      // The first orders read of the run is refused once for rate: the port waits (the screen says until when), then reads.
+      port.list = async (table, query) => {
+        if (table === "orders" && box.s.pc.run !== null && !waited) {
+          waited = true;
+          for (const h of hear) h(until);
+          seen.push(box.s.pc.run?.waitUntil);
+          const words = (renderVals(app)["pc"] as V)["runTxt"] as string;
+          expect(words).toBe(`Adminium asks this sign-in to slow down: going on at ${fT(until)}. Keep this page open.`);
+          for (const h of hear) h(null);
+          seen.push(box.s.pc.run?.waitUntil);
+        }
+        return list(table, query);
+      };
+      (port as BoxOfficePort).onRateWait = (h: (u: number | null) => void) => {
+        hear.add(h);
+        return () => hear.delete(h);
+      };
+      return port;
+    });
+    const low = idOf("Low Ceiling: new material night");
+    box.goShow(low, "pc");
+    await v();
+    await box.cancelShow(box.world()!.byId.get(low)!, { subject: "Low Ceiling is cancelled", body: "Sorry." });
+    expect(seen).toEqual([until, null]);
+    expect(demo.world.where("orders", (o) => o["event_id"] === low && CANCELS.includes(String(o["status"])))).toEqual([]);
+    expect(app.state.toast?.msg).toBe("Low Ceiling: new material night cancelled");
+  });
+
+  it("says someone else is sending a message a colleague claimed first", async () => {
+    const { app, demo, box, idOf } = await boot("msgs");
+    const neon = idOf("Neon Circuit");
+    const show = box.world()!.byId.get(neon)!;
+    const waiting = await demo.boxOffice.broadcast({ event_id: neon, audience: "everyone", template: "other", subject: "Doors", body: "Soon.", people: 0, order_count: 0 }, [], false);
+    // Adminium's answer to the second claim: the message is going out already.
+    demo.boxOffice.sendBroadcast = () => Promise.reject(new ApiError(409, "STATE_UNCHANGED", { column: "status", state: "sending" }));
+    await box.sendMessage(show, { audience: "everyone", template: "other", subject: "Doors", body: "Soon." }, waiting.id);
+    expect(app.state.toast?.msg).toBe("Someone else is sending this message already — it goes out once.");
+    // The demo refuses a claim of one going out already as Adminium does.
+    await demo.boxOffice.update("broadcasts", waiting.id, { status: "sending" }, "waiting");
+    await expect(demo.boxOffice.update("broadcasts", waiting.id, { status: "sending" }, "waiting")).rejects.toMatchObject({ code: "STATE_UNCHANGED", params: { column: "status", state: "sending" } });
+    expect(sentByAnother(new ApiError(409, "STATE_MOVE_REFUSED", { column: "status", from: "sent", to: "sending", named: "waiting" }))).toBe(true);
+    expect(sentByAnother(new ApiError(409, "STATE_MOVE_REFUSED", { requires: "time" }))).toBe(false);
   });
 
   it("never reports an order let go after a failed step as made; the sheet takes a fresh key", async () => {

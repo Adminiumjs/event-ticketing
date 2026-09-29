@@ -36,6 +36,7 @@ import { DEMO_BUNDLE, DEMO_CURRENCY, DEMO_START, DEMO_ZONE } from "../demo/world
 import { AdminiumAudience } from "../data/adminiumAudience.ts";
 import { AdminiumStaff } from "../data/adminiumStaff.ts";
 import { cancelLeft, cancelRun } from "../data/boxSteps.ts";
+import { sentByAnother } from "../app/box.ts";
 import { createSessionTransport } from "../data/sessionSource.ts";
 import type { StaffConfig } from "../staffConnection.ts";
 import { publicRefs } from "../data/publicRefs.ts";
@@ -148,6 +149,14 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
             expect(money(order[column]), `${String(expected["number"])} ${column}`).toBe(money(expected[column]));
           }
         }
+        // Every ticket carries its show's doors, waitlist switch and reminder switch, as the demo's loader has them.
+        const byId = new Map(events.map((e) => [e.id, e]));
+        const wrong = (await rows("tickets")).filter((t) => {
+          const e = byId.get(t["event_id"] as number);
+          return e === undefined || t["show_id"] !== t["event_id"] || Date.parse(String(t["doors_at"])) !== Date.parse(String(e["doors_at"])) || Boolean(t["waitlist_on"]) !== Boolean(e["waitlist_on"]) || Boolean(t["eve_email"]) !== Boolean(e["eve_email"]);
+        });
+        expect(wrong.map((t) => t["code"])).toEqual([]);
+        expect(SAMPLE["tickets"]!.filter((t) => t["doors_at"] === null || t["show_id"] !== t["event_id"])).toEqual([]);
       }, 1_000_000);
 
       it("counts Neon Circuit's pools for the box office: Standard 14 left, 3 held", async (ctx) => {
@@ -254,8 +263,12 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         const standard = types.find((t) => t["event_id"] === neon.id && t["name"] === "Standard")!.id;
         const body = {
           values: { event_id: neon.id, room_id: neon["room_id"], buyer_name: "Lee Tan", email: "lee.tan@waveform.test", language: "en-US", client_key: "c".repeat(43) },
-          children: { tickets: [{ values: { ticket_type_id: standard } }, { values: { ticket_type_id: standard } }] },
+          children: { tickets: [{ values: { ticket_type_id: standard, show_id: neon.id } }, { values: { ticket_type_id: standard, show_id: neon.id } }] },
         };
+        // A ticket sent with another show than its order's (and its type's) is never made, nor priced.
+        const cinderId = events.find((e) => e["name"] === "Cinder")!.id;
+        const wrongShow = { ...body, children: { tickets: [{ values: { ticket_type_id: standard, show_id: cinderId } }] } };
+        expect((await buyer.post(`/api/v1/public/records/${door}/dry-run`, wrongShow)).status).toBeGreaterThanOrEqual(400);
         const quote = ok(await buyer.post<{ data: Record<string, unknown> }>(`/api/v1/public/records/${door}/dry-run`, body)).data;
         expect(money(quote["total"])).toBe("56.00");
         const proof = async () => {
@@ -280,6 +293,33 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         expect(order["status"]).toBe("held");
         const tickets = (await rows("tickets")).filter((t) => t["order_id"] === made.data.id);
         expect(tickets.map((t) => Number(t["settled"]))).toEqual([0, 0]);
+        // Each ticket carries its show's doors, waitlist switch and reminder switch, copied when it was made.
+        const shown = (t: Row) => [t["show_id"], t["event_id"], Date.parse(String(t["doors_at"])), Boolean(t["waitlist_on"]), Boolean(t["eve_email"])];
+        const neonNow = (await rows("events")).find((e) => e.id === neon.id)!;
+        const expected = [neon.id, neon.id, Date.parse(String(neonNow["doors_at"])), Boolean(neonNow["waitlist_on"]), Boolean(neonNow["eve_email"])];
+        expect(tickets.map(shown)).toEqual([expected, expected]);
+        // Nor is one made by the box office: a Neon Circuit order with one of Cinder's types is refused…
+        const cinderStandard = types.find((t) => t["event_id"] === cinderId && t["name"] === "Standard")!.id;
+        const box = await staffPort(ADMIN);
+        const ordersBefore = (await rows("orders")).length;
+        const mixed = await refusal(() => box.newOrder({ values: { event_id: neon.id, buyer_name: "Mixed Up" }, tickets: [{ ticket_type_id: cinderStandard }] }, key("mixed")));
+        expect([409, 422]).toContain(mixed?.status);
+        // …and so is a ticket of Neon's own type sent with Cinder as its show, whoever writes it.
+        const rel = String(mixed?.params["relation"] ?? "");
+        expect(rel).toContain("order_id");
+        const sentWrong = await staff.post(data("orders"), {
+          values: { event_id: neon.id, room_id: neon["room_id"], channel: "box_office", buyer_name: "Mixed Up" },
+          children: { [rel]: [{ values: { ticket_type_id: standard, show_id: cinderId } }] },
+        });
+        const said = (r: { status: number; code?: string; details: Record<string, unknown> }) => `${String(r.status)} ${String(r.code)} ${JSON.stringify(r.details)}`;
+        // (A tree is refused first by the checkout's own agreement, show_id to the order's show.)
+        expect(said(sentWrong)).toMatch(/^(409 STATE_MOVE_REFUSED .*"requires":"right_show"|422 VALIDATION_FAILED .*show_id)/);
+        expect((await rows("orders")).length).toBe(ordersBefore);
+        // One ticket added to Lee Tan's own Neon order, of Neon's type, sent with Cinder: refused by the ticket's own rule.
+        const ticketsBefore = (await rows("tickets")).length;
+        const added = await staff.post(data("tickets"), { values: { order_id: made.data.id, ticket_type_id: standard, show_id: cinderId } });
+        expect(said(added)).toMatch(/^409 STATE_MOVE_REFUSED .*"requires":"right_show"/);
+        expect((await rows("tickets")).length).toBe(ticketsBefore);
       }, 120_000);
 
       // ── the evening, through the app's own doors (the ports the screens use) ──────────────
@@ -1104,8 +1144,13 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         expect([after["status"], Number(after["collected"])]).toEqual(["valid", Number(after["due"])]);
         // Velvet Hour keeps a waitlist: a buyer's own cancel hands the place to it, never straight back on sale.
         const velvet = (await box.rows("events")).find((e) => e["name"] === "Velvet Hour")!;
-        const velvetDoor = (await rows("orders")).find((o) => o["event_id"] === velvet.id && o["status"] === "door")!;
-        const ticket = (await rows("tickets")).find((t) => t["order_id"] === velvetDoor.id && t["status"] === "valid" && (t["holder_customer_id"] ?? null) === null)!;
+        // A door order with a ticket its buyer still holds, untouched (the sample's first one gave both places back).
+        const velvetTickets = await rows("tickets");
+        const untouched = (t: Row) => t["status"] === "valid" && (t["holder_customer_id"] ?? null) === null && Number(t["collected"] ?? 0) === 0 && Number(t["times_in"] ?? 0) === 0;
+        const velvetDoor = (await rows("orders")).find((o) => o["event_id"] === velvet.id && o["status"] === "door" && !touched.has(o.id) && velvetTickets.some((t) => t["order_id"] === o.id && untouched(t)))!;
+        const ticket = velvetTickets.find((t) => t["order_id"] === velvetDoor.id && untouched(t))!;
+        // The show's waitlist switch is on the ticket itself, copied when the ticket was made.
+        expect([Boolean(ticket["waitlist_on"]), Date.parse(String(ticket["doors_at"]))]).toEqual([true, Date.parse(String(velvet["doors_at"]))]);
         touched.add(velvetDoor.id);
         const v = await audience();
         await v.openOrder(String(velvetDoor["link_token"]));
@@ -1404,7 +1449,10 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
           expect(waiting["status"]).toBe("waiting");
           const both = await Promise.allSettled([box.sendBroadcast(waiting.id, {}, to), box.sendBroadcast(waiting.id, {}, to)]);
           expect(both.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
-          expect((both.find((r) => r.status === "rejected") as PromiseRejectedResult).reason).toMatchObject({ code: "STATE_MOVE_REFUSED" });
+          // Adminium answers the second claim that the message is going out already; the box office says someone else is sending it.
+          const second = (both.find((r) => r.status === "rejected") as PromiseRejectedResult).reason as unknown;
+          expect(second).toMatchObject({ code: "STATE_UNCHANGED", params: { column: "status", state: "sending" } });
+          expect(sentByAnother(second)).toBe(true);
           expect((await box.list("messages", { where: [{ column: "broadcast_id", eq: waiting.id }] })).total).toBe(3);
           // One that stopped part-way (claimed, one email written): finishing it writes the other two.
           const part = await box.broadcast({ event_id: show.id, audience: "everyone", template: "other", subject: "Set times", body: "Up.", people: 3, order_count: 3 }, [], false);
@@ -1643,7 +1691,8 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         it("sells at the door with Pay at the door switched off: the money on the held order, then paid, then in", async (ctx) => {
           needsWrites(() => ctx.skip());
           const { box, door, show, day, walkUp } = await night();
-          const settings = (await box.rows("settings"))[0]!;
+          // The sample's settings row went with the sample: a venue without one gets its own.
+          const settings = (await box.rows("settings"))[0] ?? (await box.create("settings", { venue_name: "Door fixes", address: "1 Door Street", contact_email: "door@example.com", door_on: true }));
           await box.update("settings", settings.id, { door_on: false });
           try {
             const sale = await door.newOrder({ values: { event_id: show.id, buyer_name: "Door sale", channel: "door", email: null }, tickets: [{ ticket_type_id: walkUp.id }, { ticket_type_id: walkUp.id }] }, key("door-off"));
