@@ -256,7 +256,7 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
     Object.assign(o, {
       icon: "check",
       title: tr("Approve the refund on {number}?", { number }),
-      body: tr("{tickets} cancelled and {amount} becomes due back. {buyer} is told.", { tickets: asked.length === 1 ? tr("{who} is", { who }) : tr("{who} are", { who }), amount: money(back), buyer }),
+      body: asked.length === 1 ? tr("{who} is cancelled and {amount} becomes due back. {buyer} is told.", { who, amount: money(back), buyer }) : tr("{who} are cancelled and {amount} becomes due back. {buyer} is told.", { who, amount: money(back), buyer }),
       btns: [P(tr("Approve"), () => void box.approve(asked.map((t) => t.id))), P(tr("Not yet"), () => app.closeSheet(), "g")],
     });
   }

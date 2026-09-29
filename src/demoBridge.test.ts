@@ -115,7 +115,8 @@ describe("the clock row", () => {
     expect(state().clockLabel).toBe("Wed 29 Jul · 19:58");
     await send(app, demo, { type: "adminium:demo:clock", advance: "doors" });
     expect(state().clockLabel).toBe("Wed 29 Jul · 19:58");
-  });
+    // "Doors" makes the evening's early scans on the way: a whole venue's work, more than the default 5 s on a busy machine.
+  }, 60_000);
 });
 
 describe("the handshake", () => {

@@ -11,6 +11,7 @@
 import type { AudiencePort, BoxOfficePort, DoorPort, Venue } from "../data/ports.ts";
 import { isApiError, type Id, type OrderBody, type Row, type TypeLeft } from "../data/wire.ts";
 import { setLocale, tr } from "../i18n/tr.ts";
+import { loadWave } from "../i18n/strings/wave.ts";
 import { money } from "./fmt.ts";
 import { setCurrency, setZone } from "./fmt.ts";
 import { Buyer, blankSi, type Co } from "./buyer.ts";
@@ -178,7 +179,11 @@ export class WaveApp {
   setState(patch: Partial<State> | ((s: State) => Partial<State>)): void {
     const p = typeof patch === "function" ? patch(this.state) : patch;
     this.state = { ...this.state, ...p };
-    if (p.lang !== undefined) setLocale(p.lang);
+    if (p.lang !== undefined) {
+      setLocale(p.lang);
+      // The language's words arrive once: the page is drawn again then.
+      void loadWave(p.lang).then(() => this.bump());
+    }
     this.bump();
   }
   narrow(): boolean {
@@ -253,6 +258,7 @@ export class WaveApp {
   // ── the clock ───────────────────────────────────────────────────────────
 
   async start(opts: { timers?: boolean } = {}): Promise<void> {
+    await loadWave(this.state.lang);
     try {
       const port = this.persona === "box" ? (this.ports.boxOffice ?? this.ports.door)! : this.ports.audience!;
       const config = await port.config();

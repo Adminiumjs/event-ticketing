@@ -509,7 +509,7 @@ function guestVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unknow
           plus: plus > 0 ? `+${String(plus)}` : "—",
           by: String(g["on_behalf"] ?? ""),
           note: String(g["note"] ?? ""),
-          inTxt: arrived === 0 ? tr("Not yet") : arrived >= 1 + plus ? tr("In {time}", { time: fT(g["in_at"]) }) : tr("{n} of {all} in", { n: arrived, all: 1 + plus }),
+          inTxt: arrived === 0 ? tr("Not in yet") : arrived >= 1 + plus ? tr("In {time}", { time: fT(g["in_at"]) }) : tr("{n} of {all} in", { n: arrived, all: 1 + plus }),
           inStyle: `font-family:var(--mono); font-size:12px; font-weight:700; color:${arrived === 0 ? "var(--fg-subtle)" : arrived >= 1 + plus ? "var(--pos)" : "var(--warn)"};`,
           del: () => app.openSheet("bxGRemove", { g: g.id, ev: ev.id, name, arrived, all: 1 + plus }),
           delLabel: tr("Remove {name}", { name }),
