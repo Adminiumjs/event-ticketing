@@ -64,6 +64,18 @@
  * the view from). A guest's page that shipped the till
  * would ship its code, its strings and its endpoints to every visitor.
  *
+ * The staff-only set is DERIVED: the modules `surface-nav.ts` names (or the
+ * staff screens found from it) are the doors from the shared code into the
+ * staff side, and every module reachable from them and from nothing else — by
+ * the source's own imports, read from `src/main.tsx` — is staff-only too. A
+ * helper module under the till that nobody wrote down is checked all the same.
+ * A staff module the shared code imports directly is a door of its own and
+ * must be named.
+ *
+ * An app whose standalone build (a browser key, no side) is the customer's
+ * says so (`SURFACE_STANDALONE_SIDE = "customer"`): that build is made too, and
+ * held to the same rules as the hosted customer side.
+ *
  * ── Markers are derived, not written down ───────────────────────────────────
  *
  * The strings this file greps for are pulled out of the very files it guards.
@@ -74,7 +86,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, readdirSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -223,6 +235,55 @@ function staffScreenModules(): string[] {
   return [...files];
 }
 
+/** The relative modules a source file imports at run time (type-only imports are erased and do not count). */
+function importsOf(file: string): string[] {
+  const text = readFileSync(join(REPO, file), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const specs: string[] = [];
+  for (const m of text.matchAll(/(?:^|[;\n])\s*(import|export)\s+(type\s+)?([^'"]*?)\s*from\s*["']([^"']+)["']/g)) {
+    if (m[2] !== undefined) continue;
+    const named = /^\{([^}]*)\}$/.exec((m[3] ?? "").trim())?.[1];
+    if (named !== undefined && named.trim() !== "" && named.split(",").every((n) => n.trim() === "" || /^type\s/.test(n.trim()))) continue;
+    specs.push(m[4] ?? "");
+  }
+  for (const m of text.matchAll(/(?:^|[;\n])\s*import\s*["']([^"']+)["']/g)) specs.push(m[1] ?? "");
+  for (const m of text.matchAll(/\bimport\(\s*["']([^"']+)["']\s*\)/g)) specs.push(m[1] ?? "");
+  const out: string[] = [];
+  for (const spec of specs) {
+    if (!spec.startsWith(".")) continue;
+    const base = resolve(REPO, dirname(file), spec);
+    const hit = [base, `${base}.ts`, `${base}.tsx`, join(base, "index.ts"), join(base, "index.tsx")].find((c) => /\.tsx?$/.test(c) && existsSync(c));
+    if (hit !== undefined) out.push(hit.replace(REPO + "/", ""));
+  }
+  return out;
+}
+
+/** Every module reachable from `starts` by run-time imports, not entering `stop`. */
+function reachable(starts: string[], stop: Set<string> = new Set()): Set<string> {
+  const seen = new Set<string>();
+  const todo = [...starts];
+  while (todo.length > 0) {
+    const file = todo.pop()!;
+    if (seen.has(file) || stop.has(file)) continue;
+    seen.add(file);
+    todo.push(...importsOf(file));
+  }
+  return seen;
+}
+
+/**
+ * The staff-only modules: the doors (`staffScreenModules`) and every module
+ * reachable from them that the entry does not reach without passing a door.
+ */
+function staffOnlyModules(): string[] {
+  const doors = staffScreenModules();
+  const entry = join("src", "main.tsx");
+  if (!existsSync(join(REPO, entry))) return doors;
+  const shared = reachable([entry], new Set(doors));
+  const only = [...reachable(doors)].filter((file) => !shared.has(file));
+  // The doors are staff-only by declaration; a door the entry reaches another way is a finding, not a reason to drop it.
+  return [...new Set([...doors, ...only])].sort();
+}
+
 /** Every source module a build's source maps name, relative to the repo. */
 function sourcesOf(dir: string): Set<string> {
   const assets = join(dir, "assets");
@@ -237,6 +298,9 @@ function sourcesOf(dir: string): Set<string> {
 
 /** The app builds a customer side: `surface-nav.ts` declares a customer screen. */
 const HAS_CUSTOMER = existsSync(NAV) && /side:\s*["']customer["']/.test(readFileSync(NAV, "utf8"));
+
+/** The app's standalone build (a browser key, no side) is its customer side: `SURFACE_STANDALONE_SIDE = "customer"`. */
+const STANDALONE_CUSTOMER = HAS_CUSTOMER && /SURFACE_STANDALONE_SIDE\s*=\s*["']customer["']/.test(readFileSync(NAV, "utf8"));
 
 /**
  * Distinctive literals from the seeded fiction.
@@ -285,6 +349,7 @@ function demoDataMarkers(): string[] {
 let demo = "";
 let staff = "";
 let customer = "";
+let standalone = "";
 let outs: string[] = [];
 
 beforeAll(() => {
@@ -292,12 +357,19 @@ beforeAll(() => {
   // is meaningless, and it says so rather than passing vacuously.
   if (!existsSync(DEMO_DATA)) throw new Error(`${DEMO_DATA} is missing — this gate has nothing to guard`);
   demoToolMarkers();
-  outs = ["demo", "staff", "customer"].map(() => mkdtempSync(join(tmpdir(), "surface-gate-")));
+  outs = ["demo", "staff", "customer", "standalone"].map(() => mkdtempSync(join(tmpdir(), "surface-gate-")));
   demo = build(outs[0]!, {});
   // Both surfaces mapped, so the modules they carry can be named (see the header).
   staff = build(outs[1]!, { VITE_ADMINIUM_SURFACE_SIDE: "staff" }, ["--sourcemap"]);
   customer = build(outs[2]!, { VITE_ADMINIUM_SURFACE_SIDE: "customer" }, ["--sourcemap"]);
-}, 180_000);
+  // The standalone audience build: an address and a key baked in, no side (placeholders — nothing is reached).
+  if (STANDALONE_CUSTOMER)
+    standalone = build(
+      outs[3]!,
+      { VITE_ADMINIUM_API_BASE_URL: "https://adminium.example.test", VITE_ADMINIUM_PUBLISHABLE_KEY: "adm_pub_surface_gate_placeholder" },
+      ["--sourcemap"],
+    );
+}, 240_000);
 
 afterAll(() => {
   for (const d of outs) rmSync(d, { recursive: true, force: true });
@@ -327,12 +399,17 @@ describe("rule 1 + 3 — a flag folds, so the demo's tools are ABSENT and not me
     expect({
       staff: present(staff, demoToolMarkers()),
       customer: present(customer, demoToolMarkers()),
-    }).toEqual({ staff: [], customer: [] });
+      standalone: present(standalone, demoToolMarkers()),
+    }).toEqual({ staff: [], customer: [], standalone: [] });
   });
 
   it("no surface build speaks the demo protocol", () => {
     const prefix = protocolPrefix();
-    expect({ staff: staff.includes(prefix), customer: customer.includes(prefix) }).toEqual({ staff: false, customer: false });
+    expect({ staff: staff.includes(prefix), customer: customer.includes(prefix), standalone: standalone.includes(prefix) }).toEqual({
+      staff: false,
+      customer: false,
+      standalone: false,
+    });
   });
 });
 
@@ -340,12 +417,27 @@ describe.runIf(HAS_CUSTOMER)("a customer bundle carries nothing from the till", 
   it("the staff build names the till's screens", () => {
     // The control: the same derivation finds them where they belong.
     const sources = sourcesOf(outs[1]!);
-    expect(staffScreenModules().filter((file) => sources.has(file))).not.toEqual([]);
+    expect(staffOnlyModules().filter((file) => sources.has(file))).not.toEqual([]);
   });
 
-  it("names none of the staff screens' modules", () => {
+  it("derives more than the doors it was given", () => {
+    // The derivation's own control: an app whose till is several modules finds the ones nobody named.
+    const doors = new Set(staffScreenModules());
+    const derived = staffOnlyModules();
+    expect(doors.size).toBeGreaterThan(0);
+    expect([...doors].filter((file) => !derived.includes(file))).toEqual([]);
+    if (doors.size > 1) expect(derived.length).toBeGreaterThan(doors.size);
+  });
+
+  it("names none of the staff-only modules", () => {
     const sources = sourcesOf(outs[2]!);
-    expect(staffScreenModules().filter((file) => sources.has(file))).toEqual([]);
+    expect(staffOnlyModules().filter((file) => sources.has(file))).toEqual([]);
+  });
+
+  it.runIf(STANDALONE_CUSTOMER)("the standalone audience build names none of them either", () => {
+    const sources = sourcesOf(outs[3]!);
+    expect(sources.size).toBeGreaterThan(0);
+    expect(staffOnlyModules().filter((file) => sources.has(file))).toEqual([]);
   });
 });
 
@@ -366,6 +458,7 @@ describe("rule 2 — no flag survives as a runtime lookup in any build", () => {
       ["demo", demo],
       ["staff", staff],
       ["customer", customer],
+      ["standalone", standalone],
     ] as const)
       .filter(([, bundle]) => LOOKUP.test(bundle))
       .map(([label]) => label);
@@ -438,5 +531,15 @@ describe("what a hosted build must not carry", () => {
     // The control for the whole file: if the demo build lost its data, the
     // "absent from surfaces" assertions above prove nothing.
     expect(present(demo, demoDataMarkers())).not.toEqual([]);
+  });
+
+  it("no surface build carries the seeded dataset", () => {
+    // The finding the control exists for: an import that pulled the demo's
+    // rows into a real build would ship invented people to real visitors.
+    expect({
+      staff: present(staff, demoDataMarkers()),
+      customer: present(customer, demoDataMarkers()),
+      standalone: present(standalone, demoDataMarkers()),
+    }).toEqual({ staff: [], customer: [], standalone: [] });
   });
 });

@@ -6,6 +6,7 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
 
 import { AudienceView } from "../view/AudienceView.tsx";
+import { BoxLayersView } from "../view/BoxLayersView.tsx";
 import { OverlaysView } from "../view/OverlaysView.tsx";
 import { StaffView } from "../view/StaffView.tsx";
 import { st } from "../view/dom.tsx";
@@ -123,6 +124,7 @@ export function WaveRoot({ app }: { app: WaveApp }) {
           </div>
         ) : null}
         {STAFF && app.persona === "box" ? <StaffView v={v} /> : null}
+        {STAFF && app.persona === "box" ? <BoxLayersView v={v} /> : null}
         <OverlaysView v={v} />
         <div id="wv-said" className="wv-sr" role="status" aria-live="polite" />
       </div>

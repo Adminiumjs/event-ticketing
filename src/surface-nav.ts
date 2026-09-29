@@ -42,8 +42,25 @@ export const SURFACE_EXTRAS = {
   customer: ["event", "checkout", "going", "signin", "friend", "offer", "confirm", "404"],
 } as const satisfies Record<"staff" | "customer", readonly View[]>;
 
-/** The staff side's own modules: no customer build may contain one (the surface gate reads this list). */
-export const SURFACE_STAFF_ONLY = ["src/view/StaffView.tsx", "src/view/DoorView.tsx", "src/app/box.ts", "src/app/door.ts", "src/app/vals/box.ts", "src/data/adminiumStaff.ts"];
+/**
+ * The staff side's doors: every module the shared code reaches the box office and the door through, each behind a
+ * side flag. The surface gate adds every module reachable from these and from nothing else (the box office's
+ * screens' values, its sheets, the editor, the preview, the camera…), and no audience build may contain one.
+ */
+export const SURFACE_STAFF_ONLY = [
+  "src/view/StaffView.tsx",
+  "src/view/BoxLayersView.tsx",
+  "src/view/DoorView.tsx",
+  "src/app/box.ts",
+  "src/app/door.ts",
+  "src/app/vals/box.ts",
+  "src/app/vals/boxSheets.ts",
+  "src/data/adminiumStaff.ts",
+  "src/data/sessionSource.ts",
+];
+
+/** The standalone build (a browser key, no side) is the audience's: the surface gate builds it and holds it to the customer side's rules. */
+export const SURFACE_STANDALONE_SIDE = "customer";
 
 /** The demo's seeded words: no surface build may contain them. */
 export const SURFACE_DEMO_DATA = "src/sample/words.ts";
