@@ -368,9 +368,10 @@ const TICKET_STATES = {
     refund_asked: ["valid", { to: "cancelled", requires: { where: [{ column: "cancel_cause", isNull: false }] } }, "returned"],
     returned: ["released"],
   },
-  // A friend who did not accept in time: the ticket comes back, and the link sent to them stops.
+  // A friend who did not accept in time: the ticket comes back, and the link sent to them stops (their name
+  // stays, so the door still finds the ticket by it).
   timed: [
-    { from: "offered", to: "valid", at: { column: "offer_until" }, set: { pending_email: null, pending_name: null, lapsed: true } },
+    { from: "offered", to: "valid", at: { column: "offer_until" }, set: { pending_email: null, lapsed: true } },
     // A place still back for the waitlist at doors goes on sale at the door.
     { from: "returned", to: "released", at: { column: "doors_at" } },
   ],

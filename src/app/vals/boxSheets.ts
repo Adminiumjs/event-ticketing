@@ -8,6 +8,7 @@
 import type { Id, OrderBody, Row } from "../../data/wire.ts";
 import { tr } from "../../i18n/tr.ts";
 import { boxOf, LIVE_TICKET, plural, type Box } from "../box.ts";
+import { doorOf } from "../door.ts";
 import type { BoxShow } from "../boxWorld.ts";
 import { fD, fT, money, ms, num } from "../fmt.ts";
 import type { WaveApp } from "../wave.ts";
@@ -75,12 +76,38 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
 
   if (k === "bxUser") {
     const me = box.me();
-    const role = me?.roles.includes("box-office") === true ? tr("Box office") : tr("Door");
+    const doorRole = me?.roles.includes("box-office") !== true;
+    const dev = doorRole ? doorOf(app).device() : null;
     Object.assign(o, {
       icon: "user-round",
-      title: `${me?.name ?? ""} · ${role}`,
-      sub: tr("Signed in to the {venue} box office", { venue: w.settings.venueName }),
+      title: doorRole ? `${me?.name ?? ""} · ${String(dev?.["name"] ?? tr("Door"))}` : `${me?.name ?? ""} · ${tr("Box office")}`,
+      sub: doorRole ? tr("Signed in to the door on this phone") : tr("Signed in to the {venue} box office", { venue: w.settings.venueName }),
       btns: [P(tr("Sign out"), () => box.signOut(), "g")],
+    });
+  }
+
+  // Which door this phone is: its check-ins and the money it takes are this door's.
+  if (k === "drDevice") {
+    const door = doorOf(app);
+    const cur = door.device();
+    Object.assign(o, {
+      icon: "smartphone",
+      title: tr("Which door is this phone?"),
+      sub: tr("Its check-ins and the money it takes count for that door."),
+      groups: [grp(tr("Door"), door.devices().map((d) => [String(d.id), String(d["name"] ?? "")] as Opt), String(sh["pick"] ?? cur?.id ?? ""), "pick")],
+      btns: [P(tr("Use this door"), () => sh["pick"] !== undefined || cur !== null ? door.chooseDevice(Number(sh["pick"] ?? cur!.id)) : undefined), P(tr("Cancel"), () => app.closeSheet(), "g")],
+    });
+  }
+
+  // Signing out with check-ins this phone has not sent yet.
+  if (k === "drSignOut") {
+    const n = (app.state.door?.queue ?? []).filter((q) => q.kind === "in").length;
+    Object.assign(o, {
+      icon: "wifi-off",
+      tone: "warn",
+      title: tr("{n} check-in hasn't synced yet|{n} check-ins haven't synced yet", { n }),
+      body: tr("They are only on this phone. Signing out now loses them."),
+      btns: [P(tr("Stay signed in"), () => app.closeSheet()), P(tr("Sign out anyway"), () => box.signOut(true), "d")],
     });
   }
 

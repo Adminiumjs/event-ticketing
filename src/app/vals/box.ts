@@ -17,6 +17,7 @@ import { posterOf, stStyle } from "./audience.ts";
 import { palette, S, type V } from "./base.ts";
 import { boxMoreVals } from "./boxMore.ts";
 import { boxOrderVals } from "./boxOrders.ts";
+import { doorVals } from "./door.ts";
 import { editorVals } from "./editor.ts";
 
 const DAY = 86_400_000;
@@ -197,7 +198,11 @@ export function boxVals(app: WaveApp, v: V): V {
     s: Object.fromEntries(["refunds", "today", "events", "editor", "sales", "orders", "guests", "waits", "codes", "msgs", "pc", "settings", "door"].map((k) => [k, bx === k])),
   };
 
-  const out: V = { bo, boRef: (el: HTMLElement | null) => el?.setAttribute("data-bo-scroll", "1"), dd: { shows: [], tabs: [], recent: [], guests: [], sellTypes: [], nums: [], res: [], v: {} } };
+  const out: V = {
+    bo,
+    boRef: (el: HTMLElement | null) => el?.setAttribute("data-bo-scroll", "1"),
+    dd: bx === "door" ? doorVals(app, nar) : { shows: [], tabs: [], recent: [], guests: [], sellTypes: [], nums: [], res: [], checks: [], clash: [], v: {} },
+  };
   if (w === null) return { ...out, td: blankToday(), el: { rows: [], filters: [] }, eh: { tabs: [], p: {} }, sa: blankSales(), boLoading: true };
   Object.assign(out, headerVals(app, box, w, B));
   Object.assign(out, todayVals(app, box, w));

@@ -1421,7 +1421,6 @@ export const MANIFEST_RULES = {
           },
           "set": {
             "pending_email": null,
-            "pending_name": null,
             "lapsed": true
           }
         },

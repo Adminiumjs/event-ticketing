@@ -355,31 +355,47 @@ export class Box {
     window.open(`${base.replace(/\/$/, "")}/events/${show.slug}`, "_blank", "noopener");
   }
 
-  /** The door's takings of this venue day's shows that have finished, by door; what was never collected. */
+  /** The door's takings of this venue day's shows that have finished (one line a show). */
   endOfNight(w: BoxWorld): string {
     const now = this.app.now;
     const start = this.venueDayStart(now);
     const ended = w.shows.filter((e) => e.status === "published" && e.days.some((d) => d.doors >= start && d.doors < start + 86_400_000) && now >= e.ends);
     if (ended.length === 0) return tr("The door's takings show here after the show.");
-    const devices = this.rows("devices") ?? [];
-    return ended
-      .map((e) => {
-        const orders = this.list("orders", { where: [{ column: "event_id", eq: e.id }], limit: 5000 })?.rows ?? [];
-        const ids = orders.map((o) => o.id);
-        const cols = ids.length === 0 ? [] : (this.list("door_collections", { where: [{ column: "order_id", in: ids }, { column: "state", eq: "taken" }], limit: 5000 })?.rows ?? []);
-        const byDoor = devices
-          .map((d) => {
-            const mine = cols.filter((c) => c["device_id"] === d.id);
-            const sum = (m: string) => mine.filter((c) => c["method"] === m).reduce((a, c) => a + Number(c["amount"] ?? 0), 0);
-            return mine.length === 0 ? null : tr("{door}: card {card}, cash {cash}", { door: String(d["name"] ?? ""), card: money(sum("card")), cash: money(sum("cash")) });
-          })
-          .filter((x): x is string => x !== null);
-        const missed = orders.filter((o) => o["status"] === "not_collected" || (o["status"] === "door" && Number(o["balance"] ?? 0) > 0));
-        const owed = missed.reduce((a, o) => a + Number(o["balance"] ?? 0), 0);
-        const parts = [...(byDoor.length > 0 ? byDoor : [tr("nothing taken at the door")]), ...(owed > 0 ? [tr("not collected {amount}", { amount: money(owed) })] : [])];
-        return `${e.name}: ${parts.join(" · ")}`;
+    return ended.map((e) => this.takings(e)).join("\n");
+  }
+
+  /**
+   * End of night for a show: each door's card and cash (its door sales among
+   * them), the door sales, the pay-at-the-door money collected, and what was
+   * never collected.
+   */
+  takings(show: BoxShow): string {
+    const orders = this.list("orders", { where: [{ column: "event_id", eq: show.id }], limit: 10_000 })?.rows ?? [];
+    const ids = orders.map((o) => o.id).sort((a, b) => a - b);
+    const cols = ids.length === 0 ? [] : (this.list("door_collections", { where: [{ column: "order_id", in: ids }, { column: "state", eq: "taken" }], limit: 10_000 })?.rows ?? []);
+    const sale = new Set(orders.filter((o) => o["channel"] === "door").map((o) => o.id));
+    const sum = (rows: Row[]) => rows.reduce((a, c) => a + Number(c["amount"] ?? 0), 0);
+    const byDoor = (this.rows("devices") ?? [])
+      .map((d) => {
+        const mine = cols.filter((c) => c["device_id"] === d.id);
+        if (mine.length === 0) return null;
+        return tr("{door}: card {card}, cash {cash} (door sales included)", { door: String(d["name"] ?? ""), card: money(sum(mine.filter((c) => c["method"] === "card"))), cash: money(sum(mine.filter((c) => c["method"] === "cash"))) });
       })
-      .join("\n");
+      .filter((x): x is string => x !== null);
+    const sales = sum(cols.filter((c) => sale.has(c["order_id"] as Id)));
+    const collected = sum(cols.filter((c) => !sale.has(c["order_id"] as Id)));
+    const missed = orders.filter((o) => o["status"] === "not_collected" || (o["status"] === "door" && Number(o["balance"] ?? 0) > 0));
+    const owed = missed.reduce((a, o) => a + Number(o["balance"] ?? 0), 0);
+    const missedIds = missed.map((o) => o.id).sort((a, b) => a - b);
+    const owing = missedIds.length === 0 ? [] : (this.list("tickets", { where: [{ column: "order_id", in: missedIds }, { column: "status", in: LIVE_TICKET }], limit: 10_000 })?.rows ?? []);
+    const missedTickets = owing.filter((t) => Number(t["due"] ?? 0) - Number(t["collected"] ?? 0) > 0.004).length;
+    const parts = [
+      ...(byDoor.length > 0 ? byDoor : [tr("nothing taken at the door")]),
+      tr("door sales {amount}", { amount: money(sales) }),
+      tr("collected {amount}", { amount: money(collected) }),
+      ...(owed > 0 ? [tr("not collected {amount} ({tickets})", { amount: money(owed), tickets: plural(missedTickets, "{n} ticket", "{n} tickets") })] : []),
+    ];
+    return `${show.name} · ${parts.join(" · ")}`;
   }
 
   // ── writes ───────────────────────────────────────────────────────────────
@@ -748,12 +764,23 @@ export class Box {
   }
 
   /** Signed out: Adminium's sign-in next (the demo goes back to the audience's side). Unsaved changes are asked about first. */
-  signOut(): void {
+  signOut(anyway = false): void {
     if (this.app.state.bx === "editor" && this.s.edDirty && this.app.state.sheet?.kind !== "bxLeave") {
       this.app.openSheet("bxLeave", { signOut: true });
       return;
     }
+    // Check-ins the door has not sent yet are asked about first; signing out takes tonight's list off the phone.
+    if (!anyway && (this.app.state.door?.queue ?? []).some((q) => q.kind === "in")) {
+      this.app.openSheet("drSignOut", {});
+      return;
+    }
     this.app.closeSheet();
+    this.app.setState({ door: null });
+    try {
+      localStorage.removeItem("wv-door-queue");
+    } catch {
+      // Nothing kept.
+    }
     if (this.port.signOut !== undefined) {
       void this.port.signOut();
       return;

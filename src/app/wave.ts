@@ -17,6 +17,7 @@ import { Buyer, blankSi, type Co } from "./buyer.ts";
 import { worldOf, type Show, type World } from "./world.ts";
 import { focusLater } from "./focus.ts";
 import type { BoxState } from "./box.ts";
+import type { DoorState } from "./door.ts";
 
 /** What a code takes off, as the chip says it: a share of every ticket, or an amount off each of one kind. */
 function discountLabel(show: Show, code: string, data: Record<string, unknown>): string {
@@ -51,6 +52,8 @@ export function fresh() {
     /** The box office's screen, and what is open on it (the box office's own module fills it). */
     bx: "today" as BoxScreen,
     box: null as BoxState | null,
+    /** The door on this phone: its show day, its verdict, its last scans (the door's own module fills it). */
+    door: null as DoorState | null,
     /** The show on screen (its id). */
     evId: null as Id | null,
     /** A show's address opened before the venue answered: its slug, found once the shows are read. */
@@ -137,7 +140,13 @@ export class WaveApp {
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private opener: HTMLElement | null = null;
   /** Set by the demo build: a clock the demo card moves. */
-  demo: { onClock?: (fn: (now: number) => void) => () => void } | null = null;
+  demo: {
+    onClock?: (fn: (now: number) => void) => () => void;
+    /** The door the demo's phone is (its "Door 1"). */
+    doorDevice?: string;
+    /** The demo's scan pad: the next ticket in the queue at the door, as a code. */
+    nextScan?: (eventDayId: Id) => string | null;
+  } | null = null;
   /** The buyer's side: checkout, their orders, signing in. */
   readonly buyer: Buyer = new Buyer(this);
 
@@ -260,7 +269,8 @@ export class WaveApp {
       setInterval(() => this.setClock(Date.now() + this.skew), 30_000);
       // A running hold counts down each second on the server's clock.
       setInterval(() => {
-        if (this.state.co === null && this.state.si.resendAt <= this.now) return;
+        // (and the door's clock, with its seconds)
+        if (this.state.co === null && this.state.si.resendAt <= this.now && !(this.persona === "box" && this.state.bx === "door")) return;
         this.now = Date.now() + this.skew;
         this.buyer.tick();
         this.bump();
