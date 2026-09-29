@@ -280,6 +280,8 @@ export function sampleBundle(ledger: Ledger = LEDGER): SampleBundle {
       offer_until: o.offer_until === undefined ? null : o.status === "offered" ? after(o.offer_until, now) : wall(o.offer_until),
       pay_by: opt(o.pay_by),
       confirmed_at: opt(o.confirmed_at),
+      // An order that chose the door had its tickets then: being paid later sends them again to nobody.
+      door_at: status === "door" || status === "not_collected" ? opt(o.confirmed_at) : null,
       paid_at: opt(o.paid_at),
       cancelled_at: status === "cancelled" ? opt(o.cancelled_at) : null,
       cancel_cause: status === "cancelled" ? (s.cancelled_at !== undefined ? "show" : "buyer") : null,

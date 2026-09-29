@@ -57,13 +57,25 @@ export const EMAIL_DE: EmailWords = {
     "button": "Bestellung bestätigen",
     "foot": "Du bekommst diese E-Mail, weil mit dieser Adresse Tickets bei {{appName}} bestellt wurden. Du hast nichts bestellt? Dann ignoriere sie einfach."
   },
+  "transfer-confirm-offer": {
+    "name": "Bestätige deine Tickets von der Warteliste",
+    "subject": "Bestätige deine Bestellung für {{order.event.name}} · {{order.number}}",
+    "preheader": "Bestätige bis {{order.offer_until.date}}, {{order.offer_until.time}}, damit deine Tickets reserviert bleiben",
+    "heading": "Bestätige deine Bestellung",
+    "paras": [
+      "Du möchtest deine Tickets von der Warteliste für {{order.event.name}} per Überweisung bezahlen. Drück bis {{order.offer_until.date}}, {{order.offer_until.time}} auf den Button, um die Bestellung zu bestätigen – dann schicken wir dir die Bankdaten.",
+      "Bis dahin halten wir deine Tickets für dich zurück."
+    ],
+    "button": "Bestellung bestätigen",
+    "foot": "Du bekommst diese E-Mail, weil mit dieser Adresse Tickets von der Warteliste bei {{appName}} angenommen wurden. Das warst du nicht? Dann ignoriere sie einfach."
+  },
   "transfer-waiting": {
     "name": "Wir warten auf deine Überweisung",
     "subject": "Bitte bis {{order.pay_by.date}} überweisen, damit du deine Tickets für {{order.event.name}} behältst · {{order.number}}",
-    "preheader": "{{order.total}} bis {{order.pay_by.date}}, {{order.pay_by.time}}",
+    "preheader": "{{order.balance}} bis {{order.pay_by.date}}, {{order.pay_by.time}}",
     "heading": "Noch ein Schritt: die Überweisung",
     "paras": [
-      "Überweise {{order.total}} bis {{order.pay_by.date}}, {{order.pay_by.time}} mit dem Verwendungszweck {{order.number}}. Sobald das Geld da ist, kommen deine Tickets per E-Mail.",
+      "Überweise {{order.balance}} bis {{order.pay_by.date}}, {{order.pay_by.time}} mit dem Verwendungszweck {{order.number}}. Sobald das Geld da ist, kommen deine Tickets per E-Mail.",
       "Unbezahlte Tickets gehen {{practice.release_after_hours}} Std. danach wieder in den Verkauf."
     ],
     "button": "Meine Bestellung ansehen",
@@ -72,10 +84,10 @@ export const EMAIL_DE: EmailWords = {
   "transfer-reminder": {
     "name": "Erinnerung: deine Überweisung",
     "subject": "Erinnerung: deine Überweisung für {{order.event.name}} · {{order.number}}",
-    "preheader": "{{order.total}}, fällig am {{order.pay_by.date}}",
+    "preheader": "{{order.balance}}, fällig am {{order.pay_by.date}}",
     "heading": "Deine Überweisung ist noch nicht da",
     "paras": [
-      "Für Bestellung {{order.number}} haben wir {{order.total}} noch nicht erhalten. Fällig war der Betrag am {{order.pay_by.date}}, {{order.pay_by.time}}.",
+      "Für Bestellung {{order.number}} haben wir {{order.balance}} noch nicht erhalten. Fällig war der Betrag am {{order.pay_by.date}}, {{order.pay_by.time}}.",
       "Unbezahlte Tickets gehen bald wieder in den Verkauf. Wenn du schon überwiesen hast, musst du nichts weiter tun."
     ],
     "button": "Meine Bestellung ansehen",
@@ -173,6 +185,17 @@ export const EMAIL_DE: EmailWords = {
     "button": "Tickets holen",
     "foot": "Du wolltest einmal erinnert werden, bevor der Ticketverkauf startet."
   },
+  "on-sale-presale": {
+    "name": "Vorverkauf startet bald",
+    "subject": "Der Vorverkauf für {{reminder.event.name}} startet um {{reminder.type_sales_start.time}}",
+    "preheader": "{{reminder.type_sales_start.date}}, {{reminder.type_sales_start.time}}",
+    "heading": "Der Vorverkauf für {{reminder.event.name}} startet um {{reminder.type_sales_start.time}}",
+    "paras": [
+      "{{reminder.ticket_type.name}} gibt es ab {{reminder.type_sales_start.date}} um {{reminder.type_sales_start.time}}."
+    ],
+    "button": "Tickets holen",
+    "foot": "Du wolltest einmal erinnert werden, bevor der Vorverkauf startet."
+  },
   "moved": {
     "name": "Deine Show wurde verlegt",
     "subject": "{{order.event.name}} wurde verlegt: neuer Termin {{order.event.doors_at.date}}",
@@ -204,7 +227,7 @@ export const EMAIL_DE: EmailWords = {
     "heading": "{{order.event.name}} fällt aus",
     "paras": [
       "Es tut uns leid – {{order.event.name}} am {{order.event.doors_at.date}} fällt aus.",
-      "Du hast {{order.paid_in}} bezahlt. Wir erstatten den Betrag {{practice.refund_payback_text}}, auf demselben Weg, auf dem du bezahlt hast."
+      "Du hast {{order.received}} bezahlt. Wir erstatten den Betrag {{practice.refund_payback_text}}, auf demselben Weg, auf dem du bezahlt hast."
     ],
     "button": "Meine Bestellung ansehen",
     "foot": "Du hast Tickets für diese Show · Bestellung {{order.number}}."
@@ -281,10 +304,10 @@ export const EMAIL_DE: EmailWords = {
   "refund-recorded": {
     "name": "Erstattung erfasst",
     "subject": "Deine Erstattung für {{order.event.name}} · {{order.number}}",
-    "preheader": "{{order.refunded}} zurück an dich",
+    "preheader": "{{refund.amount}} zurück an dich",
     "heading": "Erstattung erfasst",
     "paras": [
-      "Wir haben für Bestellung {{order.number}} eine Erstattung von {{order.refunded}} an dich erfasst. Das Geld kommt {{practice.refund_payback_text}} bei dir an."
+      "Wir haben für Bestellung {{order.number}} eine Erstattung von {{refund.amount}} an dich erfasst. Das Geld kommt {{practice.refund_payback_text}} bei dir an."
     ],
     "button": "Meine Bestellung ansehen",
     "foot": "Bestellung {{order.number}} · {{order.event.name}}."
@@ -321,6 +344,18 @@ export const EMAIL_DE: EmailWords = {
     ],
     "button": "Meine Bestellung ansehen",
     "foot": "Du hast Tickets für diese Show · Bestellung {{order.number}}."
+  },
+  "broadcast-holder": {
+    "name": "Eine Nachricht zu deiner Show (Ticket von Freunden)",
+    "subject": "{{broadcast.subject}}",
+    "preheader": "Zu deinem Ticket für {{ticket.event.name}}",
+    "heading": "Zu {{ticket.event.name}}",
+    "paras": [
+      "{{broadcast.body}}",
+      "{{ticket.order.buyer_name}} hat dir dieses Ticket geschickt. Geld zurück geht an die Person, die es gekauft hat."
+    ],
+    "button": "Mein Ticket ansehen",
+    "foot": "Du hast ein Ticket für diese Show."
   }
 };
 
@@ -371,13 +406,25 @@ export const EMAIL_FR: EmailWords = {
     "button": "Confirmer ma commande",
     "foot": "Vous recevez cet e-mail car cette adresse a servi à commander des billets chez {{appName}}. Vous n'avez rien commandé ? Ignorez-le."
   },
+  "transfer-confirm-offer": {
+    "name": "Confirmez vos billets de la liste d'attente",
+    "subject": "Confirmez votre commande pour {{order.event.name}} · {{order.number}}",
+    "preheader": "Confirmez avant le {{order.offer_until.date}}, {{order.offer_until.time}} pour garder vos billets",
+    "heading": "Confirmez votre commande",
+    "paras": [
+      "Vous avez choisi de payer par virement bancaire vos billets de la liste d'attente pour {{order.event.name}}. Appuyez sur le bouton avant le {{order.offer_until.date}}, {{order.offer_until.time}} pour confirmer la commande, et nous vous enverrons les coordonnées bancaires.",
+      "D'ici là, vos billets vous sont réservés."
+    ],
+    "button": "Confirmer ma commande",
+    "foot": "Vous recevez cet e-mail car cette adresse a servi à accepter des billets de la liste d'attente chez {{appName}}. Ce n'était pas vous ? Ignorez-le."
+  },
   "transfer-waiting": {
     "name": "En attente de votre virement",
     "subject": "Payez avant le {{order.pay_by.date}} pour garder vos billets pour {{order.event.name}} · {{order.number}}",
-    "preheader": "{{order.total}} avant le {{order.pay_by.date}}, {{order.pay_by.time}}",
+    "preheader": "{{order.balance}} avant le {{order.pay_by.date}}, {{order.pay_by.time}}",
     "heading": "Plus qu'une étape : le virement bancaire",
     "paras": [
-      "Envoyez {{order.total}} avant le {{order.pay_by.date}}, {{order.pay_by.time}}, avec la référence {{order.number}}. Vos billets vous arrivent par e-mail dès réception du virement.",
+      "Envoyez {{order.balance}} avant le {{order.pay_by.date}}, {{order.pay_by.time}}, avec la référence {{order.number}}. Vos billets vous arrivent par e-mail dès réception du virement.",
       "Passé ce délai, les billets impayés sont remis en vente {{practice.release_after_hours}} h plus tard."
     ],
     "button": "Voir ma commande",
@@ -386,10 +433,10 @@ export const EMAIL_FR: EmailWords = {
   "transfer-reminder": {
     "name": "Rappel : votre virement",
     "subject": "Rappel : votre virement pour {{order.event.name}} · {{order.number}}",
-    "preheader": "{{order.total}} attendu le {{order.pay_by.date}}",
+    "preheader": "{{order.balance}} attendu le {{order.pay_by.date}}",
     "heading": "Votre virement n'est pas encore arrivé",
     "paras": [
-      "Nous n'avons pas reçu {{order.total}} pour la commande {{order.number}}. Le virement était attendu le {{order.pay_by.date}}, {{order.pay_by.time}}.",
+      "Nous n'avons pas reçu {{order.balance}} pour la commande {{order.number}}. Le virement était attendu le {{order.pay_by.date}}, {{order.pay_by.time}}.",
       "Les billets impayés seront bientôt remis en vente. Si vous avez déjà fait le virement, vous n'avez rien à faire."
     ],
     "button": "Voir ma commande",
@@ -487,6 +534,17 @@ export const EMAIL_FR: EmailWords = {
     "button": "Prendre des billets",
     "foot": "Vous nous avez demandé un rappel, une seule fois, avant l'ouverture des ventes."
   },
+  "on-sale-presale": {
+    "name": "Prévente bientôt",
+    "subject": "{{reminder.event.name}} : ouverture de la prévente à {{reminder.type_sales_start.time}}",
+    "preheader": "{{reminder.type_sales_start.date}}, {{reminder.type_sales_start.time}}",
+    "heading": "{{reminder.event.name}} : ouverture de la prévente à {{reminder.type_sales_start.time}}",
+    "paras": [
+      "{{reminder.ticket_type.name}} sera en vente le {{reminder.type_sales_start.date}} à {{reminder.type_sales_start.time}}."
+    ],
+    "button": "Prendre des billets",
+    "foot": "Vous nous avez demandé un rappel, une seule fois, avant l'ouverture de la prévente."
+  },
   "moved": {
     "name": "Votre spectacle change de date",
     "subject": "{{order.event.name}} change de date : le {{order.event.doors_at.date}}",
@@ -518,7 +576,7 @@ export const EMAIL_FR: EmailWords = {
     "heading": "{{order.event.name}} est annulé",
     "paras": [
       "Nous sommes désolés : {{order.event.name}} du {{order.event.doors_at.date}} est annulé.",
-      "Vous avez payé {{order.paid_in}}. Nous vous rembourserons {{practice.refund_payback_text}}, par le même moyen de paiement."
+      "Vous avez payé {{order.received}}. Nous vous rembourserons {{practice.refund_payback_text}}, par le même moyen de paiement."
     ],
     "button": "Voir ma commande",
     "foot": "Vous avez des billets pour ce spectacle · commande {{order.number}}."
@@ -595,10 +653,10 @@ export const EMAIL_FR: EmailWords = {
   "refund-recorded": {
     "name": "Remboursement enregistré",
     "subject": "Votre remboursement pour {{order.event.name}} · {{order.number}}",
-    "preheader": "{{order.refunded}} remboursé",
+    "preheader": "{{refund.amount}} remboursé",
     "heading": "Remboursement enregistré",
     "paras": [
-      "Nous avons enregistré un remboursement de {{order.refunded}} pour la commande {{order.number}}. Vous le recevrez {{practice.refund_payback_text}}."
+      "Nous avons enregistré un remboursement de {{refund.amount}} pour la commande {{order.number}}. Vous le recevrez {{practice.refund_payback_text}}."
     ],
     "button": "Voir ma commande",
     "foot": "Commande {{order.number}} · {{order.event.name}}."
@@ -635,6 +693,18 @@ export const EMAIL_FR: EmailWords = {
     ],
     "button": "Voir ma commande",
     "foot": "Vous avez des billets pour ce spectacle · commande {{order.number}}."
+  },
+  "broadcast-holder": {
+    "name": "Un message sur votre spectacle (billet d'un proche)",
+    "subject": "{{broadcast.subject}}",
+    "preheader": "À propos de votre billet pour {{ticket.event.name}}",
+    "heading": "À propos de {{ticket.event.name}}",
+    "paras": [
+      "{{broadcast.body}}",
+      "{{ticket.order.buyer_name}} vous a envoyé ce billet. Tout remboursement lui revient."
+    ],
+    "button": "Voir mon billet",
+    "foot": "Vous avez un billet pour ce spectacle."
   }
 };
 
@@ -685,13 +755,25 @@ export const EMAIL_DA: EmailWords = {
     "button": "Bekræft min ordre",
     "foot": "Du får denne mail, fordi adressen blev brugt til at bestille billetter hos {{appName}}. Har du ikke bestilt noget? Så se bort fra den."
   },
+  "transfer-confirm-offer": {
+    "name": "Bekræft dine billetter fra ventelisten",
+    "subject": "Bekræft din ordre til {{order.event.name}} · {{order.number}}",
+    "preheader": "Bekræft senest {{order.offer_until.date}} kl. {{order.offer_until.time}} for at beholde dine billetter",
+    "heading": "Bekræft din ordre",
+    "paras": [
+      "Du har valgt at betale for dine billetter fra ventelisten til {{order.event.name}} via bankoverførsel. Tryk på knappen senest {{order.offer_until.date}} kl. {{order.offer_until.time}} for at bekræfte ordren, så sender vi bankoplysningerne.",
+      "Indtil da holder vi dine billetter til dig."
+    ],
+    "button": "Bekræft min ordre",
+    "foot": "Du får denne mail, fordi adressen blev brugt til at tage imod billetter fra ventelisten hos {{appName}}. Var det ikke dig? Så se bort fra den."
+  },
   "transfer-waiting": {
     "name": "Venter på din overførsel",
     "subject": "Betal senest {{order.pay_by.date}} for at beholde dine billetter til {{order.event.name}} · {{order.number}}",
-    "preheader": "{{order.total}} senest {{order.pay_by.date}} kl. {{order.pay_by.time}}",
+    "preheader": "{{order.balance}} senest {{order.pay_by.date}} kl. {{order.pay_by.time}}",
     "heading": "Ét skridt tilbage: bankoverførslen",
     "paras": [
-      "Overfør {{order.total}} senest {{order.pay_by.date}} kl. {{order.pay_by.time}} med referencen {{order.number}}. Dine billetter kommer på mail, så snart pengene er modtaget.",
+      "Overfør {{order.balance}} senest {{order.pay_by.date}} kl. {{order.pay_by.time}} med referencen {{order.number}}. Dine billetter kommer på mail, så snart pengene er modtaget.",
       "Ubetalte billetter kommer til salg igen {{practice.release_after_hours}} t. efter fristen."
     ],
     "button": "Se min ordre",
@@ -700,10 +782,10 @@ export const EMAIL_DA: EmailWords = {
   "transfer-reminder": {
     "name": "Påmindelse: din overførsel",
     "subject": "Påmindelse: din overførsel til {{order.event.name}} · {{order.number}}",
-    "preheader": "{{order.total}} skulle være betalt {{order.pay_by.date}}",
+    "preheader": "{{order.balance}} skulle være betalt {{order.pay_by.date}}",
     "heading": "Din overførsel er ikke kommet endnu",
     "paras": [
-      "Vi har ikke modtaget {{order.total}} for ordre {{order.number}}. Beløbet skulle være betalt {{order.pay_by.date}} kl. {{order.pay_by.time}}.",
+      "Vi har ikke modtaget {{order.balance}} for ordre {{order.number}}. Beløbet skulle være betalt {{order.pay_by.date}} kl. {{order.pay_by.time}}.",
       "Ubetalte billetter kommer snart til salg igen. Har du allerede overført beløbet, behøver du ikke gøre noget."
     ],
     "button": "Se min ordre",
@@ -801,6 +883,17 @@ export const EMAIL_DA: EmailWords = {
     "button": "Køb billetter",
     "foot": "Du bad os minde dig om det én gang, før billetterne kommer til salg."
   },
+  "on-sale-presale": {
+    "name": "Forsalget åbner snart",
+    "subject": "Forsalget til {{reminder.event.name}} åbner kl. {{reminder.type_sales_start.time}}",
+    "preheader": "{{reminder.type_sales_start.date}} kl. {{reminder.type_sales_start.time}}",
+    "heading": "Forsalget til {{reminder.event.name}} åbner kl. {{reminder.type_sales_start.time}}",
+    "paras": [
+      "{{reminder.ticket_type.name}} kommer til salg {{reminder.type_sales_start.date}} kl. {{reminder.type_sales_start.time}}."
+    ],
+    "button": "Køb billetter",
+    "foot": "Du bad os minde dig om det én gang, før forsalget åbner."
+  },
   "moved": {
     "name": "Dit arrangement er flyttet",
     "subject": "{{order.event.name}} er flyttet til {{order.event.doors_at.date}}",
@@ -832,7 +925,7 @@ export const EMAIL_DA: EmailWords = {
     "heading": "{{order.event.name}} er aflyst",
     "paras": [
       "Vi beklager – {{order.event.name}} den {{order.event.doors_at.date}} er aflyst.",
-      "Du har betalt {{order.paid_in}}. Vi betaler beløbet tilbage {{practice.refund_payback_text}}, på samme måde som du betalte."
+      "Du har betalt {{order.received}}. Vi betaler beløbet tilbage {{practice.refund_payback_text}}, på samme måde som du betalte."
     ],
     "button": "Se min ordre",
     "foot": "Du har billetter til dette arrangement · ordre {{order.number}}."
@@ -909,10 +1002,10 @@ export const EMAIL_DA: EmailWords = {
   "refund-recorded": {
     "name": "Refusion registreret",
     "subject": "Din refusion for {{order.event.name}} · {{order.number}}",
-    "preheader": "{{order.refunded}} tilbage til dig",
+    "preheader": "{{refund.amount}} tilbage til dig",
     "heading": "Refusion registreret",
     "paras": [
-      "Vi har registreret en refusion på {{order.refunded}} til dig for ordre {{order.number}}. Pengene er hos dig {{practice.refund_payback_text}}."
+      "Vi har registreret en refusion på {{refund.amount}} til dig for ordre {{order.number}}. Pengene er hos dig {{practice.refund_payback_text}}."
     ],
     "button": "Se min ordre",
     "foot": "Ordre {{order.number}} · {{order.event.name}}."
@@ -949,6 +1042,18 @@ export const EMAIL_DA: EmailWords = {
     ],
     "button": "Se min ordre",
     "foot": "Du har billetter til dette arrangement · ordre {{order.number}}."
+  },
+  "broadcast-holder": {
+    "name": "En besked om dit arrangement (en vens billet)",
+    "subject": "{{broadcast.subject}}",
+    "preheader": "Om din billet til {{ticket.event.name}}",
+    "heading": "Om {{ticket.event.name}}",
+    "paras": [
+      "{{broadcast.body}}",
+      "{{ticket.order.buyer_name}} har sendt dig denne billet. Eventuelle penge tilbage går til køberen."
+    ],
+    "button": "Se min billet",
+    "foot": "Du har en billet til dette arrangement."
   }
 };
 
@@ -999,13 +1104,25 @@ export const EMAIL_CS: EmailWords = {
     "button": "Potvrdit objednávku",
     "foot": "Tento e-mail dostáváte, protože tato adresa byla použita k objednání vstupenek v {{appName}}. Nic jste neobjednávali? Stačí ho ignorovat."
   },
+  "transfer-confirm-offer": {
+    "name": "Potvrďte vstupenky z čekací listiny",
+    "subject": "Potvrďte objednávku na {{order.event.name}} · {{order.number}}",
+    "preheader": "Potvrďte do {{order.offer_until.date}}, {{order.offer_until.time}}, ať o vstupenky nepřijdete",
+    "heading": "Potvrďte objednávku",
+    "paras": [
+      "Vstupenky z čekací listiny na {{order.event.name}} jste se rozhodli zaplatit bankovním převodem. Do {{order.offer_until.date}}, {{order.offer_until.time}} stiskněte tlačítko a objednávku potvrďte, pak vám pošleme bankovní údaje.",
+      "Do té doby vám vstupenky držíme."
+    ],
+    "button": "Potvrdit objednávku",
+    "foot": "Tento e-mail dostáváte, protože tato adresa byla použita k přijetí vstupenek z čekací listiny v {{appName}}. Nebyli jste to vy? Stačí ho ignorovat."
+  },
   "transfer-waiting": {
     "name": "Čekáme na váš převod",
     "subject": "Zaplaťte do {{order.pay_by.date}}, ať vám vstupenky na {{order.event.name}} zůstanou · {{order.number}}",
-    "preheader": "{{order.total}} do {{order.pay_by.date}}, {{order.pay_by.time}}",
+    "preheader": "{{order.balance}} do {{order.pay_by.date}}, {{order.pay_by.time}}",
     "heading": "Zbývá jediný krok: bankovní převod",
     "paras": [
-      "Pošlete {{order.total}} do {{order.pay_by.date}}, {{order.pay_by.time}} s variabilním symbolem {{order.number}}. Jakmile platba dorazí, pošleme vám vstupenky e-mailem.",
+      "Pošlete {{order.balance}} do {{order.pay_by.date}}, {{order.pay_by.time}} s variabilním symbolem {{order.number}}. Jakmile platba dorazí, pošleme vám vstupenky e-mailem.",
       "Nezaplacené vstupenky se po uplynutí dalšího odkladu vrátí do prodeje (odklad v hodinách: {{practice.release_after_hours}})."
     ],
     "button": "Zobrazit objednávku",
@@ -1014,10 +1131,10 @@ export const EMAIL_CS: EmailWords = {
   "transfer-reminder": {
     "name": "Připomínka: váš převod",
     "subject": "Připomínka: váš převod za {{order.event.name}} · {{order.number}}",
-    "preheader": "{{order.total}} bylo splatné {{order.pay_by.date}}",
+    "preheader": "{{order.balance}} bylo splatné {{order.pay_by.date}}",
     "heading": "Váš převod zatím nedorazil",
     "paras": [
-      "Platbu {{order.total}} za objednávku {{order.number}} jsme zatím neobdrželi. Splatnost byla {{order.pay_by.date}}, {{order.pay_by.time}}.",
+      "Platbu {{order.balance}} za objednávku {{order.number}} jsme zatím neobdrželi. Splatnost byla {{order.pay_by.date}}, {{order.pay_by.time}}.",
       "Nezaplacené vstupenky se brzy vrátí do prodeje. Pokud jste už platbu odeslali, nemusíte nic dělat."
     ],
     "button": "Zobrazit objednávku",
@@ -1115,6 +1232,17 @@ export const EMAIL_CS: EmailWords = {
     "button": "Koupit vstupenky",
     "foot": "Požádali jste nás o jednu připomínku před začátkem prodeje."
   },
+  "on-sale-presale": {
+    "name": "Brzy začíná předprodej",
+    "subject": "Předprodej na {{reminder.event.name}} začíná v {{reminder.type_sales_start.time}}",
+    "preheader": "{{reminder.type_sales_start.date}}, {{reminder.type_sales_start.time}}",
+    "heading": "Předprodej na {{reminder.event.name}} začíná v {{reminder.type_sales_start.time}}",
+    "paras": [
+      "{{reminder.ticket_type.name}} bude v prodeji od {{reminder.type_sales_start.date}}, {{reminder.type_sales_start.time}}."
+    ],
+    "button": "Koupit vstupenky",
+    "foot": "Požádali jste nás o jednu připomínku před začátkem předprodeje."
+  },
   "moved": {
     "name": "Vaše akce se přesouvá",
     "subject": "{{order.event.name}} se přesouvá na {{order.event.doors_at.date}}",
@@ -1146,7 +1274,7 @@ export const EMAIL_CS: EmailWords = {
     "heading": "{{order.event.name}} je zrušena",
     "paras": [
       "Je nám líto – {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena.",
-      "Zaplatili jste {{order.paid_in}}. Peníze vám vrátíme {{practice.refund_payback_text}}, stejným způsobem, jakým jste platili."
+      "Zaplatili jste {{order.received}}. Peníze vám vrátíme {{practice.refund_payback_text}}, stejným způsobem, jakým jste platili."
     ],
     "button": "Zobrazit objednávku",
     "foot": "Máte vstupenky na tuto akci · objednávka {{order.number}}."
@@ -1223,10 +1351,10 @@ export const EMAIL_CS: EmailWords = {
   "refund-recorded": {
     "name": "Vrácení peněz zaznamenáno",
     "subject": "Vrácení peněz za {{order.event.name}} · {{order.number}}",
-    "preheader": "Vracíme vám {{order.refunded}}",
+    "preheader": "Vracíme vám {{refund.amount}}",
     "heading": "Vrácení peněz zaznamenáno",
     "paras": [
-      "Za objednávku {{order.number}} jsme zaznamenali vrácení {{order.refunded}}. Peníze k vám dorazí {{practice.refund_payback_text}}."
+      "Za objednávku {{order.number}} jsme zaznamenali vrácení {{refund.amount}}. Peníze k vám dorazí {{practice.refund_payback_text}}."
     ],
     "button": "Zobrazit objednávku",
     "foot": "Objednávka {{order.number}} · {{order.event.name}}."
@@ -1263,6 +1391,18 @@ export const EMAIL_CS: EmailWords = {
     ],
     "button": "Zobrazit objednávku",
     "foot": "Máte vstupenky na tuto akci · objednávka {{order.number}}."
+  },
+  "broadcast-holder": {
+    "name": "Zpráva k vaší akci (vstupenka od kamaráda)",
+    "subject": "{{broadcast.subject}}",
+    "preheader": "K vaší vstupence na {{ticket.event.name}}",
+    "heading": "K akci {{ticket.event.name}}",
+    "paras": [
+      "{{broadcast.body}}",
+      "Tuto vstupenku vám poslal(a) {{ticket.order.buyer_name}}. Případné peníze vracíme kupujícímu."
+    ],
+    "button": "Zobrazit vstupenku",
+    "foot": "Máte vstupenku na tuto akci."
   }
 };
 
@@ -1313,13 +1453,25 @@ export const EMAIL_AR: EmailWords = {
     "button": "تأكيد طلبي",
     "foot": "وصلتك هذه الرسالة لأن هذا العنوان استُخدم لطلب تذاكر من {{appName}}. لم تطلب شيئا؟ تجاهلها."
   },
+  "transfer-confirm-offer": {
+    "name": "أكّد تذاكرك من قائمة الانتظار",
+    "subject": "أكّد طلبك لحضور {{order.event.name}} · {{order.number}}",
+    "preheader": "أكّد قبل {{order.offer_until.date}}، {{order.offer_until.time}} لتحتفظ بتذاكرك",
+    "heading": "أكّد طلبك",
+    "paras": [
+      "اخترت دفع ثمن تذاكرك من قائمة الانتظار لحضور {{order.event.name}} بتحويل بنكي. اضغط الزر قبل {{order.offer_until.date}}، {{order.offer_until.time}} لتأكيد الطلب، وسنرسل إليك بيانات البنك.",
+      "حتى ذلك الحين، تذاكرك محجوزة لك."
+    ],
+    "button": "تأكيد طلبي",
+    "foot": "وصلتك هذه الرسالة لأن هذا العنوان استُخدم لقبول تذاكر من قائمة الانتظار في {{appName}}. لم تكن أنت؟ تجاهلها."
+  },
   "transfer-waiting": {
     "name": "بانتظار تحويلك",
     "subject": "ادفع قبل {{order.pay_by.date}} لتحتفظ بتذاكر {{order.event.name}} · {{order.number}}",
-    "preheader": "{{order.total}} قبل {{order.pay_by.date}}، {{order.pay_by.time}}",
+    "preheader": "{{order.balance}} قبل {{order.pay_by.date}}، {{order.pay_by.time}}",
     "heading": "بقيت خطوة واحدة: التحويل البنكي",
     "paras": [
-      "حوّل {{order.total}} قبل {{order.pay_by.date}}، {{order.pay_by.time}}، واكتب المرجع {{order.number}}. تصلك تذاكرك بالبريد الإلكتروني فور وصول المبلغ.",
+      "حوّل {{order.balance}} قبل {{order.pay_by.date}}، {{order.pay_by.time}}، واكتب المرجع {{order.number}}. تصلك تذاكرك بالبريد الإلكتروني فور وصول المبلغ.",
       "بعد ذلك الموعد تبقى التذاكر غير المدفوعة محجوزة لمهلة إضافية (بالساعات: {{practice.release_after_hours}})، ثم تعود إلى البيع."
     ],
     "button": "عرض طلبي",
@@ -1328,10 +1480,10 @@ export const EMAIL_AR: EmailWords = {
   "transfer-reminder": {
     "name": "تذكير: تحويلك",
     "subject": "تذكير: تحويلك لحضور {{order.event.name}} · {{order.number}}",
-    "preheader": "كان {{order.total}} مستحقا في {{order.pay_by.date}}",
+    "preheader": "كان {{order.balance}} مستحقا في {{order.pay_by.date}}",
     "heading": "لم يصل تحويلك بعد",
     "paras": [
-      "لم نستلم {{order.total}} للطلب {{order.number}}. كان موعد الاستحقاق {{order.pay_by.date}}، {{order.pay_by.time}}.",
+      "لم نستلم {{order.balance}} للطلب {{order.number}}. كان موعد الاستحقاق {{order.pay_by.date}}، {{order.pay_by.time}}.",
       "ستعود التذاكر غير المدفوعة إلى البيع قريبا. إن كنت قد أرسلت المبلغ بالفعل، فلا داعي لأي إجراء."
     ],
     "button": "عرض طلبي",
@@ -1429,6 +1581,17 @@ export const EMAIL_AR: EmailWords = {
     "button": "احصل على التذاكر",
     "foot": "طلبت منا تذكيرك مرة واحدة قبل طرح التذاكر للبيع."
   },
+  "on-sale-presale": {
+    "name": "البيع المسبق قريبا",
+    "subject": "يبدأ البيع المسبق لتذاكر {{reminder.event.name}} الساعة {{reminder.type_sales_start.time}}",
+    "preheader": "{{reminder.type_sales_start.date}}، {{reminder.type_sales_start.time}}",
+    "heading": "يبدأ البيع المسبق لتذاكر {{reminder.event.name}} الساعة {{reminder.type_sales_start.time}}",
+    "paras": [
+      "تُطرح {{reminder.ticket_type.name}} للبيع في {{reminder.type_sales_start.date}} الساعة {{reminder.type_sales_start.time}}."
+    ],
+    "button": "احصل على التذاكر",
+    "foot": "طلبت منا تذكيرك مرة واحدة قبل بدء البيع المسبق."
+  },
   "moved": {
     "name": "تغيّر موعد حفلك",
     "subject": "انتقل {{order.event.name}} إلى {{order.event.doors_at.date}}",
@@ -1460,7 +1623,7 @@ export const EMAIL_AR: EmailWords = {
     "heading": "أُلغي {{order.event.name}}",
     "paras": [
       "نأسف لإبلاغك بإلغاء {{order.event.name}} المقرر في {{order.event.doors_at.date}}.",
-      "دفعت {{order.paid_in}}. سنعيده إليك {{practice.refund_payback_text}}، بالطريقة نفسها التي دفعت بها."
+      "دفعت {{order.received}}. سنعيده إليك {{practice.refund_payback_text}}، بالطريقة نفسها التي دفعت بها."
     ],
     "button": "عرض طلبي",
     "foot": "لديك تذاكر لهذا الحفل · الطلب {{order.number}}."
@@ -1537,10 +1700,10 @@ export const EMAIL_AR: EmailWords = {
   "refund-recorded": {
     "name": "سُجّل الاسترداد",
     "subject": "استرداد مبلغك لحضور {{order.event.name}} · {{order.number}}",
-    "preheader": "{{order.refunded}} يعود إليك",
+    "preheader": "{{refund.amount}} يعود إليك",
     "heading": "سُجّل الاسترداد",
     "paras": [
-      "سجّلنا رد {{order.refunded}} إليك عن الطلب {{order.number}}. سيصلك المبلغ {{practice.refund_payback_text}}."
+      "سجّلنا رد {{refund.amount}} إليك عن الطلب {{order.number}}. سيصلك المبلغ {{practice.refund_payback_text}}."
     ],
     "button": "عرض طلبي",
     "foot": "الطلب {{order.number}} · {{order.event.name}}."
@@ -1577,6 +1740,18 @@ export const EMAIL_AR: EmailWords = {
     ],
     "button": "عرض طلبي",
     "foot": "لديك تذاكر لهذا الحفل · الطلب {{order.number}}."
+  },
+  "broadcast-holder": {
+    "name": "رسالة بخصوص حفلك (تذكرة من صديق)",
+    "subject": "{{broadcast.subject}}",
+    "preheader": "بخصوص تذكرتك لحضور {{ticket.event.name}}",
+    "heading": "بخصوص {{ticket.event.name}}",
+    "paras": [
+      "{{broadcast.body}}",
+      "أرسل إليك {{ticket.order.buyer_name}} هذه التذكرة. أي مبلغ يُرد يذهب إليه."
+    ],
+    "button": "عرض تذكرتي",
+    "foot": "لديك تذكرة لهذا الحفل."
   }
 };
 
@@ -1627,13 +1802,25 @@ export const EMAIL_ZH_CN: EmailWords = {
     "button": "确认我的订单",
     "foot": "你收到这封邮件，是因为有人用这个邮箱在 {{appName}} 订了票。如果不是你本人，请忽略即可。"
   },
+  "transfer-confirm-offer": {
+    "name": "确认你的候补门票",
+    "subject": "请确认你的 {{order.event.name}} 订单 · {{order.number}}",
+    "preheader": "请在 {{order.offer_until.date}} {{order.offer_until.time}} 前确认，门票才会为你保留",
+    "heading": "确认你的订单",
+    "paras": [
+      "你选择了通过银行转账支付 {{order.event.name}} 的候补门票。请在 {{order.offer_until.date}} {{order.offer_until.time}} 前点击按钮确认订单，我们随后会把银行信息发给你。",
+      "在此之前，门票会一直为你保留。"
+    ],
+    "button": "确认我的订单",
+    "foot": "你收到这封邮件，是因为有人用这个邮箱在 {{appName}} 领取了候补门票。如果不是你本人，请忽略即可。"
+  },
   "transfer-waiting": {
     "name": "等待你的转账",
     "subject": "请在 {{order.pay_by.date}} 前付款，保留你的 {{order.event.name}} 门票 · {{order.number}}",
-    "preheader": "{{order.total}}，截止 {{order.pay_by.date}} {{order.pay_by.time}}",
+    "preheader": "{{order.balance}}，截止 {{order.pay_by.date}} {{order.pay_by.time}}",
     "heading": "只差最后一步：银行转账",
     "paras": [
-      "请在 {{order.pay_by.date}} {{order.pay_by.time}} 前转账 {{order.total}}，附言填写 {{order.number}}。款项到账后，门票会通过邮件发给你。",
+      "请在 {{order.pay_by.date}} {{order.pay_by.time}} 前转账 {{order.balance}}，附言填写 {{order.number}}。款项到账后，门票会通过邮件发给你。",
       "逾期 {{practice.release_after_hours}} 小时仍未付款，门票将重新开售。"
     ],
     "button": "查看我的订单",
@@ -1642,10 +1829,10 @@ export const EMAIL_ZH_CN: EmailWords = {
   "transfer-reminder": {
     "name": "提醒：你的转账",
     "subject": "提醒：你的 {{order.event.name}} 转账 · {{order.number}}",
-    "preheader": "{{order.total}} 应于 {{order.pay_by.date}} 前付清",
+    "preheader": "{{order.balance}} 应于 {{order.pay_by.date}} 前付清",
     "heading": "你的转账还没到账",
     "paras": [
-      "我们还没有收到订单 {{order.number}} 的 {{order.total}}。付款截止时间是 {{order.pay_by.date}} {{order.pay_by.time}}。",
+      "我们还没有收到订单 {{order.number}} 的 {{order.balance}}。付款截止时间是 {{order.pay_by.date}} {{order.pay_by.time}}。",
       "未付款的门票很快会重新开售。如果你已经转账，无需任何操作。"
     ],
     "button": "查看我的订单",
@@ -1743,6 +1930,17 @@ export const EMAIL_ZH_CN: EmailWords = {
     "button": "去买票",
     "foot": "你请我们在开售前提醒你一次。"
   },
+  "on-sale-presale": {
+    "name": "即将预售",
+    "subject": "{{reminder.event.name}} 将于 {{reminder.type_sales_start.time}} 开始预售",
+    "preheader": "{{reminder.type_sales_start.date}} {{reminder.type_sales_start.time}}",
+    "heading": "{{reminder.event.name}} 将于 {{reminder.type_sales_start.time}} 开始预售",
+    "paras": [
+      "{{reminder.ticket_type.name}} 将于 {{reminder.type_sales_start.date}} {{reminder.type_sales_start.time}} 开售。"
+    ],
+    "button": "去买票",
+    "foot": "你请我们在预售开始前提醒你一次。"
+  },
   "moved": {
     "name": "你的演出已改期",
     "subject": "{{order.event.name}} 已改期至 {{order.event.doors_at.date}}",
@@ -1774,7 +1972,7 @@ export const EMAIL_ZH_CN: EmailWords = {
     "heading": "{{order.event.name}} 已取消",
     "paras": [
       "非常抱歉，{{order.event.doors_at.date}} 的 {{order.event.name}} 已取消。",
-      "你已支付 {{order.paid_in}}。我们会按原付款方式退还，{{practice.refund_payback_text}}。"
+      "你已支付 {{order.received}}。我们会按原付款方式退还，{{practice.refund_payback_text}}。"
     ],
     "button": "查看我的订单",
     "foot": "你有这场演出的门票 · 订单 {{order.number}}。"
@@ -1851,10 +2049,10 @@ export const EMAIL_ZH_CN: EmailWords = {
   "refund-recorded": {
     "name": "退款已记录",
     "subject": "你的 {{order.event.name}} 退款 · {{order.number}}",
-    "preheader": "{{order.refunded}} 将退还给你",
+    "preheader": "{{refund.amount}} 将退还给你",
     "heading": "退款已记录",
     "paras": [
-      "我们已为订单 {{order.number}} 记录了 {{order.refunded}} 的退款，{{practice.refund_payback_text}}到账。"
+      "我们已为订单 {{order.number}} 记录了 {{refund.amount}} 的退款，{{practice.refund_payback_text}}到账。"
     ],
     "button": "查看我的订单",
     "foot": "订单 {{order.number}} · {{order.event.name}}。"
@@ -1891,6 +2089,18 @@ export const EMAIL_ZH_CN: EmailWords = {
     ],
     "button": "查看我的订单",
     "foot": "你有这场演出的门票 · 订单 {{order.number}}。"
+  },
+  "broadcast-holder": {
+    "name": "关于你的演出的消息（朋友送的票）",
+    "subject": "{{broadcast.subject}}",
+    "preheader": "关于你的 {{ticket.event.name}} 门票",
+    "heading": "关于 {{ticket.event.name}}",
+    "paras": [
+      "{{broadcast.body}}",
+      "这张票是 {{ticket.order.buyer_name}} 送你的。如有退款，会退给对方。"
+    ],
+    "button": "查看我的票",
+    "foot": "你持有这场演出的门票。"
   }
 };
 
@@ -1941,13 +2151,25 @@ export const EMAIL_ZH_TW: EmailWords = {
     "button": "確認我的訂單",
     "foot": "你收到這封信，是因為有人用這個信箱在 {{appName}} 訂票。如果不是你訂的，請忽略這封信。"
   },
+  "transfer-confirm-offer": {
+    "name": "確認你的候補票",
+    "subject": "請確認你的 {{order.event.name}} 訂單 · {{order.number}}",
+    "preheader": "請在 {{order.offer_until.date}} {{order.offer_until.time}} 前確認，才能保留你的票",
+    "heading": "確認你的訂單",
+    "paras": [
+      "你選擇以銀行轉帳支付 {{order.event.name}} 的候補票款。請在 {{order.offer_until.date}} {{order.offer_until.time}} 前按下按鈕確認訂單，我們會寄上轉帳資料。",
+      "在那之前，你的票會先為你保留。"
+    ],
+    "button": "確認我的訂單",
+    "foot": "你收到這封信，是因為有人用這個信箱在 {{appName}} 領取候補票。如果不是你，請忽略這封信。"
+  },
   "transfer-waiting": {
     "name": "等待你的轉帳",
     "subject": "請在 {{order.pay_by.date}} 前付款，保留你的 {{order.event.name}} 票券 · {{order.number}}",
-    "preheader": "{{order.pay_by.date}} {{order.pay_by.time}} 前轉帳 {{order.total}}",
+    "preheader": "{{order.pay_by.date}} {{order.pay_by.time}} 前轉帳 {{order.balance}}",
     "heading": "只差一步：完成銀行轉帳",
     "paras": [
-      "請在 {{order.pay_by.date}} {{order.pay_by.time}} 前轉帳 {{order.total}}，並在轉帳備註填寫 {{order.number}}。款項入帳後，票券會以電子郵件寄給你。",
+      "請在 {{order.pay_by.date}} {{order.pay_by.time}} 前轉帳 {{order.balance}}，並在轉帳備註填寫 {{order.number}}。款項入帳後，票券會以電子郵件寄給你。",
       "逾期 {{practice.release_after_hours}} 小時仍未付款，票券將重新開賣。"
     ],
     "button": "查看我的訂單",
@@ -1956,10 +2178,10 @@ export const EMAIL_ZH_TW: EmailWords = {
   "transfer-reminder": {
     "name": "提醒：你的轉帳",
     "subject": "提醒：你的 {{order.event.name}} 轉帳 · {{order.number}}",
-    "preheader": "{{order.total}} 的付款期限是 {{order.pay_by.date}}",
+    "preheader": "{{order.balance}} 的付款期限是 {{order.pay_by.date}}",
     "heading": "還沒收到你的轉帳",
     "paras": [
-      "我們還沒收到訂單 {{order.number}} 的 {{order.total}}。付款期限是 {{order.pay_by.date}} {{order.pay_by.time}}。",
+      "我們還沒收到訂單 {{order.number}} 的 {{order.balance}}。付款期限是 {{order.pay_by.date}} {{order.pay_by.time}}。",
       "未付款的票券很快就會重新開賣。如果你已經轉帳了，就不用再做任何事。"
     ],
     "button": "查看我的訂單",
@@ -2057,6 +2279,17 @@ export const EMAIL_ZH_TW: EmailWords = {
     "button": "去買票",
     "foot": "你請我們在開賣前提醒你一次。"
   },
+  "on-sale-presale": {
+    "name": "即將預售",
+    "subject": "{{reminder.event.name}} 將於 {{reminder.type_sales_start.time}} 開始預售",
+    "preheader": "{{reminder.type_sales_start.date}} {{reminder.type_sales_start.time}}",
+    "heading": "{{reminder.event.name}} 將於 {{reminder.type_sales_start.time}} 開始預售",
+    "paras": [
+      "{{reminder.ticket_type.name}} 將於 {{reminder.type_sales_start.date}} {{reminder.type_sales_start.time}} 開賣。"
+    ],
+    "button": "去買票",
+    "foot": "你請我們在預售開始前提醒你一次。"
+  },
   "moved": {
     "name": "你的演出已改期",
     "subject": "{{order.event.name}} 改期至 {{order.event.doors_at.date}}",
@@ -2088,7 +2321,7 @@ export const EMAIL_ZH_TW: EmailWords = {
     "heading": "{{order.event.name}} 已取消",
     "paras": [
       "很抱歉，{{order.event.doors_at.date}} 的 {{order.event.name}} 已取消。",
-      "你已支付 {{order.paid_in}}。我們會在 {{practice.refund_payback_text}} 以你原本的付款方式退還。"
+      "你已支付 {{order.received}}。我們會在 {{practice.refund_payback_text}} 以你原本的付款方式退還。"
     ],
     "button": "查看我的訂單",
     "foot": "你持有這場演出的票 · 訂單 {{order.number}}。"
@@ -2165,10 +2398,10 @@ export const EMAIL_ZH_TW: EmailWords = {
   "refund-recorded": {
     "name": "退款已登記",
     "subject": "你的 {{order.event.name}} 退款 · {{order.number}}",
-    "preheader": "將退還你 {{order.refunded}}",
+    "preheader": "將退還你 {{refund.amount}}",
     "heading": "退款已登記",
     "paras": [
-      "我們已登記訂單 {{order.number}} 退還你 {{order.refunded}}。款項會在 {{practice.refund_payback_text}} 退到你手上。"
+      "我們已登記訂單 {{order.number}} 退還你 {{refund.amount}}。款項會在 {{practice.refund_payback_text}} 退到你手上。"
     ],
     "button": "查看我的訂單",
     "foot": "訂單 {{order.number}} · {{order.event.name}}。"
@@ -2205,5 +2438,17 @@ export const EMAIL_ZH_TW: EmailWords = {
     ],
     "button": "查看我的訂單",
     "foot": "你持有這場演出的票 · 訂單 {{order.number}}。"
+  },
+  "broadcast-holder": {
+    "name": "演出相關訊息（朋友送的票）",
+    "subject": "{{broadcast.subject}}",
+    "preheader": "關於你的 {{ticket.event.name}} 票券",
+    "heading": "關於 {{ticket.event.name}}",
+    "paras": [
+      "{{broadcast.body}}",
+      "這張票是 {{ticket.order.buyer_name}} 送你的，如有退款會退給對方。"
+    ],
+    "button": "查看我的票",
+    "foot": "你持有這場演出的票。"
   }
 };

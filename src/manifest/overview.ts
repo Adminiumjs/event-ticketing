@@ -40,8 +40,21 @@ const day = (column: string, op: string, when: string): Json => ({ column, op, d
 const HOLDS_PLACES = ["door", "awaiting_transfer", "overdue", "no_charge", "paid"];
 /** A coming show, through a row's link to it. */
 const comingVia = (link: string): Json[] => [eq(`${link}.status`, "published"), day(`${link}.curfew_at`, "gte", "today")];
+/**
+ * Tonight's show: its doors open today — or, a festival, its first day has been and its last day is still to end
+ * (a festival's own doors are its first day's; its end, its last day's curfew).
+ */
+const tonightOf = (prefix: string): Json[] => [
+  eq(`${prefix}status`, "published"),
+  {
+    or: [
+      day(`${prefix}doors_at`, "eq", "today"),
+      { and: [eq(`${prefix}kind`, "festival"), day(`${prefix}doors_at`, "lt", "today"), day(`${prefix}ends_at`, "gte", "today")] },
+    ],
+  },
+];
 /** Tonight's show, through a row's link to it. */
-const tonightVia = (link: string): Json[] => [eq(`${link}.status`, "published"), day(`${link}.doors_at`, "eq", "today")];
+const tonightVia = (link: string): Json[] => tonightOf(`${link}.`);
 
 const COUNT = { metricFormat: "plain", deltaMode: "none", showSparkline: false };
 const MONEY = { metricFormat: "currency", deltaMode: "none", showSparkline: false };
@@ -96,8 +109,9 @@ export const OVERVIEW_LAYOUT = {
       {
         ...COUNT,
         iconName: "ticket",
+        // The card counts what its link opens: a ticket's own doors (its show's, kept in step), today or later.
         href: page("tickets", `f.status=in:${LIVE_TICKET.join(",")}`, `f.order_status=in:${HOLDS_PLACES.join(",")}`, "f.doors_at=gte:today"),
-        binding: metric("tickets", count("tickets"), { filters: [oneOf("status", LIVE_TICKET), oneOf("order_status", HOLDS_PLACES), ...comingVia("event_id")] }),
+        binding: metric("tickets", count("tickets"), { filters: [oneOf("status", LIVE_TICKET), oneOf("order_status", HOLDS_PLACES), day("doors_at", "gte", "today")] }),
       },
       { caption: "comps included" },
     ),
@@ -143,7 +157,7 @@ export const OVERVIEW_LAYOUT = {
         binding: list("events", {
           select: ["id", "name", "doors_at"],
           lookups: ["room:room_id.name"],
-          filters: [eq("status", "published"), day("doors_at", "eq", "today")],
+          filters: tonightOf(""),
           orderBy: [{ column: "doors_at", dir: "asc" }],
           limit: 3,
           counts: { table: "tickets", as: "sold" },

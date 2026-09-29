@@ -3893,6 +3893,12 @@
                       "column": "door_on",
                       "eq": true
                     }
+                  ],
+                  "where": [
+                    {
+                      "column": "no_door",
+                      "lte": 0
+                    }
                   ]
                 }
               },
@@ -3904,6 +3910,23 @@
                       "table": "settings",
                       "column": "transfer_on",
                       "eq": true
+                    }
+                  ],
+                  "time": {
+                    "before": {
+                      "column": "doors_at",
+                      "minus": {
+                        "days": {
+                          "table": "settings",
+                          "column": "transfer_cutoff_days"
+                        }
+                      }
+                    }
+                  },
+                  "where": [
+                    {
+                      "column": "no_transfer",
+                      "lte": 0
                     }
                   ]
                 }
@@ -3929,10 +3952,25 @@
                       "eq": true
                     }
                   ],
+                  "time": {
+                    "before": {
+                      "column": "doors_at",
+                      "minus": {
+                        "days": {
+                          "table": "settings",
+                          "column": "transfer_cutoff_days"
+                        }
+                      }
+                    }
+                  },
                   "where": [
                     {
                       "column": "email",
                       "isNull": false
+                    },
+                    {
+                      "column": "no_transfer",
+                      "lte": 0
                     }
                   ]
                 }
@@ -3974,6 +4012,12 @@
                       "column": "door_on",
                       "eq": true
                     }
+                  ],
+                  "where": [
+                    {
+                      "column": "no_door",
+                      "lte": 0
+                    }
                   ]
                 }
               },
@@ -4012,6 +4056,12 @@
                       "column": "door_on",
                       "eq": true
                     }
+                  ],
+                  "where": [
+                    {
+                      "column": "no_door",
+                      "lte": 0
+                    }
                   ]
                 }
               },
@@ -4023,6 +4073,23 @@
                       "table": "settings",
                       "column": "transfer_on",
                       "eq": true
+                    }
+                  ],
+                  "time": {
+                    "before": {
+                      "column": "doors_at",
+                      "minus": {
+                        "days": {
+                          "table": "settings",
+                          "column": "transfer_cutoff_days"
+                        }
+                      }
+                    }
+                  },
+                  "where": [
+                    {
+                      "column": "no_transfer",
+                      "lte": 0
                     }
                   ]
                 }
@@ -4244,6 +4311,33 @@
               }
             }
           ],
+          "create": {
+            "requires": {
+              "linked": [
+                {
+                  "via": "event_id",
+                  "where": [
+                    {
+                      "column": "status",
+                      "eq": "published"
+                    }
+                  ]
+                }
+              ],
+              "time": {
+                "before": {
+                  "column": "ends_at",
+                  "via": "event_id",
+                  "or": [
+                    {
+                      "column": "curfew_at",
+                      "via": "event_id"
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "effects": [
             {
               "on": {
@@ -4785,6 +4879,11 @@
                   {
                     "column": "active",
                     "eq": true
+                  },
+                  {
+                    "column": "valid_until",
+                    "notBefore": "now",
+                    "orEmpty": true
                   }
                 ],
                 "scope": [
@@ -5785,6 +5884,32 @@
             }
           },
           {
+            "ref": "door_at",
+            "type": "timestamptz",
+            "label": {
+              "en-US": "Set to pay at the door",
+              "de-DE": "Auf Zahlung an der Abendkasse gesetzt",
+              "fr-FR": "Passé en paiement sur place",
+              "da-DK": "Sat til betaling ved døren",
+              "cs-CZ": "Nastaveno na platbu na místě",
+              "ar-EG": "حُوّل إلى الدفع عند الباب",
+              "zh-CN": "改为现场付款的时间",
+              "zh-TW": "改為現場付款的時間"
+            },
+            "nullable": true,
+            "rules": {
+              "stamp": {
+                "set": "now",
+                "on": {
+                  "column": "status",
+                  "values": [
+                    "door"
+                  ]
+                }
+              }
+            }
+          },
+          {
             "ref": "paid_at",
             "type": "timestamptz",
             "label": {
@@ -6075,6 +6200,75 @@
                     "zh-TW": "現金"
                   }
                 }
+              }
+            }
+          },
+          {
+            "ref": "paid_email",
+            "type": "int",
+            "nullable": true,
+            "label": {
+              "en-US": "Email when paid",
+              "de-DE": "E-Mail bei Zahlung",
+              "fr-FR": "E-mail au paiement",
+              "da-DK": "Mail ved betaling",
+              "cs-CZ": "E-mail po zaplacení",
+              "ar-EG": "رسالة عند الدفع",
+              "zh-CN": "付款后的邮件",
+              "zh-TW": "付款後的信件"
+            },
+            "rules": {
+              "formula": {
+                "if": [
+                  {
+                    "isNull": "door_at"
+                  },
+                  {
+                    "if": [
+                      {
+                        "eq": [
+                          "channel",
+                          "door"
+                        ]
+                      },
+                      0,
+                      {
+                        "if": [
+                          {
+                            "eq": [
+                              "paid_method",
+                              "bank_transfer"
+                            ]
+                          },
+                          2,
+                          {
+                            "if": [
+                              {
+                                "or": [
+                                  {
+                                    "eq": [
+                                      "paid_method",
+                                      "card"
+                                    ]
+                                  },
+                                  {
+                                    "eq": [
+                                      "paid_method",
+                                      "cash"
+                                    ]
+                                  }
+                                ]
+                              },
+                              1,
+                              0
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  0
+                ]
               }
             }
           },
@@ -6436,6 +6630,10 @@
                     {
                       "column": "selling",
                       "eq": true
+                    },
+                    {
+                      "column": "event_status",
+                      "eq": "published"
                     }
                   ]
                 }
@@ -7721,22 +7919,27 @@
                     ]
                   },
                   {
-                    "round": {
-                      "div": [
-                        {
-                          "mul": [
-                            "price",
+                    "min": [
+                      "price",
+                      {
+                        "round": {
+                          "div": [
                             {
-                              "coalesce": [
-                                "code_value",
-                                0
+                              "mul": [
+                                "price",
+                                {
+                                  "coalesce": [
+                                    "code_value",
+                                    0
+                                  ]
+                                }
                               ]
-                            }
+                            },
+                            100
                           ]
-                        },
-                        100
-                      ]
-                    }
+                        }
+                      }
+                    ]
                   },
                   {
                     "if": [
@@ -11211,6 +11414,7 @@
               "tickets",
               "tickets-paid",
               "transfer-confirm",
+              "transfer-confirm-offer",
               "transfer-waiting",
               "transfer-reminder",
               "transfer-released",
@@ -11221,6 +11425,7 @@
               "holder-set",
               "waitlist-offer",
               "on-sale",
+              "on-sale-presale",
               "moved",
               "cancelled-paid",
               "cancelled-unpaid",
@@ -11233,7 +11438,8 @@
               "refund-recorded",
               "tickets-cancelled",
               "refund-declined",
-              "broadcast"
+              "broadcast",
+              "broadcast-holder"
             ],
             "label": {
               "en-US": "Kind",
@@ -11277,6 +11483,16 @@
                     "ar-EG": "أكّد طلبك",
                     "zh-CN": "确认你的订单",
                     "zh-TW": "確認你的訂單"
+                  },
+                  "transfer-confirm-offer": {
+                    "en-US": "Confirm your waitlist tickets",
+                    "de-DE": "Bestätige deine Tickets von der Warteliste",
+                    "fr-FR": "Confirmez vos billets de la liste d'attente",
+                    "da-DK": "Bekræft dine billetter fra ventelisten",
+                    "cs-CZ": "Potvrďte vstupenky z čekací listiny",
+                    "ar-EG": "أكّد تذاكرك من قائمة الانتظار",
+                    "zh-CN": "确认你的候补门票",
+                    "zh-TW": "確認你的候補票"
                   },
                   "transfer-waiting": {
                     "en-US": "Waiting for your transfer",
@@ -11377,6 +11593,16 @@
                     "ar-EG": "البيع قريبا",
                     "zh-CN": "即将开售",
                     "zh-TW": "即將開賣"
+                  },
+                  "on-sale-presale": {
+                    "en-US": "Presale soon",
+                    "de-DE": "Vorverkauf startet bald",
+                    "fr-FR": "Prévente bientôt",
+                    "da-DK": "Forsalget åbner snart",
+                    "cs-CZ": "Brzy začíná předprodej",
+                    "ar-EG": "البيع المسبق قريبا",
+                    "zh-CN": "即将预售",
+                    "zh-TW": "即將預售"
                   },
                   "moved": {
                     "en-US": "Your show has moved",
@@ -11507,6 +11733,16 @@
                     "ar-EG": "رسالة بخصوص حفلك",
                     "zh-CN": "关于你的演出的消息",
                     "zh-TW": "演出相關訊息"
+                  },
+                  "broadcast-holder": {
+                    "en-US": "A message about your show (a friend's ticket)",
+                    "de-DE": "Eine Nachricht zu deiner Show (Ticket von Freunden)",
+                    "fr-FR": "Un message sur votre spectacle (billet d'un proche)",
+                    "da-DK": "En besked om dit arrangement (en vens billet)",
+                    "cs-CZ": "Zpráva k vaší akci (vstupenka od kamaráda)",
+                    "ar-EG": "رسالة بخصوص حفلك (تذكرة من صديق)",
+                    "zh-CN": "关于你的演出的消息（朋友送的票）",
+                    "zh-TW": "演出相關訊息（朋友送的票）"
                   }
                 }
               }
@@ -12143,12 +12379,7 @@
                       ]
                     },
                     {
-                      "column": "event_id.status",
-                      "op": "eq",
-                      "value": "published"
-                    },
-                    {
-                      "column": "event_id.curfew_at",
+                      "column": "doors_at",
                       "op": "gte",
                       "day": "today"
                     }
@@ -12409,9 +12640,32 @@
                       "value": "published"
                     },
                     {
-                      "column": "doors_at",
-                      "op": "eq",
-                      "day": "today"
+                      "or": [
+                        {
+                          "column": "doors_at",
+                          "op": "eq",
+                          "day": "today"
+                        },
+                        {
+                          "and": [
+                            {
+                              "column": "kind",
+                              "op": "eq",
+                              "value": "festival"
+                            },
+                            {
+                              "column": "doors_at",
+                              "op": "lt",
+                              "day": "today"
+                            },
+                            {
+                              "column": "ends_at",
+                              "op": "gte",
+                              "day": "today"
+                            }
+                          ]
+                        }
+                      ]
                     }
                   ],
                   "orderBy": [
@@ -12478,9 +12732,32 @@
                       "value": "published"
                     },
                     {
-                      "column": "event_id.doors_at",
-                      "op": "eq",
-                      "day": "today"
+                      "or": [
+                        {
+                          "column": "event_id.doors_at",
+                          "op": "eq",
+                          "day": "today"
+                        },
+                        {
+                          "and": [
+                            {
+                              "column": "event_id.kind",
+                              "op": "eq",
+                              "value": "festival"
+                            },
+                            {
+                              "column": "event_id.doors_at",
+                              "op": "lt",
+                              "day": "today"
+                            },
+                            {
+                              "column": "event_id.ends_at",
+                              "op": "gte",
+                              "day": "today"
+                            }
+                          ]
+                        }
+                      ]
                     }
                   ]
                 }
@@ -12541,9 +12818,32 @@
                       "value": "published"
                     },
                     {
-                      "column": "event_id.doors_at",
-                      "op": "eq",
-                      "day": "today"
+                      "or": [
+                        {
+                          "column": "event_id.doors_at",
+                          "op": "eq",
+                          "day": "today"
+                        },
+                        {
+                          "and": [
+                            {
+                              "column": "event_id.kind",
+                              "op": "eq",
+                              "value": "festival"
+                            },
+                            {
+                              "column": "event_id.doors_at",
+                              "op": "lt",
+                              "day": "today"
+                            },
+                            {
+                              "column": "event_id.ends_at",
+                              "op": "gte",
+                              "day": "today"
+                            }
+                          ]
+                        }
+                      ]
                     }
                   ]
                 }
@@ -13199,7 +13499,7 @@
                 },
                 {
                   "column": "status",
-                  "control": "segmented"
+                  "control": "readonly"
                 }
               ]
             },
@@ -16322,6 +16622,15 @@
                 "parent": "event_id"
               }
             }
+          ],
+          "counts": [
+            {
+              "by": [
+                "ticket_type_id"
+              ],
+              "min": "min_per_order",
+              "max": "max_per_order"
+            }
           ]
         }
       },
@@ -17045,6 +17354,7 @@
       "tickets": "events-tickets",
       "tickets-paid": "events-tickets-paid",
       "transfer-confirm": "events-transfer-confirm",
+      "transfer-confirm-offer": "events-transfer-confirm-offer",
       "transfer-waiting": "events-transfer-waiting",
       "transfer-reminder": "events-transfer-reminder",
       "transfer-released": "events-transfer-released",
@@ -17055,6 +17365,7 @@
       "holder-set": "events-holder-set",
       "waitlist-offer": "events-waitlist-offer",
       "on-sale": "events-on-sale",
+      "on-sale-presale": "events-on-sale-presale",
       "moved": "events-moved",
       "moved-holder": "events-moved-holder",
       "cancelled-paid": "events-cancelled-paid",
@@ -17067,7 +17378,8 @@
       "refund-recorded": "events-refund-recorded",
       "tickets-cancelled": "events-tickets-cancelled",
       "refund-declined": "events-refund-declined",
-      "broadcast": "events-broadcast"
+      "broadcast": "events-broadcast",
+      "broadcast-holder": "events-broadcast-holder"
     },
     "producers": [
       {
@@ -17090,8 +17402,8 @@
           "column": "status",
           "to": "paid",
           "where": {
-            "column": "channel",
-            "eq": "box_office"
+            "column": "paid_email",
+            "eq": 1
           }
         }
       },
@@ -17101,7 +17413,24 @@
         "onChange": {
           "table": "orders",
           "column": "status",
-          "to": "confirming"
+          "to": "confirming",
+          "where": {
+            "column": "waitlist_id",
+            "isNull": true
+          }
+        }
+      },
+      {
+        "kind": "transfer-confirm-offer",
+        "link": "order_id",
+        "onChange": {
+          "table": "orders",
+          "column": "status",
+          "to": "confirming",
+          "where": {
+            "column": "waitlist_id",
+            "isNull": false
+          }
         }
       },
       {
@@ -17130,8 +17459,8 @@
           "column": "status",
           "to": "paid",
           "where": {
-            "column": "paid_method",
-            "eq": "bank_transfer"
+            "column": "paid_email",
+            "eq": 2
           }
         }
       },
@@ -17215,6 +17544,11 @@
               "not_collected"
             ],
             "reason": "no-longer-needed"
+          },
+          {
+            "column": "ticket_count",
+            "lte": 0,
+            "reason": "no-longer-needed"
           }
         ],
         "onChange": {
@@ -17255,6 +17589,11 @@
               "expired",
               "not_collected"
             ],
+            "reason": "no-longer-needed"
+          },
+          {
+            "column": "ticket_count",
+            "lte": 0,
             "reason": "no-longer-needed"
           }
         ],
@@ -17299,6 +17638,17 @@
               "released"
             ],
             "reason": "no-longer-needed"
+          },
+          {
+            "column": "order_status",
+            "in": [
+              "cancelled",
+              "released",
+              "let_go",
+              "expired",
+              "not_collected"
+            ],
+            "reason": "no-longer-needed"
           }
         ],
         "onChange": {
@@ -17332,6 +17682,17 @@
               "cancelled",
               "returned",
               "released"
+            ],
+            "reason": "no-longer-needed"
+          },
+          {
+            "column": "order_status",
+            "in": [
+              "cancelled",
+              "released",
+              "let_go",
+              "expired",
+              "not_collected"
             ],
             "reason": "no-longer-needed"
           }
@@ -17413,10 +17774,9 @@
       },
       {
         "kind": "refund-recorded",
-        "link": "order_id",
+        "link": "refund_id",
         "onCreate": {
           "table": "refunds",
-          "via": "order_id",
           "where": {
             "column": "voided",
             "eq": false
@@ -17446,7 +17806,7 @@
         }
       },
       {
-        "kind": "on-sale",
+        "kind": "on-sale-presale",
         "link": "reminder_id",
         "before": {
           "table": "reminders",
@@ -18736,6 +19096,287 @@
       }
     },
     {
+      "key": "events-transfer-confirm-offer",
+      "name": {
+        "en-US": "Confirm your waitlist tickets",
+        "de-DE": "Bestätige deine Tickets von der Warteliste",
+        "fr-FR": "Confirmez vos billets de la liste d'attente",
+        "da-DK": "Bekræft dine billetter fra ventelisten",
+        "cs-CZ": "Potvrďte vstupenky z čekací listiny",
+        "ar-EG": "أكّد تذاكرك من قائمة الانتظار",
+        "zh-CN": "确认你的候补门票",
+        "zh-TW": "確認你的候補票"
+      },
+      "vars": [
+        "booking_url",
+        "order.confirm_token",
+        "order.event.name",
+        "order.number",
+        "order.offer_until.date",
+        "order.offer_until.time",
+        "practice.address",
+        "practice.contact_email"
+      ],
+      "locales": {
+        "en-US": {
+          "subject": "Confirm your order for {{order.event.name}} · {{order.number}}",
+          "preheader": "Confirm by {{order.offer_until.date}}, {{order.offer_until.time}} to keep your tickets",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Confirm your order"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "You chose to pay for your {{order.event.name}} tickets from the waitlist by bank transfer. Press the button by {{order.offer_until.date}}, {{order.offer_until.time}} to confirm the order, and we will send the bank details.",
+                  "Until then your tickets are held for you."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Confirm my order",
+                "url": "{{booking_url}}confirm#{{order.confirm_token}}"
+              }
+            }
+          ],
+          "footer": "You're getting this because this address was used to claim tickets from the waitlist at {{appName}}. Didn't? Ignore it. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "de-DE": {
+          "subject": "Bestätige deine Bestellung für {{order.event.name}} · {{order.number}}",
+          "preheader": "Bestätige bis {{order.offer_until.date}}, {{order.offer_until.time}}, damit deine Tickets reserviert bleiben",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Bestätige deine Bestellung"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Du möchtest deine Tickets von der Warteliste für {{order.event.name}} per Überweisung bezahlen. Drück bis {{order.offer_until.date}}, {{order.offer_until.time}} auf den Button, um die Bestellung zu bestätigen – dann schicken wir dir die Bankdaten.",
+                  "Bis dahin halten wir deine Tickets für dich zurück."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Bestellung bestätigen",
+                "url": "{{booking_url}}confirm#{{order.confirm_token}}"
+              }
+            }
+          ],
+          "footer": "Du bekommst diese E-Mail, weil mit dieser Adresse Tickets von der Warteliste bei {{appName}} angenommen wurden. Das warst du nicht? Dann ignoriere sie einfach. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "fr-FR": {
+          "subject": "Confirmez votre commande pour {{order.event.name}} · {{order.number}}",
+          "preheader": "Confirmez avant le {{order.offer_until.date}}, {{order.offer_until.time}} pour garder vos billets",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Confirmez votre commande"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Vous avez choisi de payer par virement bancaire vos billets de la liste d'attente pour {{order.event.name}}. Appuyez sur le bouton avant le {{order.offer_until.date}}, {{order.offer_until.time}} pour confirmer la commande, et nous vous enverrons les coordonnées bancaires.",
+                  "D'ici là, vos billets vous sont réservés."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Confirmer ma commande",
+                "url": "{{booking_url}}confirm#{{order.confirm_token}}"
+              }
+            }
+          ],
+          "footer": "Vous recevez cet e-mail car cette adresse a servi à accepter des billets de la liste d'attente chez {{appName}}. Ce n'était pas vous ? Ignorez-le. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "da-DK": {
+          "subject": "Bekræft din ordre til {{order.event.name}} · {{order.number}}",
+          "preheader": "Bekræft senest {{order.offer_until.date}} kl. {{order.offer_until.time}} for at beholde dine billetter",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Bekræft din ordre"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Du har valgt at betale for dine billetter fra ventelisten til {{order.event.name}} via bankoverførsel. Tryk på knappen senest {{order.offer_until.date}} kl. {{order.offer_until.time}} for at bekræfte ordren, så sender vi bankoplysningerne.",
+                  "Indtil da holder vi dine billetter til dig."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Bekræft min ordre",
+                "url": "{{booking_url}}confirm#{{order.confirm_token}}"
+              }
+            }
+          ],
+          "footer": "Du får denne mail, fordi adressen blev brugt til at tage imod billetter fra ventelisten hos {{appName}}. Var det ikke dig? Så se bort fra den. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "cs-CZ": {
+          "subject": "Potvrďte objednávku na {{order.event.name}} · {{order.number}}",
+          "preheader": "Potvrďte do {{order.offer_until.date}}, {{order.offer_until.time}}, ať o vstupenky nepřijdete",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Potvrďte objednávku"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Vstupenky z čekací listiny na {{order.event.name}} jste se rozhodli zaplatit bankovním převodem. Do {{order.offer_until.date}}, {{order.offer_until.time}} stiskněte tlačítko a objednávku potvrďte, pak vám pošleme bankovní údaje.",
+                  "Do té doby vám vstupenky držíme."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Potvrdit objednávku",
+                "url": "{{booking_url}}confirm#{{order.confirm_token}}"
+              }
+            }
+          ],
+          "footer": "Tento e-mail dostáváte, protože tato adresa byla použita k přijetí vstupenek z čekací listiny v {{appName}}. Nebyli jste to vy? Stačí ho ignorovat. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "ar-EG": {
+          "subject": "أكّد طلبك لحضور {{order.event.name}} · {{order.number}}",
+          "preheader": "أكّد قبل {{order.offer_until.date}}، {{order.offer_until.time}} لتحتفظ بتذاكرك",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "أكّد طلبك"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "اخترت دفع ثمن تذاكرك من قائمة الانتظار لحضور {{order.event.name}} بتحويل بنكي. اضغط الزر قبل {{order.offer_until.date}}، {{order.offer_until.time}} لتأكيد الطلب، وسنرسل إليك بيانات البنك.",
+                  "حتى ذلك الحين، تذاكرك محجوزة لك."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "تأكيد طلبي",
+                "url": "{{booking_url}}confirm#{{order.confirm_token}}"
+              }
+            }
+          ],
+          "footer": "وصلتك هذه الرسالة لأن هذا العنوان استُخدم لقبول تذاكر من قائمة الانتظار في {{appName}}. لم تكن أنت؟ تجاهلها. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "zh-CN": {
+          "subject": "请确认你的 {{order.event.name}} 订单 · {{order.number}}",
+          "preheader": "请在 {{order.offer_until.date}} {{order.offer_until.time}} 前确认，门票才会为你保留",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "确认你的订单"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "你选择了通过银行转账支付 {{order.event.name}} 的候补门票。请在 {{order.offer_until.date}} {{order.offer_until.time}} 前点击按钮确认订单，我们随后会把银行信息发给你。",
+                  "在此之前，门票会一直为你保留。"
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "确认我的订单",
+                "url": "{{booking_url}}confirm#{{order.confirm_token}}"
+              }
+            }
+          ],
+          "footer": "你收到这封邮件，是因为有人用这个邮箱在 {{appName}} 领取了候补门票。如果不是你本人，请忽略即可。 {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "zh-TW": {
+          "subject": "請確認你的 {{order.event.name}} 訂單 · {{order.number}}",
+          "preheader": "請在 {{order.offer_until.date}} {{order.offer_until.time}} 前確認，才能保留你的票",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "確認你的訂單"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "你選擇以銀行轉帳支付 {{order.event.name}} 的候補票款。請在 {{order.offer_until.date}} {{order.offer_until.time}} 前按下按鈕確認訂單，我們會寄上轉帳資料。",
+                  "在那之前，你的票會先為你保留。"
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "確認我的訂單",
+                "url": "{{booking_url}}confirm#{{order.confirm_token}}"
+              }
+            }
+          ],
+          "footer": "你收到這封信，是因為有人用這個信箱在 {{appName}} 領取候補票。如果不是你，請忽略這封信。 {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        }
+      }
+    },
+    {
       "key": "events-transfer-waiting",
       "name": {
         "en-US": "Waiting for your transfer",
@@ -18749,12 +19390,12 @@
       },
       "vars": [
         "manage_url",
+        "order.balance",
         "order.event.name",
         "order.link_token",
         "order.number",
         "order.pay_by.date",
         "order.pay_by.time",
-        "order.total",
         "practice.address",
         "practice.bank_account_name",
         "practice.bank_account_number",
@@ -18766,7 +19407,7 @@
       "locales": {
         "en-US": {
           "subject": "Pay by {{order.pay_by.date}} to keep your {{order.event.name}} tickets · {{order.number}}",
-          "preheader": "{{order.total}} by {{order.pay_by.date}}, {{order.pay_by.time}}",
+          "preheader": "{{order.balance}} by {{order.pay_by.date}}, {{order.pay_by.time}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -18780,7 +19421,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Send {{order.total}} by {{order.pay_by.date}}, {{order.pay_by.time}}, with the reference {{order.number}}. Your tickets arrive by email once it is in.",
+                  "Send {{order.balance}} by {{order.pay_by.date}}, {{order.pay_by.time}}, with the reference {{order.number}}. Your tickets arrive by email once it is in.",
                   "Unpaid tickets go back on sale {{practice.release_after_hours}} hours after that."
                 ]
               }
@@ -18826,7 +19467,7 @@
         },
         "de-DE": {
           "subject": "Bitte bis {{order.pay_by.date}} überweisen, damit du deine Tickets für {{order.event.name}} behältst · {{order.number}}",
-          "preheader": "{{order.total}} bis {{order.pay_by.date}}, {{order.pay_by.time}}",
+          "preheader": "{{order.balance}} bis {{order.pay_by.date}}, {{order.pay_by.time}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -18840,7 +19481,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Überweise {{order.total}} bis {{order.pay_by.date}}, {{order.pay_by.time}} mit dem Verwendungszweck {{order.number}}. Sobald das Geld da ist, kommen deine Tickets per E-Mail.",
+                  "Überweise {{order.balance}} bis {{order.pay_by.date}}, {{order.pay_by.time}} mit dem Verwendungszweck {{order.number}}. Sobald das Geld da ist, kommen deine Tickets per E-Mail.",
                   "Unbezahlte Tickets gehen {{practice.release_after_hours}} Std. danach wieder in den Verkauf."
                 ]
               }
@@ -18886,7 +19527,7 @@
         },
         "fr-FR": {
           "subject": "Payez avant le {{order.pay_by.date}} pour garder vos billets pour {{order.event.name}} · {{order.number}}",
-          "preheader": "{{order.total}} avant le {{order.pay_by.date}}, {{order.pay_by.time}}",
+          "preheader": "{{order.balance}} avant le {{order.pay_by.date}}, {{order.pay_by.time}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -18900,7 +19541,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Envoyez {{order.total}} avant le {{order.pay_by.date}}, {{order.pay_by.time}}, avec la référence {{order.number}}. Vos billets vous arrivent par e-mail dès réception du virement.",
+                  "Envoyez {{order.balance}} avant le {{order.pay_by.date}}, {{order.pay_by.time}}, avec la référence {{order.number}}. Vos billets vous arrivent par e-mail dès réception du virement.",
                   "Passé ce délai, les billets impayés sont remis en vente {{practice.release_after_hours}} h plus tard."
                 ]
               }
@@ -18946,7 +19587,7 @@
         },
         "da-DK": {
           "subject": "Betal senest {{order.pay_by.date}} for at beholde dine billetter til {{order.event.name}} · {{order.number}}",
-          "preheader": "{{order.total}} senest {{order.pay_by.date}} kl. {{order.pay_by.time}}",
+          "preheader": "{{order.balance}} senest {{order.pay_by.date}} kl. {{order.pay_by.time}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -18960,7 +19601,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Overfør {{order.total}} senest {{order.pay_by.date}} kl. {{order.pay_by.time}} med referencen {{order.number}}. Dine billetter kommer på mail, så snart pengene er modtaget.",
+                  "Overfør {{order.balance}} senest {{order.pay_by.date}} kl. {{order.pay_by.time}} med referencen {{order.number}}. Dine billetter kommer på mail, så snart pengene er modtaget.",
                   "Ubetalte billetter kommer til salg igen {{practice.release_after_hours}} t. efter fristen."
                 ]
               }
@@ -19006,7 +19647,7 @@
         },
         "cs-CZ": {
           "subject": "Zaplaťte do {{order.pay_by.date}}, ať vám vstupenky na {{order.event.name}} zůstanou · {{order.number}}",
-          "preheader": "{{order.total}} do {{order.pay_by.date}}, {{order.pay_by.time}}",
+          "preheader": "{{order.balance}} do {{order.pay_by.date}}, {{order.pay_by.time}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -19020,7 +19661,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Pošlete {{order.total}} do {{order.pay_by.date}}, {{order.pay_by.time}} s variabilním symbolem {{order.number}}. Jakmile platba dorazí, pošleme vám vstupenky e-mailem.",
+                  "Pošlete {{order.balance}} do {{order.pay_by.date}}, {{order.pay_by.time}} s variabilním symbolem {{order.number}}. Jakmile platba dorazí, pošleme vám vstupenky e-mailem.",
                   "Nezaplacené vstupenky se po uplynutí dalšího odkladu vrátí do prodeje (odklad v hodinách: {{practice.release_after_hours}})."
                 ]
               }
@@ -19066,7 +19707,7 @@
         },
         "ar-EG": {
           "subject": "ادفع قبل {{order.pay_by.date}} لتحتفظ بتذاكر {{order.event.name}} · {{order.number}}",
-          "preheader": "{{order.total}} قبل {{order.pay_by.date}}، {{order.pay_by.time}}",
+          "preheader": "{{order.balance}} قبل {{order.pay_by.date}}، {{order.pay_by.time}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -19080,7 +19721,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "حوّل {{order.total}} قبل {{order.pay_by.date}}، {{order.pay_by.time}}، واكتب المرجع {{order.number}}. تصلك تذاكرك بالبريد الإلكتروني فور وصول المبلغ.",
+                  "حوّل {{order.balance}} قبل {{order.pay_by.date}}، {{order.pay_by.time}}، واكتب المرجع {{order.number}}. تصلك تذاكرك بالبريد الإلكتروني فور وصول المبلغ.",
                   "بعد ذلك الموعد تبقى التذاكر غير المدفوعة محجوزة لمهلة إضافية (بالساعات: {{practice.release_after_hours}})، ثم تعود إلى البيع."
                 ]
               }
@@ -19126,7 +19767,7 @@
         },
         "zh-CN": {
           "subject": "请在 {{order.pay_by.date}} 前付款，保留你的 {{order.event.name}} 门票 · {{order.number}}",
-          "preheader": "{{order.total}}，截止 {{order.pay_by.date}} {{order.pay_by.time}}",
+          "preheader": "{{order.balance}}，截止 {{order.pay_by.date}} {{order.pay_by.time}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -19140,7 +19781,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "请在 {{order.pay_by.date}} {{order.pay_by.time}} 前转账 {{order.total}}，附言填写 {{order.number}}。款项到账后，门票会通过邮件发给你。",
+                  "请在 {{order.pay_by.date}} {{order.pay_by.time}} 前转账 {{order.balance}}，附言填写 {{order.number}}。款项到账后，门票会通过邮件发给你。",
                   "逾期 {{practice.release_after_hours}} 小时仍未付款，门票将重新开售。"
                 ]
               }
@@ -19186,7 +19827,7 @@
         },
         "zh-TW": {
           "subject": "請在 {{order.pay_by.date}} 前付款，保留你的 {{order.event.name}} 票券 · {{order.number}}",
-          "preheader": "{{order.pay_by.date}} {{order.pay_by.time}} 前轉帳 {{order.total}}",
+          "preheader": "{{order.pay_by.date}} {{order.pay_by.time}} 前轉帳 {{order.balance}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -19200,7 +19841,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "請在 {{order.pay_by.date}} {{order.pay_by.time}} 前轉帳 {{order.total}}，並在轉帳備註填寫 {{order.number}}。款項入帳後，票券會以電子郵件寄給你。",
+                  "請在 {{order.pay_by.date}} {{order.pay_by.time}} 前轉帳 {{order.balance}}，並在轉帳備註填寫 {{order.number}}。款項入帳後，票券會以電子郵件寄給你。",
                   "逾期 {{practice.release_after_hours}} 小時仍未付款，票券將重新開賣。"
                 ]
               }
@@ -19260,12 +19901,12 @@
       },
       "vars": [
         "manage_url",
+        "order.balance",
         "order.event.name",
         "order.link_token",
         "order.number",
         "order.pay_by.date",
         "order.pay_by.time",
-        "order.total",
         "practice.address",
         "practice.bank_account_name",
         "practice.bank_account_number",
@@ -19276,7 +19917,7 @@
       "locales": {
         "en-US": {
           "subject": "Reminder: your transfer for {{order.event.name}} · {{order.number}}",
-          "preheader": "{{order.total}} was due {{order.pay_by.date}}",
+          "preheader": "{{order.balance}} was due {{order.pay_by.date}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -19290,7 +19931,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "We haven't received {{order.total}} for order {{order.number}}. It was due {{order.pay_by.date}}, {{order.pay_by.time}}.",
+                  "We haven't received {{order.balance}} for order {{order.number}}. It was due {{order.pay_by.date}}, {{order.pay_by.time}}.",
                   "Unpaid tickets go back on sale soon. If you have already sent it, you don't need to do anything."
                 ]
               }
@@ -19336,7 +19977,7 @@
         },
         "de-DE": {
           "subject": "Erinnerung: deine Überweisung für {{order.event.name}} · {{order.number}}",
-          "preheader": "{{order.total}}, fällig am {{order.pay_by.date}}",
+          "preheader": "{{order.balance}}, fällig am {{order.pay_by.date}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -19350,7 +19991,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Für Bestellung {{order.number}} haben wir {{order.total}} noch nicht erhalten. Fällig war der Betrag am {{order.pay_by.date}}, {{order.pay_by.time}}.",
+                  "Für Bestellung {{order.number}} haben wir {{order.balance}} noch nicht erhalten. Fällig war der Betrag am {{order.pay_by.date}}, {{order.pay_by.time}}.",
                   "Unbezahlte Tickets gehen bald wieder in den Verkauf. Wenn du schon überwiesen hast, musst du nichts weiter tun."
                 ]
               }
@@ -19396,7 +20037,7 @@
         },
         "fr-FR": {
           "subject": "Rappel : votre virement pour {{order.event.name}} · {{order.number}}",
-          "preheader": "{{order.total}} attendu le {{order.pay_by.date}}",
+          "preheader": "{{order.balance}} attendu le {{order.pay_by.date}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -19410,7 +20051,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Nous n'avons pas reçu {{order.total}} pour la commande {{order.number}}. Le virement était attendu le {{order.pay_by.date}}, {{order.pay_by.time}}.",
+                  "Nous n'avons pas reçu {{order.balance}} pour la commande {{order.number}}. Le virement était attendu le {{order.pay_by.date}}, {{order.pay_by.time}}.",
                   "Les billets impayés seront bientôt remis en vente. Si vous avez déjà fait le virement, vous n'avez rien à faire."
                 ]
               }
@@ -19456,7 +20097,7 @@
         },
         "da-DK": {
           "subject": "Påmindelse: din overførsel til {{order.event.name}} · {{order.number}}",
-          "preheader": "{{order.total}} skulle være betalt {{order.pay_by.date}}",
+          "preheader": "{{order.balance}} skulle være betalt {{order.pay_by.date}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -19470,7 +20111,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Vi har ikke modtaget {{order.total}} for ordre {{order.number}}. Beløbet skulle være betalt {{order.pay_by.date}} kl. {{order.pay_by.time}}.",
+                  "Vi har ikke modtaget {{order.balance}} for ordre {{order.number}}. Beløbet skulle være betalt {{order.pay_by.date}} kl. {{order.pay_by.time}}.",
                   "Ubetalte billetter kommer snart til salg igen. Har du allerede overført beløbet, behøver du ikke gøre noget."
                 ]
               }
@@ -19516,7 +20157,7 @@
         },
         "cs-CZ": {
           "subject": "Připomínka: váš převod za {{order.event.name}} · {{order.number}}",
-          "preheader": "{{order.total}} bylo splatné {{order.pay_by.date}}",
+          "preheader": "{{order.balance}} bylo splatné {{order.pay_by.date}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -19530,7 +20171,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Platbu {{order.total}} za objednávku {{order.number}} jsme zatím neobdrželi. Splatnost byla {{order.pay_by.date}}, {{order.pay_by.time}}.",
+                  "Platbu {{order.balance}} za objednávku {{order.number}} jsme zatím neobdrželi. Splatnost byla {{order.pay_by.date}}, {{order.pay_by.time}}.",
                   "Nezaplacené vstupenky se brzy vrátí do prodeje. Pokud jste už platbu odeslali, nemusíte nic dělat."
                 ]
               }
@@ -19576,7 +20217,7 @@
         },
         "ar-EG": {
           "subject": "تذكير: تحويلك لحضور {{order.event.name}} · {{order.number}}",
-          "preheader": "كان {{order.total}} مستحقا في {{order.pay_by.date}}",
+          "preheader": "كان {{order.balance}} مستحقا في {{order.pay_by.date}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -19590,7 +20231,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "لم نستلم {{order.total}} للطلب {{order.number}}. كان موعد الاستحقاق {{order.pay_by.date}}، {{order.pay_by.time}}.",
+                  "لم نستلم {{order.balance}} للطلب {{order.number}}. كان موعد الاستحقاق {{order.pay_by.date}}، {{order.pay_by.time}}.",
                   "ستعود التذاكر غير المدفوعة إلى البيع قريبا. إن كنت قد أرسلت المبلغ بالفعل، فلا داعي لأي إجراء."
                 ]
               }
@@ -19636,7 +20277,7 @@
         },
         "zh-CN": {
           "subject": "提醒：你的 {{order.event.name}} 转账 · {{order.number}}",
-          "preheader": "{{order.total}} 应于 {{order.pay_by.date}} 前付清",
+          "preheader": "{{order.balance}} 应于 {{order.pay_by.date}} 前付清",
           "blocks": [
             {
               "block": "email.heading",
@@ -19650,7 +20291,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "我们还没有收到订单 {{order.number}} 的 {{order.total}}。付款截止时间是 {{order.pay_by.date}} {{order.pay_by.time}}。",
+                  "我们还没有收到订单 {{order.number}} 的 {{order.balance}}。付款截止时间是 {{order.pay_by.date}} {{order.pay_by.time}}。",
                   "未付款的门票很快会重新开售。如果你已经转账，无需任何操作。"
                 ]
               }
@@ -19696,7 +20337,7 @@
         },
         "zh-TW": {
           "subject": "提醒：你的 {{order.event.name}} 轉帳 · {{order.number}}",
-          "preheader": "{{order.total}} 的付款期限是 {{order.pay_by.date}}",
+          "preheader": "{{order.balance}} 的付款期限是 {{order.pay_by.date}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -19710,7 +20351,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "我們還沒收到訂單 {{order.number}} 的 {{order.total}}。付款期限是 {{order.pay_by.date}} {{order.pay_by.time}}。",
+                  "我們還沒收到訂單 {{order.number}} 的 {{order.balance}}。付款期限是 {{order.pay_by.date}} {{order.pay_by.time}}。",
                   "未付款的票券很快就會重新開賣。如果你已經轉帳了，就不用再做任何事。"
                 ]
               }
@@ -22267,6 +22908,278 @@
       }
     },
     {
+      "key": "events-on-sale-presale",
+      "name": {
+        "en-US": "Presale soon",
+        "de-DE": "Vorverkauf startet bald",
+        "fr-FR": "Prévente bientôt",
+        "da-DK": "Forsalget åbner snart",
+        "cs-CZ": "Brzy začíná předprodej",
+        "ar-EG": "البيع المسبق قريبا",
+        "zh-CN": "即将预售",
+        "zh-TW": "即將預售"
+      },
+      "vars": [
+        "booking_url",
+        "practice.address",
+        "practice.contact_email",
+        "reminder.event.name",
+        "reminder.ticket_type.name",
+        "reminder.type_sales_start.date",
+        "reminder.type_sales_start.time"
+      ],
+      "locales": {
+        "en-US": {
+          "subject": "The {{reminder.event.name}} presale opens at {{reminder.type_sales_start.time}}",
+          "preheader": "{{reminder.type_sales_start.date}}, {{reminder.type_sales_start.time}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "The {{reminder.event.name}} presale opens at {{reminder.type_sales_start.time}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{reminder.ticket_type.name}} goes on sale {{reminder.type_sales_start.date}} at {{reminder.type_sales_start.time}}."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Get tickets",
+                "url": "{{booking_url}}"
+              }
+            }
+          ],
+          "footer": "You asked us to remind you once, before the presale opens. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "de-DE": {
+          "subject": "Der Vorverkauf für {{reminder.event.name}} startet um {{reminder.type_sales_start.time}}",
+          "preheader": "{{reminder.type_sales_start.date}}, {{reminder.type_sales_start.time}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Der Vorverkauf für {{reminder.event.name}} startet um {{reminder.type_sales_start.time}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{reminder.ticket_type.name}} gibt es ab {{reminder.type_sales_start.date}} um {{reminder.type_sales_start.time}}."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Tickets holen",
+                "url": "{{booking_url}}"
+              }
+            }
+          ],
+          "footer": "Du wolltest einmal erinnert werden, bevor der Vorverkauf startet. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "fr-FR": {
+          "subject": "{{reminder.event.name}} : ouverture de la prévente à {{reminder.type_sales_start.time}}",
+          "preheader": "{{reminder.type_sales_start.date}}, {{reminder.type_sales_start.time}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "{{reminder.event.name}} : ouverture de la prévente à {{reminder.type_sales_start.time}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{reminder.ticket_type.name}} sera en vente le {{reminder.type_sales_start.date}} à {{reminder.type_sales_start.time}}."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Prendre des billets",
+                "url": "{{booking_url}}"
+              }
+            }
+          ],
+          "footer": "Vous nous avez demandé un rappel, une seule fois, avant l'ouverture de la prévente. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "da-DK": {
+          "subject": "Forsalget til {{reminder.event.name}} åbner kl. {{reminder.type_sales_start.time}}",
+          "preheader": "{{reminder.type_sales_start.date}} kl. {{reminder.type_sales_start.time}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Forsalget til {{reminder.event.name}} åbner kl. {{reminder.type_sales_start.time}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{reminder.ticket_type.name}} kommer til salg {{reminder.type_sales_start.date}} kl. {{reminder.type_sales_start.time}}."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Køb billetter",
+                "url": "{{booking_url}}"
+              }
+            }
+          ],
+          "footer": "Du bad os minde dig om det én gang, før forsalget åbner. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "cs-CZ": {
+          "subject": "Předprodej na {{reminder.event.name}} začíná v {{reminder.type_sales_start.time}}",
+          "preheader": "{{reminder.type_sales_start.date}}, {{reminder.type_sales_start.time}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Předprodej na {{reminder.event.name}} začíná v {{reminder.type_sales_start.time}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{reminder.ticket_type.name}} bude v prodeji od {{reminder.type_sales_start.date}}, {{reminder.type_sales_start.time}}."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Koupit vstupenky",
+                "url": "{{booking_url}}"
+              }
+            }
+          ],
+          "footer": "Požádali jste nás o jednu připomínku před začátkem předprodeje. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "ar-EG": {
+          "subject": "يبدأ البيع المسبق لتذاكر {{reminder.event.name}} الساعة {{reminder.type_sales_start.time}}",
+          "preheader": "{{reminder.type_sales_start.date}}، {{reminder.type_sales_start.time}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "يبدأ البيع المسبق لتذاكر {{reminder.event.name}} الساعة {{reminder.type_sales_start.time}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "تُطرح {{reminder.ticket_type.name}} للبيع في {{reminder.type_sales_start.date}} الساعة {{reminder.type_sales_start.time}}."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "احصل على التذاكر",
+                "url": "{{booking_url}}"
+              }
+            }
+          ],
+          "footer": "طلبت منا تذكيرك مرة واحدة قبل بدء البيع المسبق. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "zh-CN": {
+          "subject": "{{reminder.event.name}} 将于 {{reminder.type_sales_start.time}} 开始预售",
+          "preheader": "{{reminder.type_sales_start.date}} {{reminder.type_sales_start.time}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "{{reminder.event.name}} 将于 {{reminder.type_sales_start.time}} 开始预售"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{reminder.ticket_type.name}} 将于 {{reminder.type_sales_start.date}} {{reminder.type_sales_start.time}} 开售。"
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "去买票",
+                "url": "{{booking_url}}"
+              }
+            }
+          ],
+          "footer": "你请我们在预售开始前提醒你一次。 {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "zh-TW": {
+          "subject": "{{reminder.event.name}} 將於 {{reminder.type_sales_start.time}} 開始預售",
+          "preheader": "{{reminder.type_sales_start.date}} {{reminder.type_sales_start.time}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "{{reminder.event.name}} 將於 {{reminder.type_sales_start.time}} 開始預售"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{reminder.ticket_type.name}} 將於 {{reminder.type_sales_start.date}} {{reminder.type_sales_start.time}} 開賣。"
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "去買票",
+                "url": "{{booking_url}}"
+              }
+            }
+          ],
+          "footer": "你請我們在預售開始前提醒你一次。 {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        }
+      }
+    },
+    {
       "key": "events-moved",
       "name": {
         "en-US": "Your show has moved",
@@ -22846,7 +23759,7 @@
         "order.event.name",
         "order.link_token",
         "order.number",
-        "order.paid_in",
+        "order.received",
         "practice.address",
         "practice.contact_email",
         "practice.refund_payback_text"
@@ -22869,7 +23782,7 @@
               "data": {
                 "paras": [
                   "We're sorry — {{order.event.name}} on {{order.event.doors_at.date}} is cancelled.",
-                  "You paid {{order.paid_in}}. We will give it back {{practice.refund_payback_text}}, the way you paid."
+                  "You paid {{order.received}}. We will give it back {{practice.refund_payback_text}}, the way you paid."
                 ]
               }
             },
@@ -22901,7 +23814,7 @@
               "data": {
                 "paras": [
                   "Es tut uns leid – {{order.event.name}} am {{order.event.doors_at.date}} fällt aus.",
-                  "Du hast {{order.paid_in}} bezahlt. Wir erstatten den Betrag {{practice.refund_payback_text}}, auf demselben Weg, auf dem du bezahlt hast."
+                  "Du hast {{order.received}} bezahlt. Wir erstatten den Betrag {{practice.refund_payback_text}}, auf demselben Weg, auf dem du bezahlt hast."
                 ]
               }
             },
@@ -22933,7 +23846,7 @@
               "data": {
                 "paras": [
                   "Nous sommes désolés : {{order.event.name}} du {{order.event.doors_at.date}} est annulé.",
-                  "Vous avez payé {{order.paid_in}}. Nous vous rembourserons {{practice.refund_payback_text}}, par le même moyen de paiement."
+                  "Vous avez payé {{order.received}}. Nous vous rembourserons {{practice.refund_payback_text}}, par le même moyen de paiement."
                 ]
               }
             },
@@ -22965,7 +23878,7 @@
               "data": {
                 "paras": [
                   "Vi beklager – {{order.event.name}} den {{order.event.doors_at.date}} er aflyst.",
-                  "Du har betalt {{order.paid_in}}. Vi betaler beløbet tilbage {{practice.refund_payback_text}}, på samme måde som du betalte."
+                  "Du har betalt {{order.received}}. Vi betaler beløbet tilbage {{practice.refund_payback_text}}, på samme måde som du betalte."
                 ]
               }
             },
@@ -22997,7 +23910,7 @@
               "data": {
                 "paras": [
                   "Je nám líto – {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena.",
-                  "Zaplatili jste {{order.paid_in}}. Peníze vám vrátíme {{practice.refund_payback_text}}, stejným způsobem, jakým jste platili."
+                  "Zaplatili jste {{order.received}}. Peníze vám vrátíme {{practice.refund_payback_text}}, stejným způsobem, jakým jste platili."
                 ]
               }
             },
@@ -23029,7 +23942,7 @@
               "data": {
                 "paras": [
                   "نأسف لإبلاغك بإلغاء {{order.event.name}} المقرر في {{order.event.doors_at.date}}.",
-                  "دفعت {{order.paid_in}}. سنعيده إليك {{practice.refund_payback_text}}، بالطريقة نفسها التي دفعت بها."
+                  "دفعت {{order.received}}. سنعيده إليك {{practice.refund_payback_text}}، بالطريقة نفسها التي دفعت بها."
                 ]
               }
             },
@@ -23061,7 +23974,7 @@
               "data": {
                 "paras": [
                   "非常抱歉，{{order.event.doors_at.date}} 的 {{order.event.name}} 已取消。",
-                  "你已支付 {{order.paid_in}}。我们会按原付款方式退还，{{practice.refund_payback_text}}。"
+                  "你已支付 {{order.received}}。我们会按原付款方式退还，{{practice.refund_payback_text}}。"
                 ]
               }
             },
@@ -23093,7 +24006,7 @@
               "data": {
                 "paras": [
                   "很抱歉，{{order.event.doors_at.date}} 的 {{order.event.name}} 已取消。",
-                  "你已支付 {{order.paid_in}}。我們會在 {{practice.refund_payback_text}} 以你原本的付款方式退還。"
+                  "你已支付 {{order.received}}。我們會在 {{practice.refund_payback_text}} 以你原本的付款方式退還。"
                 ]
               }
             },
@@ -25144,15 +26057,15 @@
         "order.event.name",
         "order.link_token",
         "order.number",
-        "order.refunded",
         "practice.address",
         "practice.contact_email",
-        "practice.refund_payback_text"
+        "practice.refund_payback_text",
+        "refund.amount"
       ],
       "locales": {
         "en-US": {
           "subject": "Your refund for {{order.event.name}} · {{order.number}}",
-          "preheader": "{{order.refunded}} back to you",
+          "preheader": "{{refund.amount}} back to you",
           "blocks": [
             {
               "block": "email.heading",
@@ -25166,7 +26079,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "We've recorded {{order.refunded}} back to you for order {{order.number}}. It reaches you {{practice.refund_payback_text}}."
+                  "We've recorded {{refund.amount}} back to you for order {{order.number}}. It reaches you {{practice.refund_payback_text}}."
                 ]
               }
             },
@@ -25183,7 +26096,7 @@
         },
         "de-DE": {
           "subject": "Deine Erstattung für {{order.event.name}} · {{order.number}}",
-          "preheader": "{{order.refunded}} zurück an dich",
+          "preheader": "{{refund.amount}} zurück an dich",
           "blocks": [
             {
               "block": "email.heading",
@@ -25197,7 +26110,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Wir haben für Bestellung {{order.number}} eine Erstattung von {{order.refunded}} an dich erfasst. Das Geld kommt {{practice.refund_payback_text}} bei dir an."
+                  "Wir haben für Bestellung {{order.number}} eine Erstattung von {{refund.amount}} an dich erfasst. Das Geld kommt {{practice.refund_payback_text}} bei dir an."
                 ]
               }
             },
@@ -25214,7 +26127,7 @@
         },
         "fr-FR": {
           "subject": "Votre remboursement pour {{order.event.name}} · {{order.number}}",
-          "preheader": "{{order.refunded}} remboursé",
+          "preheader": "{{refund.amount}} remboursé",
           "blocks": [
             {
               "block": "email.heading",
@@ -25228,7 +26141,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Nous avons enregistré un remboursement de {{order.refunded}} pour la commande {{order.number}}. Vous le recevrez {{practice.refund_payback_text}}."
+                  "Nous avons enregistré un remboursement de {{refund.amount}} pour la commande {{order.number}}. Vous le recevrez {{practice.refund_payback_text}}."
                 ]
               }
             },
@@ -25245,7 +26158,7 @@
         },
         "da-DK": {
           "subject": "Din refusion for {{order.event.name}} · {{order.number}}",
-          "preheader": "{{order.refunded}} tilbage til dig",
+          "preheader": "{{refund.amount}} tilbage til dig",
           "blocks": [
             {
               "block": "email.heading",
@@ -25259,7 +26172,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Vi har registreret en refusion på {{order.refunded}} til dig for ordre {{order.number}}. Pengene er hos dig {{practice.refund_payback_text}}."
+                  "Vi har registreret en refusion på {{refund.amount}} til dig for ordre {{order.number}}. Pengene er hos dig {{practice.refund_payback_text}}."
                 ]
               }
             },
@@ -25276,7 +26189,7 @@
         },
         "cs-CZ": {
           "subject": "Vrácení peněz za {{order.event.name}} · {{order.number}}",
-          "preheader": "Vracíme vám {{order.refunded}}",
+          "preheader": "Vracíme vám {{refund.amount}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -25290,7 +26203,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Za objednávku {{order.number}} jsme zaznamenali vrácení {{order.refunded}}. Peníze k vám dorazí {{practice.refund_payback_text}}."
+                  "Za objednávku {{order.number}} jsme zaznamenali vrácení {{refund.amount}}. Peníze k vám dorazí {{practice.refund_payback_text}}."
                 ]
               }
             },
@@ -25307,7 +26220,7 @@
         },
         "ar-EG": {
           "subject": "استرداد مبلغك لحضور {{order.event.name}} · {{order.number}}",
-          "preheader": "{{order.refunded}} يعود إليك",
+          "preheader": "{{refund.amount}} يعود إليك",
           "blocks": [
             {
               "block": "email.heading",
@@ -25321,7 +26234,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "سجّلنا رد {{order.refunded}} إليك عن الطلب {{order.number}}. سيصلك المبلغ {{practice.refund_payback_text}}."
+                  "سجّلنا رد {{refund.amount}} إليك عن الطلب {{order.number}}. سيصلك المبلغ {{practice.refund_payback_text}}."
                 ]
               }
             },
@@ -25338,7 +26251,7 @@
         },
         "zh-CN": {
           "subject": "你的 {{order.event.name}} 退款 · {{order.number}}",
-          "preheader": "{{order.refunded}} 将退还给你",
+          "preheader": "{{refund.amount}} 将退还给你",
           "blocks": [
             {
               "block": "email.heading",
@@ -25352,7 +26265,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "我们已为订单 {{order.number}} 记录了 {{order.refunded}} 的退款，{{practice.refund_payback_text}}到账。"
+                  "我们已为订单 {{order.number}} 记录了 {{refund.amount}} 的退款，{{practice.refund_payback_text}}到账。"
                 ]
               }
             },
@@ -25369,7 +26282,7 @@
         },
         "zh-TW": {
           "subject": "你的 {{order.event.name}} 退款 · {{order.number}}",
-          "preheader": "將退還你 {{order.refunded}}",
+          "preheader": "將退還你 {{refund.amount}}",
           "blocks": [
             {
               "block": "email.heading",
@@ -25383,7 +26296,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "我們已登記訂單 {{order.number}} 退還你 {{order.refunded}}。款項會在 {{practice.refund_payback_text}} 退到你手上。"
+                  "我們已登記訂單 {{order.number}} 退還你 {{refund.amount}}。款項會在 {{practice.refund_payback_text}} 退到你手上。"
                 ]
               }
             },
@@ -26211,6 +27124,287 @@
             }
           ],
           "footer": "你持有這場演出的票 · 訂單 {{order.number}}。 {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        }
+      }
+    },
+    {
+      "key": "events-broadcast-holder",
+      "name": {
+        "en-US": "A message about your show (a friend's ticket)",
+        "de-DE": "Eine Nachricht zu deiner Show (Ticket von Freunden)",
+        "fr-FR": "Un message sur votre spectacle (billet d'un proche)",
+        "da-DK": "En besked om dit arrangement (en vens billet)",
+        "cs-CZ": "Zpráva k vaší akci (vstupenka od kamaráda)",
+        "ar-EG": "رسالة بخصوص حفلك (تذكرة من صديق)",
+        "zh-CN": "关于你的演出的消息（朋友送的票）",
+        "zh-TW": "演出相關訊息（朋友送的票）"
+      },
+      "vars": [
+        "booking_url",
+        "broadcast.body",
+        "broadcast.subject",
+        "practice.address",
+        "practice.contact_email",
+        "ticket.event.name",
+        "ticket.link_token",
+        "ticket.order.buyer_name"
+      ],
+      "locales": {
+        "en-US": {
+          "subject": "{{broadcast.subject}}",
+          "preheader": "About your ticket for {{ticket.event.name}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "About {{ticket.event.name}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{broadcast.body}}",
+                  "{{ticket.order.buyer_name}} sent you this ticket. Any money back goes to them."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "See my ticket",
+                "url": "{{booking_url}}t#{{ticket.link_token}}"
+              }
+            }
+          ],
+          "footer": "You hold a ticket for this show. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "de-DE": {
+          "subject": "{{broadcast.subject}}",
+          "preheader": "Zu deinem Ticket für {{ticket.event.name}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Zu {{ticket.event.name}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{broadcast.body}}",
+                  "{{ticket.order.buyer_name}} hat dir dieses Ticket geschickt. Geld zurück geht an die Person, die es gekauft hat."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Mein Ticket ansehen",
+                "url": "{{booking_url}}t#{{ticket.link_token}}"
+              }
+            }
+          ],
+          "footer": "Du hast ein Ticket für diese Show. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "fr-FR": {
+          "subject": "{{broadcast.subject}}",
+          "preheader": "À propos de votre billet pour {{ticket.event.name}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "À propos de {{ticket.event.name}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{broadcast.body}}",
+                  "{{ticket.order.buyer_name}} vous a envoyé ce billet. Tout remboursement lui revient."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Voir mon billet",
+                "url": "{{booking_url}}t#{{ticket.link_token}}"
+              }
+            }
+          ],
+          "footer": "Vous avez un billet pour ce spectacle. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "da-DK": {
+          "subject": "{{broadcast.subject}}",
+          "preheader": "Om din billet til {{ticket.event.name}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Om {{ticket.event.name}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{broadcast.body}}",
+                  "{{ticket.order.buyer_name}} har sendt dig denne billet. Eventuelle penge tilbage går til køberen."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Se min billet",
+                "url": "{{booking_url}}t#{{ticket.link_token}}"
+              }
+            }
+          ],
+          "footer": "Du har en billet til dette arrangement. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "cs-CZ": {
+          "subject": "{{broadcast.subject}}",
+          "preheader": "K vaší vstupence na {{ticket.event.name}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "K akci {{ticket.event.name}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{broadcast.body}}",
+                  "Tuto vstupenku vám poslal(a) {{ticket.order.buyer_name}}. Případné peníze vracíme kupujícímu."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Zobrazit vstupenku",
+                "url": "{{booking_url}}t#{{ticket.link_token}}"
+              }
+            }
+          ],
+          "footer": "Máte vstupenku na tuto akci. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "ar-EG": {
+          "subject": "{{broadcast.subject}}",
+          "preheader": "بخصوص تذكرتك لحضور {{ticket.event.name}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "بخصوص {{ticket.event.name}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{broadcast.body}}",
+                  "أرسل إليك {{ticket.order.buyer_name}} هذه التذكرة. أي مبلغ يُرد يذهب إليه."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "عرض تذكرتي",
+                "url": "{{booking_url}}t#{{ticket.link_token}}"
+              }
+            }
+          ],
+          "footer": "لديك تذكرة لهذا الحفل. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "zh-CN": {
+          "subject": "{{broadcast.subject}}",
+          "preheader": "关于你的 {{ticket.event.name}} 门票",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "关于 {{ticket.event.name}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{broadcast.body}}",
+                  "这张票是 {{ticket.order.buyer_name}} 送你的。如有退款，会退给对方。"
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "查看我的票",
+                "url": "{{booking_url}}t#{{ticket.link_token}}"
+              }
+            }
+          ],
+          "footer": "你持有这场演出的门票。 {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "zh-TW": {
+          "subject": "{{broadcast.subject}}",
+          "preheader": "關於你的 {{ticket.event.name}} 票券",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "關於 {{ticket.event.name}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{broadcast.body}}",
+                  "這張票是 {{ticket.order.buyer_name}} 送你的，如有退款會退給對方。"
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "查看我的票",
+                "url": "{{booking_url}}t#{{ticket.link_token}}"
+              }
+            }
+          ],
+          "footer": "你持有這場演出的票。 {{appName}} · {{practice.address}} · {{practice.contact_email}}"
         }
       }
     }

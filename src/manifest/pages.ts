@@ -9,7 +9,9 @@
  * have their own screens on the app's staff side; the sidebar links to them.
  *
  * A value Adminium works out — a total, a number, a stamp, a code — shows in
- * a form and cannot be typed over. Pages of a feature the venue switched off
+ * a form and cannot be typed over. A show's status is shown, not set, here:
+ * it is announced from the box office's editor and postponed or cancelled
+ * from its Postpone and Cancel, which move the show's orders with it. Pages of a feature the venue switched off
  * stay: they are records, not ways in.
  */
 import { l, titles } from "./labels.ts";
@@ -67,7 +69,7 @@ const SPECS: PageSpec[] = [
     order: 1,
     table: "events",
     config: form(
-      [title("name"), f("short_name"), f("slug"), f("support"), f("kind", { control: "select" }), ref("room_id"), f("status", { control: "segmented" })],
+      [title("name"), f("short_name"), f("slug"), f("support"), f("kind", { control: "select" }), ref("room_id"), f("status", { control: "readonly" })],
       [when("doors_at"), when("starts_at"), when("curfew_at"), when("ends_at"), when("on_sale_at"), when("guest_list_closes_at")],
       [
         rows("event_days", [

@@ -132,9 +132,12 @@ describe("only the emailed confirm link moves a bank-transfer checkout on", () =
     expect(movers.map((e) => e.key)).toEqual(["confirm"]);
   });
 
-  it("is sent only in the confirm email", () => {
+  it("is sent only in the confirm emails (a checkout's, and a waitlist claim's by the offer's end)", () => {
     const templates = manifest["emailTemplates"] as { key: string }[];
-    expect(templates.filter((template) => JSON.stringify(template).includes("confirm_token")).map((template) => template.key)).toEqual(["events-transfer-confirm"]);
+    expect(templates.filter((template) => JSON.stringify(template).includes("confirm_token")).map((template) => template.key)).toEqual([
+      "events-transfer-confirm",
+      "events-transfer-confirm-offer",
+    ]);
   });
 });
 

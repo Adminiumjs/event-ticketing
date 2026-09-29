@@ -362,6 +362,8 @@ export const PUBLIC_ACCESS = [
         min: 1,
         max: 12,
         agrees: [{ column: "ticket_type_id", path: ["event_id"], eq: { parent: "event_id" } }],
+        // Of each type, no fewer than its "At least" and no more than its "At most in one order" (either left empty: no bound).
+        counts: [{ by: ["ticket_type_id"], min: "min_per_order", max: "max_per_order" }],
       },
     },
     dryRun: true,

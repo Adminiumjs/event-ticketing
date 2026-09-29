@@ -9,7 +9,7 @@
  * no plural forms, so "your tickets" reads right for one and for six.
  *
  * `{{…}}` are the outbox's variables, filled by Adminium when it sends:
- * `order.*`, `ticket.*`, `reminder.*`, `refund.*` through the message's link
+ * `order.*`, `ticket.*`, `reminder.*`, `refund.*`, `broadcast.*` through the message's links
  * (and one link on from there, `order.event.*`); `practice.*` the venue's
  * settings row; `recipient.name` the person; `appName` the venue's name;
  * `manage_url` the audience site's order page and `booking_url` its front
@@ -98,13 +98,25 @@ export const EMAIL_EN: EmailWords = {
     button: "Confirm my order",
     foot: "You're getting this because this address was used to order tickets at {{appName}}. Didn't order? Ignore it.",
   },
+  "transfer-confirm-offer": {
+    name: "Confirm your waitlist tickets",
+    subject: "Confirm your order for {{order.event.name}} · {{order.number}}",
+    preheader: "Confirm by {{order.offer_until.date}}, {{order.offer_until.time}} to keep your tickets",
+    heading: "Confirm your order",
+    paras: [
+      "You chose to pay for your {{order.event.name}} tickets from the waitlist by bank transfer. Press the button by {{order.offer_until.date}}, {{order.offer_until.time}} to confirm the order, and we will send the bank details.",
+      "Until then your tickets are held for you.",
+    ],
+    button: "Confirm my order",
+    foot: "You're getting this because this address was used to claim tickets from the waitlist at {{appName}}. Didn't? Ignore it.",
+  },
   "transfer-waiting": {
     name: "Waiting for your transfer",
     subject: "Pay by {{order.pay_by.date}} to keep your {{order.event.name}} tickets · {{order.number}}",
-    preheader: "{{order.total}} by {{order.pay_by.date}}, {{order.pay_by.time}}",
+    preheader: "{{order.balance}} by {{order.pay_by.date}}, {{order.pay_by.time}}",
     heading: "One step left: the bank transfer",
     paras: [
-      "Send {{order.total}} by {{order.pay_by.date}}, {{order.pay_by.time}}, with the reference {{order.number}}. Your tickets arrive by email once it is in.",
+      "Send {{order.balance}} by {{order.pay_by.date}}, {{order.pay_by.time}}, with the reference {{order.number}}. Your tickets arrive by email once it is in.",
       "Unpaid tickets go back on sale {{practice.release_after_hours}} hours after that.",
     ],
     button: "See my order",
@@ -113,10 +125,10 @@ export const EMAIL_EN: EmailWords = {
   "transfer-reminder": {
     name: "Reminder: your transfer",
     subject: "Reminder: your transfer for {{order.event.name}} · {{order.number}}",
-    preheader: "{{order.total}} was due {{order.pay_by.date}}",
+    preheader: "{{order.balance}} was due {{order.pay_by.date}}",
     heading: "Your transfer hasn't arrived yet",
     paras: [
-      "We haven't received {{order.total}} for order {{order.number}}. It was due {{order.pay_by.date}}, {{order.pay_by.time}}.",
+      "We haven't received {{order.balance}} for order {{order.number}}. It was due {{order.pay_by.date}}, {{order.pay_by.time}}.",
       "Unpaid tickets go back on sale soon. If you have already sent it, you don't need to do anything.",
     ],
     button: "See my order",
@@ -206,6 +218,15 @@ export const EMAIL_EN: EmailWords = {
     button: "Get tickets",
     foot: "You asked us to remind you once, before tickets go on sale.",
   },
+  "on-sale-presale": {
+    name: "Presale soon",
+    subject: "The {{reminder.event.name}} presale opens at {{reminder.type_sales_start.time}}",
+    preheader: "{{reminder.type_sales_start.date}}, {{reminder.type_sales_start.time}}",
+    heading: "The {{reminder.event.name}} presale opens at {{reminder.type_sales_start.time}}",
+    paras: ["{{reminder.ticket_type.name}} goes on sale {{reminder.type_sales_start.date}} at {{reminder.type_sales_start.time}}."],
+    button: "Get tickets",
+    foot: "You asked us to remind you once, before the presale opens.",
+  },
   moved: {
     name: "Your show has moved",
     subject: "{{order.event.name}} has moved to {{order.event.doors_at.date}}",
@@ -234,7 +255,7 @@ export const EMAIL_EN: EmailWords = {
     heading: "{{order.event.name}} is cancelled",
     paras: [
       "We're sorry — {{order.event.name}} on {{order.event.doors_at.date}} is cancelled.",
-      "You paid {{order.paid_in}}. We will give it back {{practice.refund_payback_text}}, the way you paid.",
+      "You paid {{order.received}}. We will give it back {{practice.refund_payback_text}}, the way you paid.",
     ],
     button: "See my order",
     foot: HAVE,
@@ -295,9 +316,9 @@ export const EMAIL_EN: EmailWords = {
   "refund-recorded": {
     name: "Refund recorded",
     subject: "Your refund for {{order.event.name}} · {{order.number}}",
-    preheader: "{{order.refunded}} back to you",
+    preheader: "{{refund.amount}} back to you",
     heading: "Refund recorded",
-    paras: ["We've recorded {{order.refunded}} back to you for order {{order.number}}. It reaches you {{practice.refund_payback_text}}."],
+    paras: ["We've recorded {{refund.amount}} back to you for order {{order.number}}. It reaches you {{practice.refund_payback_text}}."],
     button: "See my order",
     foot: "Order {{order.number}} · {{order.event.name}}.",
   },
@@ -329,6 +350,16 @@ export const EMAIL_EN: EmailWords = {
     button: "See my order",
     foot: HAVE,
   },
+  "broadcast-holder": {
+    name: "A message about your show (a friend's ticket)",
+    // The box office's own words, as written on the message.
+    subject: "{{broadcast.subject}}",
+    preheader: "About your ticket for {{ticket.event.name}}",
+    heading: "About {{ticket.event.name}}",
+    paras: ["{{broadcast.body}}", HOLDER],
+    button: "See my ticket",
+    foot: "You hold a ticket for this show.",
+  },
 };
 
 type Block = { block: string; id: string; data: Record<string, unknown> };
@@ -354,16 +385,19 @@ const WITH_BANK: ReadonlySet<Kind> = new Set(["transfer-waiting", "transfer-remi
 /** Where each email's button leads. */
 const BUTTON_URL: Partial<Record<Kind, string>> = {
   "transfer-confirm": "{{booking_url}}confirm#{{order.confirm_token}}",
+  "transfer-confirm-offer": "{{booking_url}}confirm#{{order.confirm_token}}",
   "friend-offer": "{{booking_url}}t#{{ticket.link_token}}",
   "friend-ready": "{{booking_url}}t#{{ticket.link_token}}",
   "holder-set": "{{booking_url}}t#{{ticket.link_token}}",
   "moved-holder": "{{booking_url}}t#{{ticket.link_token}}",
+  "broadcast-holder": "{{booking_url}}t#{{ticket.link_token}}",
   "tonight-holder": "{{booking_url}}t#{{ticket.link_token}}",
   "tomorrow-holder": "{{booking_url}}t#{{ticket.link_token}}",
   "friend-returned": "{{manage_url}}#{{ticket.order.link_token}}",
   "refund-declined": "{{manage_url}}#{{ticket.order.link_token}}",
   "transfer-released": "{{booking_url}}",
   "on-sale": "{{booking_url}}",
+  "on-sale-presale": "{{booking_url}}",
 };
 
 function layout(kind: Kind, all: EmailWords) {
