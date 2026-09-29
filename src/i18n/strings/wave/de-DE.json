@@ -728,7 +728,6 @@
  "Turn off {code}": "{code} ausschalten",
  "Turn on {code}": "{code} einschalten",
  "Edit {code}": "{code} bearbeiten",
- "{n} check-in hasn't synced yet|{n} check-ins haven't synced yet": "{n} Check-in ist noch nicht synchronisiert|{n} Check-ins sind noch nicht synchronisiert",
  "They are only on this phone. Signing out now loses them.": "Sie sind nur auf diesem Handy. Wenn du dich jetzt abmeldest, gehen sie verloren.",
  "Stay signed in": "Angemeldet bleiben",
  "Sign out anyway": "Trotzdem abmelden",
@@ -1382,5 +1381,15 @@
  "{who} is cancelled and {amount} becomes due back. {buyer} is told.": "{who} wird storniert und {amount} wird zur Erstattung fällig. {buyer} wird informiert.",
  "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "{who} werden storniert und {amount} wird zur Erstattung fällig. {buyer} wird informiert.",
  "Receipt downloaded": "Beleg heruntergeladen",
- "The receipt couldn't be made just now. Try again in a minute.": "Der Beleg konnte gerade nicht erstellt werden. Versuch es in einer Minute noch einmal."
+ "The receipt couldn't be made just now. Try again in a minute.": "Der Beleg konnte gerade nicht erstellt werden. Versuch es in einer Minute noch einmal.",
+ "No list": "Keine Liste",
+ "This phone has no list for this show yet — wait for the signal.": "Dieses Handy hat noch keine Liste für diese Show — warte auf das Netz.",
+ "{n} × {type} sold · {total} — {m} not checked in: {reason}": "{n} × {type} verkauft · {total} — {m} nicht eingecheckt: {reason}",
+ "Signed out — {n} check-in will sync once you sign in again|Signed out — {n} check-ins will sync once you sign in again": "Abgemeldet — {n} Check-in wird synchronisiert, sobald du dich wieder anmeldest|Abgemeldet — {n} Check-ins werden synchronisiert, sobald du dich wieder anmeldest",
+ "Sign in again": "Wieder anmelden",
+ "Sign in again to sell at the door.": "Melde dich wieder an, um an der Tür zu verkaufen.",
+ "You're signed out — sign in again.": "Du bist abgemeldet — melde dich wieder an.",
+ "You're signed out": "Du bist abgemeldet",
+ "Adminium isn't taking anything from this page until you sign in again. What the door lets in meanwhile stays on this phone and is sent then.": "Adminium nimmt von dieser Seite nichts an, bis du dich wieder anmeldest. Was die Tür bis dahin einlässt, bleibt auf diesem Handy und wird dann gesendet.",
+ "{n} check-in or payment hasn't synced yet|{n} check-ins and payments haven't synced yet": "{n} Check-in oder Zahlung ist noch nicht synchronisiert|{n} Check-ins und Zahlungen sind noch nicht synchronisiert"
 }

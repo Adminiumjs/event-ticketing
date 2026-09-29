@@ -197,4 +197,16 @@ export interface DoorPort {
   collect(ticketId: Id, method: "card" | "cash", deviceId: Id | null, occurredAt?: number): Promise<Row>;
   checkIn(ticketId: Id, eventDayId: Id, deviceId: Id | null, occurredAt?: number): Promise<Row>;
   undo(checkInId: Id): Promise<void>;
+  /**
+   * An order the door took money on, paid once nothing is owed: a held door
+   * sale or a pay-at-the-door order moved to paid (a lost race is paid
+   * either way). Answers the order as it stands after.
+   */
+  settle(orderId: Id, method: "card" | "cash"): Promise<Row>;
+  /** A cheap read: whether Adminium answers at all (the door's check before it says it is back online). */
+  ping?(): Promise<void>;
+  /** Told when the session ends (signed out here or elsewhere, timed out): nothing is taken until the person signs in again. */
+  onSessionEnded?(listener: () => void): void;
+  /** To Adminium's sign-in, coming back here after. */
+  signInAgain?(): void;
 }

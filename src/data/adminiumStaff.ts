@@ -14,7 +14,7 @@
  * that Adminium refuses reaches the screens with its code and what it said.
  */
 import type { BoxOfficePort, DoorPort, EventChildren, StaffPerson } from "./ports.ts";
-import { SessionPortError, type SessionTransport } from "./sessionSource.ts";
+import { SessionPortError, type CallOptions, type SessionTransport } from "./sessionSource.ts";
 import type { StaffConfig } from "../staffConnection.ts";
 import { zoneOffsetMs } from "../lib/venueTime.ts";
 import { ApiError, type Config, type HistoryEntry, type Id, type ListQuery, type ListReply, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type Where } from "./wire.ts";
@@ -24,6 +24,13 @@ const APP_KEY = "events";
 const PAGE = 200;
 /** The most rows one read brings back: past this it says so rather than cut the answer short. */
 const MOST_ROWS = 20_000;
+/**
+ * How long the door waits on one request before it judges the scan from the
+ * list on the phone: a hung request at a crowded door must not hold the
+ * queue, and a write given up on is covered by the door's own-row rule.
+ */
+export const DOOR_DEADLINE_MS = 6_000;
+const HURRY: CallOptions = { deadlineMs: DOOR_DEADLINE_MS };
 /** The columns the data API answers as decimal strings, read as numbers here. */
 const MONEY = new Set(["price", "subtotal", "discount", "adjusted", "total", "collected", "paid_in", "refunded", "balance", "due", "code_value", "value", "live_price", "live_discount", "amount", "received", "owed_door", "owed_transfer", "owed_overdue"]);
 
@@ -143,31 +150,31 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
    * the one this page holds is refused, and the write never happened — so it
    * is sent once more with a fresh token.
    */
-  private async mutate<T>(path: string, method: "POST" | "PATCH" | "DELETE", body?: unknown): Promise<T> {
+  private async mutate<T>(path: string, method: "POST" | "PATCH" | "DELETE", body?: unknown, options?: CallOptions): Promise<T> {
     // The session's CSRF token is captured when the transport first finds its connection: a door phone's
     // first act can be a write (a scan), so it is found before one.
     this.found ??= this.t.connection();
     await this.found;
     try {
-      return await this.t.mutate<T>(path, method, body);
+      return await this.t.mutate<T>(path, method, body, options);
     } catch (error) {
       if (!refusedAs(error, "CSRF_FAILED")) throw error;
       await this.t.refresh();
-      return this.t.mutate<T>(path, method, body);
+      return this.t.mutate<T>(path, method, body, options);
     }
   }
-  private async page(table: string, filter: string | null, limit: number, offset: number, order: string | null, counted = false): Promise<Page> {
+  private async page(table: string, filter: string | null, limit: number, offset: number, order: string | null, counted = false, options?: CallOptions): Promise<Page> {
     const q = [`limit=${String(limit)}`, `offset=${String(offset)}`, ...(counted ? ["count=exact"] : []), ...(filter === null ? [] : [`where=${filter}`]), ...(order === null ? [] : [`order=${encodeURIComponent(order)}`])];
-    return this.t.get<Page>(await this.path(table, `?${q.join("&")}`));
+    return this.t.get<Page>(await this.path(table, `?${q.join("&")}`), options);
   }
-  private async one(table: string, id: Id): Promise<Row> {
-    return this.row((await this.t.get<{ data: Record<string, unknown> }>(await this.path(table, `/${encodeURIComponent(String(id))}`))).data);
+  private async one(table: string, id: Id, options?: CallOptions): Promise<Row> {
+    return this.row((await this.t.get<{ data: Record<string, unknown> }>(await this.path(table, `/${encodeURIComponent(String(id))}`), options)).data);
   }
-  private async insert(table: string, values: Record<string, unknown>, extra: Record<string, unknown> = {}): Promise<Row> {
-    return this.row((await this.mutate<{ data: Record<string, unknown> }>(await this.path(table), "POST", { values, ...extra })).data);
+  private async insert(table: string, values: Record<string, unknown>, extra: Record<string, unknown> = {}, options?: CallOptions): Promise<Row> {
+    return this.row((await this.mutate<{ data: Record<string, unknown> }>(await this.path(table), "POST", { values, ...extra }, options)).data);
   }
-  private async change(table: string, id: Id, values: Record<string, unknown>, extra: Record<string, unknown> = {}): Promise<Row> {
-    return this.row((await this.mutate<{ data: Record<string, unknown> }>(await this.path(table, `/${encodeURIComponent(String(id))}`), "PATCH", { values, ...extra })).data);
+  private async change(table: string, id: Id, values: Record<string, unknown>, extra: Record<string, unknown> = {}, options?: CallOptions): Promise<Row> {
+    return this.row((await this.mutate<{ data: Record<string, unknown> }>(await this.path(table, `/${encodeURIComponent(String(id))}`), "PATCH", { values, ...extra }, options)).data);
   }
   /** Adminium's clock, from the config's `now` (never the phone's). */
   private now(): number {
@@ -334,7 +341,7 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
       const tableId = await this.t.tableId(this.real("events"));
       const q = new URLSearchParams({ filename: file.name, connectionId: conn, table: tableId, column: "image", recordId: String(eventId) });
       // The file's own bytes (the transport speaks JSON): the session's cookie, and its CSRF token.
-      const res = await fetch(`/api/v1/files?${q.toString()}`, { method: "POST", body: file, headers: { "content-type": file.type || "application/octet-stream", "x-adminium-csrf": this.cfg.csrfToken ?? "" } });
+      const res = await fetch(`/api/v1/files?${q.toString()}`, { method: "POST", body: file, headers: { "content-type": file.type || "application/octet-stream", "x-adminium-csrf": this.t.csrf?.() ?? this.cfg.csrfToken ?? "" } });
       const body = (await res.json().catch(() => ({}))) as { ref?: string; error?: { code?: string; message?: string; details?: Record<string, unknown> } };
       if (!res.ok || typeof body.ref !== "string") throw new ApiError(res.status, body.error?.code ?? "UPLOAD_FAILED", body.error?.details ?? {}, body.error?.message ?? "The poster did not upload.");
       const got = { ref: body.ref };
@@ -462,41 +469,82 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
   }
 
   // ── the door ──────────────────────────────────────────────────────────────
+  //
+  // Every request the door makes while someone waits is given a short deadline: past it the scan is judged from
+  // the list on the phone and sent later (a hung request is no signal, not a refusal).
 
   find(code: string, eventDayId: Id): Promise<{ ticket: Row; order: Row; checkIn: Row | null } | null> {
     return answer(async () => {
       const n = normalizeCode(code);
       if (!/^[0-9A-Z]{8}$/.test(n)) return null;
       // Codes are kept as drawn: the sample's with a dash, Adminium's own without.
-      const ticket = (await this.list("tickets", { any: [{ column: "code", eq: n }, { column: "code", eq: `${n.slice(0, 4)}-${n.slice(4)}` }], limit: 1 })).rows[0];
-      if (ticket === undefined) return null;
-      const [order, ins] = await Promise.all([this.one("orders", ticket["order_id"] as Id), this.list("check_ins", { where: [{ column: "ticket_id", eq: ticket.id }, { column: "event_day_id", eq: eventDayId }], limit: 1 })]);
-      return { ticket, order, checkIn: ins.rows[0] ?? null };
+      const got = await this.page("tickets", filterOf([], [{ column: "code", eq: n }, { column: "code", eq: `${n.slice(0, 4)}-${n.slice(4)}` }]), 1, 0, null, false, HURRY);
+      const first = got.data[0];
+      if (first === undefined) return null;
+      const ticket = this.row(first);
+      const [order, ins] = await Promise.all([
+        this.one("orders", ticket["order_id"] as Id, HURRY),
+        this.page("check_ins", filterOf([{ column: "ticket_id", eq: ticket.id }, { column: "event_day_id", eq: eventDayId }]), 1, 0, null, false, HURRY),
+      ]);
+      const checkIn = ins.data[0];
+      return { ticket, order, checkIn: checkIn === undefined ? null : this.row(checkIn) };
     });
   }
 
-  /** A ticket's door money taken; the order moved to paid by the door itself once nothing is owed. */
+  /** A ticket's door money taken; the order paid by the door itself once nothing is owed. */
   collect(ticketId: Id, method: "card" | "cash", deviceId: Id | null, occurredAt?: number): Promise<Row> {
     return answer(async () => {
-      const made = await this.insert("door_collections", { ticket_id: ticketId, method, device_id: deviceId }, occurredAt === undefined ? {} : { occurredAt: new Date(occurredAt).toISOString() });
-      const order = await this.one("orders", made["order_id"] as Id);
-      if (order["status"] === "door" && Number(order["balance"] ?? 0) <= 0) {
-        try {
-          await this.change("orders", order.id, { status: "paid", paid_method: method }, { from: "door" });
-        } catch (error) {
-          // Another phone paid it off a moment ago: it is paid either way.
-          if (!refusedAs(error, "STATE_MOVE_REFUSED") && !refusedAs(error, "STATE_UNCHANGED")) throw error;
-        }
-      }
+      const made = await this.insert("door_collections", { ticket_id: ticketId, method, device_id: deviceId }, occurredAt === undefined ? {} : { occurredAt: new Date(occurredAt).toISOString() }, HURRY);
+      await this.settleOrder(made["order_id"] as Id, method);
       return made;
     });
   }
 
+  settle(orderId: Id, method: "card" | "cash"): Promise<Row> {
+    return answer(() => this.settleOrder(orderId, method));
+  }
+
+  /**
+   * The step after any money the door took: the order read, and moved to paid
+   * when nothing is owed any more — from held (a door sale, which never needs
+   * the pay-at-the-door state) or from the door. Its own step, so a
+   * collection whose answer was lost, replayed later, still pays its order.
+   */
+  private async settleOrder(orderId: Id, method: "card" | "cash"): Promise<Row> {
+    const order = await this.one("orders", orderId, HURRY);
+    const from = String(order["status"] ?? "");
+    if ((from !== "door" && from !== "held") || Number(order["balance"] ?? 0) > 0) return order;
+    try {
+      return await this.change("orders", order.id, { status: "paid", paid_method: method }, { from }, HURRY);
+    } catch (error) {
+      // Another phone paid it off a moment ago: it is paid either way.
+      if (!refusedAs(error, "STATE_MOVE_REFUSED") && !refusedAs(error, "STATE_UNCHANGED")) throw error;
+      return this.one("orders", orderId, HURRY);
+    }
+  }
+
   checkIn(ticketId: Id, eventDayId: Id, deviceId: Id | null, occurredAt?: number): Promise<Row> {
-    return answer(() => this.insert("check_ins", { ticket_id: ticketId, event_day_id: eventDayId, device_id: deviceId }, occurredAt === undefined ? {} : { occurredAt: new Date(occurredAt).toISOString() }));
+    return answer(() => this.insert("check_ins", { ticket_id: ticketId, event_day_id: eventDayId, device_id: deviceId }, occurredAt === undefined ? {} : { occurredAt: new Date(occurredAt).toISOString() }, HURRY));
   }
 
   undo(checkInId: Id): Promise<void> {
-    return this.remove("check_ins", checkInId);
+    return answer(async () => {
+      await this.mutate(await this.path("check_ins", `/${encodeURIComponent(String(checkInId))}`), "DELETE", undefined, HURRY);
+    });
+  }
+
+  ping(): Promise<void> {
+    return answer(async () => {
+      await this.page("devices", null, 1, 0, null, false, HURRY);
+    });
+  }
+
+  onSessionEnded(listener: () => void): void {
+    this.t.onSessionEnded?.(() => listener());
+  }
+
+  signInAgain(): void {
+    const next = typeof window === "undefined" ? "/" : window.location.pathname;
+    (this.opts.leave ?? ((url: string) => window.location.assign(url)))(`/login?next=${encodeURIComponent(next)}`);
   }
 }

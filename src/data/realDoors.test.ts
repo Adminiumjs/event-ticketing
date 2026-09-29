@@ -118,3 +118,56 @@ describe("a list the box office reads", () => {
     expect(asked.map((p) => p.includes("count=exact"))).toEqual([true, true]);
   });
 });
+
+describe("the door's own requests", () => {
+  /** A transport that answers the door's reads and writes from a few rows, and keeps each request and its deadline. */
+  function door(order: Record<string, unknown>) {
+    const asked: { how: string; path: string; body?: unknown; deadline?: number }[] = [];
+    const ended: (() => void)[] = [];
+    const t = {
+      connection: async () => "c1",
+      get: async (path: string, o?: { deadlineMs?: number }) => {
+        asked.push({ how: "GET", path, ...(o?.deadlineMs === undefined ? {} : { deadline: o.deadlineMs }) });
+        return path.includes("/events_orders/") ? { data: order } : { data: [] };
+      },
+      mutate: async (path: string, how: string, body?: unknown, o?: { deadlineMs?: number }) => {
+        asked.push({ how, path, body, ...(o?.deadlineMs === undefined ? {} : { deadline: o.deadlineMs }) });
+        if (path.endsWith("/events_door_collections")) return { data: { id: 5, ticket_id: 3, order_id: 9 } };
+        return { data: { ...order, ...((body as { values: Record<string, unknown> }).values ?? {}) } };
+      },
+      refresh: async () => undefined,
+      onSessionEnded: (fn: () => void) => void ended.push(fn),
+    } as unknown as SessionTransport;
+    return { port: new AdminiumStaff(t, { connectionId: "c1", tables: {}, serverTimezone: "UTC" } as unknown as StaffConfig), asked, ended };
+  }
+
+  it("pays a held door sale once its money is taken, never through pay-at-the-door", async () => {
+    const { port, asked } = door({ id: 9, status: "held", balance: "0.00" });
+    await port.collect(3, "cash", 1);
+    expect(asked.map((a) => `${a.how} ${a.path.replace("/api/v1/data/c1/", "")}`)).toEqual(["POST events_door_collections", "GET events_orders/9", "PATCH events_orders/9"]);
+    expect(asked[2]!.body).toEqual({ values: { status: "paid", paid_method: "cash" }, from: "held" });
+  });
+
+  it("leaves an order that still owes money as it is", async () => {
+    const { port, asked } = door({ id: 9, status: "door", balance: "28.00" });
+    expect((await port.settle(9, "card"))["status"]).toBe("door");
+    expect(asked.map((a) => a.how)).toEqual(["GET"]);
+  });
+
+  it("gives every scan's read and write a short deadline", async () => {
+    const { port, asked } = door({ id: 9, status: "paid", balance: "0.00" });
+    await port.find("K7QX-M2PD", 2);
+    await port.checkIn(3, 2, 1);
+    await port.ping();
+    expect(asked.every((a) => a.deadline === 6_000)).toBe(true);
+    expect(asked.length).toBeGreaterThan(2);
+  });
+
+  it("tells the screens when the session has ended", async () => {
+    const { port, ended } = door({ id: 9, status: "paid" });
+    let heard = 0;
+    port.onSessionEnded(() => (heard += 1));
+    for (const fn of ended) fn();
+    expect(heard).toBe(1);
+  });
+});

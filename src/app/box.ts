@@ -109,6 +109,11 @@ export class Box {
 
   constructor(app: WaveApp) {
     this.app = app;
+    // The session ended (signed out elsewhere, timed out): every screen says so and offers the sign-in, rather
+    // than calling each read and write refused.
+    app.ports.door?.onSessionEnded?.(() => {
+      if (app.state.sheet?.kind !== "stSignedOut") app.openSheet("stSignedOut", {});
+    });
     app.escapeHook = () => {
       if (this.s.edFull) {
         this.set({ edFull: false });
@@ -930,6 +935,9 @@ export function refusalOf(error: unknown): string {
       return tr("Other records still use this, so it stays.");
     case "STATE_MOVE_REFUSED":
       return p["requires"] === "time" ? tr("It's too late for that now.") : tr("Adminium didn't allow that move just now.");
+    case "UNAUTHENTICATED":
+    case "SESSION_EXPIRED":
+      return tr("You're signed out — sign in again.");
     case "TABLE_FORBIDDEN":
     case "FORBIDDEN":
     case "COLUMN_FORBIDDEN":
@@ -941,11 +949,11 @@ export function refusalOf(error: unknown): string {
   }
 }
 
-/** The door's check-ins this phone has not sent yet (kept in the browser, so counted even before the door is opened). */
+/** The door's check-ins and payments this phone has not sent yet (kept in the browser, so counted even before the door is opened). */
 export function unsentScans(): number {
   try {
     const v = JSON.parse(localStorage.getItem("wv-door-queue") ?? "[]") as unknown;
-    return Array.isArray(v) ? v.filter((q) => (q as { kind?: unknown }).kind === "in").length : 0;
+    return Array.isArray(v) ? v.length : 0;
   } catch {
     return 0;
   }
