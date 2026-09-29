@@ -47,6 +47,14 @@ export interface Co {
   said: number[];
   /** The code the buyer typed, dropped at the hold because it ran out. */
   codeDropped: boolean;
+  /**
+   * Signed in, and the account's name was refused for the order (it holds a number, a web or an email
+   * address, or is empty): the name field shows, and the name typed there goes on the order.
+   */
+  nameAsk: boolean;
+  /** "Send it again" on the confirm email: what the last press came to, and when it may be pressed again. */
+  again: null | "sent" | "wait" | "limit" | "down";
+  againAt: number;
 }
 
 export interface Si {
@@ -158,6 +166,9 @@ export class Buyer {
       busy: false,
       said: [],
       codeDropped: false,
+      nameAsk: false,
+      again: null,
+      againAt: 0,
     };
     this.app.go("checkout", { co, evId: show.id });
     if (me !== null) void this.hold();
@@ -177,10 +188,8 @@ export class Buyer {
     if (show === undefined) return;
     const me = this.signedIn();
     const errs: Record<string, string> = {};
-    if (me === null) {
-      if (co.buyer.name.trim() === "") errs["name"] = tr("Add your name");
-      if (!okEmail(co.buyer.email)) errs["email"] = tr("Check the email address — it needs an @ and a domain, like name@example.com");
-    }
+    if ((me === null || co.nameAsk) && co.buyer.name.trim() === "") errs["name"] = tr("Add your name");
+    if (me === null && !okEmail(co.buyer.email)) errs["email"] = tr("Check the email address — it needs an @ and a domain, like name@example.com");
     if (Object.keys(errs).length > 0) {
       this.setCo({ errs });
       focusLater(errs["name"] !== undefined ? "f-name" : "f-email", 40);
@@ -201,7 +210,8 @@ export class Buyer {
     const values: Record<string, unknown> = {
       event_id: show.id,
       room_id: show.room?.id ?? null,
-      buyer_name: me?.name ?? co.buyer.name.trim(),
+      // Signed in, the account's name — unless Adminium refused it for an order and the buyer typed one.
+      buyer_name: me !== null && !co.nameAsk ? (me.name ?? "") : co.buyer.name.trim(),
       email: me?.email ?? co.buyer.email.trim().toLowerCase(),
       language: this.s.lang,
     };
@@ -265,6 +275,14 @@ export class Buyer {
     }
     if (error.code === "PUBLIC_LIMIT_REACHED") {
       this.setCo({ busy: false, errs: { hold: tr("That's as many checkouts as one email can start today — use the order you already have, or write to {email}.", { email: this.app.world()?.settings.contactEmail ?? "" }) } });
+      return;
+    }
+    if (error.code === "PUBLIC_WRITE_REFUSED" && (p["column"] === "buyer_name" || p["column"] === "name")) {
+      // The name refused (signed in, the account's own): said on the name field, which shows to put it right.
+      const co = this.s.co!;
+      const me = this.signedIn();
+      this.setCo({ busy: false, nameAsk: me !== null, ...(me !== null && !co.nameAsk ? { buyer: { ...co.buyer, name: me.name ?? "" } } : {}), errs: { name: nameRefused(p) } });
+      focusLater("f-name", 40);
       return;
     }
     if (error.code === "PUBLIC_WRITE_REFUSED" && p["column"] === "ticket_type_id") {
@@ -333,7 +351,17 @@ export class Buyer {
         const t = tickets[i];
         if (t === undefined) continue;
         const answers = Object.keys(co.tix[i]!.answers).length > 0 ? co.tix[i]!.answers : undefined;
-        await this.port.nameTicket(t.id, co.tix[i]!.name.trim(), answers);
+        try {
+          await this.port.nameTicket(t.id, co.tix[i]!.name.trim(), answers);
+        } catch (error) {
+          // A name refused: said on that ticket's name field.
+          if (isApiError(error) && error.code === "PUBLIC_WRITE_REFUSED" && error.params["column"] === "holder_name") {
+            this.setCo({ busy: false, errs: { [`t${String(i)}`]: nameRefused(error.params) } });
+            focusLater(`f-t${String(i)}`, 40);
+            return;
+          }
+          throw error;
+        }
       }
       // A checkout made here works through the order's own link; a claim from My tickets through the sign-in.
       const via = co.claim && this.s.going?.via === "me" ? co.orderId ?? undefined : undefined;
@@ -381,6 +409,32 @@ export class Buyer {
       this.after(moved, { ...co, pay: "door" });
     } catch {
       this.expire();
+    }
+  }
+
+  /**
+   * "Send it again": the confirm email made again, with a new link (the one in the earlier email stops
+   * working). Adminium keeps the count: a second press within the minute sends nothing new, so the button
+   * waits out that minute here too.
+   */
+  async sendAgain(): Promise<void> {
+    const co = this.s.co;
+    if (co === null || co.phase !== "mail" || co.claim || co.busy || co.again === "limit" || co.againAt > this.app.now) return;
+    this.setCo({ busy: true });
+    try {
+      await this.port.confirmAgain();
+      this.setCo({ busy: false, again: "sent", againAt: this.app.now + 60_000 });
+      this.app.toast(tr("Sent again to {email}", { email: masked(String(co.order?.["email"] ?? "") || (this.signedIn()?.email ?? co.buyer.email.trim())) }), "mail");
+    } catch (error) {
+      const c = isApiError(error) ? error.code : null;
+      if (c === "PUBLIC_LIMIT_REACHED") return this.setCo({ busy: false, again: "limit" });
+      if (c === "PUBLIC_RATE_LIMITED" || c === "RATE_LIMITED" || c === "CAPACITY_BUSY") return this.setCo({ busy: false, again: "wait", againAt: this.app.now + 60_000 });
+      if (c === "PUBLIC_WRITE_REFUSED") {
+        // The order no longer waits for its confirm: confirmed from the email meanwhile, or the hold ran out.
+        this.setCo({ busy: false });
+        return this.pollMail();
+      }
+      this.setCo({ busy: false, again: "down" });
     }
   }
 
@@ -714,6 +768,9 @@ export class Buyer {
         busy: false,
         said: [],
         codeDropped: false,
+        nameAsk: false,
+        again: null,
+        againAt: 0,
       },
     });
   }
@@ -752,6 +809,11 @@ export function refusalWords(error: unknown): string {
     default:
       return tr("That can't be done here. Ask the box office.");
   }
+}
+
+/** A name Adminium refused: none given, or one that is not only a name (a number, a web or an email address). */
+export function nameRefused(params: Record<string, unknown>): string {
+  return params["reason"] === "required" ? tr("Add your name") : tr("Write the name in letters only — no numbers, web or email address.");
 }
 
 /** The deadline a transfer would have, as the rule reads it (shown before the order moves; the server stamps it). */

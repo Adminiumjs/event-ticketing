@@ -105,6 +105,9 @@ class PreviewAudience implements AudiencePort {
   confirmTransfer(): Promise<Row> {
     return inert();
   }
+  confirmAgain(): Promise<void> {
+    return inert();
+  }
   bank(): Promise<Row> {
     return inert();
   }

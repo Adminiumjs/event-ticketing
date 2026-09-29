@@ -231,6 +231,7 @@ function checkoutVals(app: WaveApp, w: World): V {
       : tr("{name} is pay at the door only.", { name: show.short })
     : "";
   const email = guest ? co.buyer.email : me.email;
+  const againS = Math.max(0, Math.ceil((co.againAt - app.now) / 1000));
   // The lines Adminium priced, by type.
   const byType = new Map<Id, { q: number; amt: number }>();
   if (co.tickets.length > 0)
@@ -333,6 +334,25 @@ function checkoutVals(app: WaveApp, w: World): V {
     confirmBy: co.heldUntil === null ? "" : `${fD(co.heldUntil)}, ${fT(co.heldUntil)}`,
     otherPay: () => void b.payOtherWay(),
     otherPayOn: opts.some((x) => x !== "transfer"),
+    // Signed in, the account's name refused for the order: the name field, to put it right.
+    nameAskOn: co.nameAsk && !guest,
+    // "Send it again": not for a waitlist offer's (it has its own email, by the offer's end), nor once today's are spent.
+    againOn: ph === "mail" && !co.claim && co.again !== "limit",
+    againOff: co.busy || againS > 0,
+    againTxt: againS > 0 ? tr("Send it again in {time}", { time: `${String(Math.floor(againS / 60))}:${String(againS % 60).padStart(2, "0")}` }) : tr("Send it again"),
+    againSayOn: co.again !== null,
+    againWarn: co.again === "limit" || co.again === "down",
+    againSay:
+      co.again === "sent"
+        ? tr("Sent again to {email}. The link in the earlier email no longer works — use the new one.", { email: masked(email) })
+        : co.again === "wait"
+          ? tr("Wait a minute, then send it again.")
+          : co.again === "limit"
+            ? tr("That's as many times as we can send it today. Use the newest email, or write to {email}.", { email: w.settings.contactEmail })
+            : co.again === "down"
+              ? tr("We can't send it again right now. Try again in a few minutes, or write to {email}.", { email: w.settings.contactEmail })
+              : "",
+    sendAgain: () => void b.sendAgain(),
     checkAgain: () => b.checkAgain(),
     asideStyle: nar
       ? "order:-1; position:sticky; inset-block-start:60px; z-index:15; border-radius:16px; border:1px solid var(--border); background:var(--surface); box-shadow:0 12px 30px -20px rgba(0,0,0,.5);"

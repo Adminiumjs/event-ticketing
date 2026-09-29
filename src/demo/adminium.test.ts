@@ -542,3 +542,108 @@ describe("deleting a buyer's details", () => {
     expect(demo.world.get("tickets", ana.id)!["status"]).toBe("valid");
   });
 });
+
+describe("send it again", () => {
+  /** A Cinder checkout by transfer, waiting for its confirm email, opened by its own link on this browser. */
+  async function confirming(demo: DemoAdminium, email: string, key: string): Promise<Id> {
+    const reply = await demo.audience.buy({ values: { event_id: byName(demo, "Cinder").id, buyer_name: "Ana Ruiz", email }, tickets: [{ ticket_type_id: typeOf(demo, "Cinder", "Standard").id }] }, key);
+    await demo.audience.choose("confirming");
+    return reply.data.id;
+  }
+  const tokenOf = (demo: DemoAdminium, id: Id) => String(demo.world.get("orders", id)!["confirm_token"]);
+  const mails = (demo: DemoAdminium, id: Id) => demo.world.all("messages").filter((m) => m["kind"] === "transfer-confirm" && m["order_id"] === id);
+
+  it("makes a new confirm link and emails it; the old one opens nothing; once a minute, five a day", async () => {
+    const demo = new DemoAdminium();
+    const id = await confirming(demo, "ana.ruiz@example.com", "again-1");
+    const first = tokenOf(demo, id);
+    expect(mails(demo, id).length).toBe(1);
+    await demo.audience.confirmAgain();
+    const second = tokenOf(demo, id);
+    expect(second).not.toBe(first);
+    expect(mails(demo, id).map((m) => [m["status"], m["to_address"], m["repeat_key"]])).toEqual([
+      ["queued", "ana.ruiz@example.com", null],
+      ["queued", "ana.ruiz@example.com", second],
+    ]);
+    expect((await refused(() => demo.audience.openConfirm(first))).code).toBe("PUBLIC_REF_NOT_FOUND");
+    expect((await demo.audience.openConfirm(second)).id).toBe(id);
+    // A second press within the minute: answered the same, nothing new.
+    await demo.audience.confirmAgain();
+    expect([tokenOf(demo, id), mails(demo, id).length]).toEqual([second, 2]);
+    for (let i = 0; i < 4; i += 1) {
+      demo.advance(1);
+      await demo.audience.confirmAgain();
+    }
+    expect(mails(demo, id).length).toBe(6);
+    demo.advance(1);
+    expect((await refused(() => demo.audience.confirmAgain())).code).toBe("PUBLIC_LIMIT_REACHED");
+    expect(mails(demo, id).length).toBe(6);
+    // The newest link still confirms the order.
+    expect((await demo.audience.confirmTransfer(tokenOf(demo, id)))["status"]).toBe("awaiting_transfer");
+  });
+
+  it("counts five a day to one address too, across its orders", async () => {
+    const demo = new DemoAdminium();
+    await confirming(demo, "Jo.Petrak@example.com", "again-a");
+    for (let i = 0; i < 3; i += 1) {
+      await demo.audience.confirmAgain();
+      demo.advance(1);
+    }
+    await confirming(demo, "jo.petrak+2@example.com", "again-b");
+    await demo.audience.confirmAgain();
+    demo.advance(1);
+    await demo.audience.confirmAgain();
+    demo.advance(1);
+    expect((await refused(() => demo.audience.confirmAgain())).code).toBe("PUBLIC_LIMIT_REACHED");
+  });
+
+  it("is refused once the order no longer waits for its confirm, for a waitlist offer's, and while email cannot go", async () => {
+    const demo = new DemoAdminium();
+    const id = await confirming(demo, "ana.ruiz@example.com", "again-2");
+    demo.audience.failNext = "mail-down";
+    expect((await refused(() => demo.audience.confirmAgain())).code).toBe("PUBLIC_CODE_UNAVAILABLE");
+    expect(mails(demo, id).length).toBe(1);
+    await demo.audience.confirmTransfer(tokenOf(demo, id));
+    expect((await refused(() => demo.audience.confirmAgain())).code).toBe("PUBLIC_WRITE_REFUSED");
+    // A waitlist offer claimed by transfer: its own email, by the offer's end — not sent again from its link.
+    const offer = order(demo, "WV-S8814");
+    await demo.audience.openOrder(String(offer["link_token"]));
+    await demo.audience.choose("confirming");
+    expect((await refused(() => demo.audience.confirmAgain())).code).toBe("PUBLIC_WRITE_REFUSED");
+  });
+});
+
+describe("a name that is only a name", () => {
+  const cinderBody = (demo: DemoAdminium, buyer_name: string, email = "ana.ruiz@example.com") => ({ values: { event_id: byName(demo, "Cinder").id, buyer_name, email }, tickets: [{ ticket_type_id: typeOf(demo, "Cinder", "Standard").id }] });
+
+  it("refuses a buyer's name holding a number, a web or an email address, as Adminium does; initials pass", async () => {
+    const demo = new DemoAdminium();
+    for (const name of ["Rui at rui.com", "refund-desk.com Smith", "Ｒｕｉ．ｃｏｍ", "rui.com-", "Lee 2", "@lee", "ana@example.com", "Wong.Ng", "late.In", "X.Com", "www.lee"]) {
+      expect(await refused(() => demo.audience.quote(cinderBody(demo, name))), name).toEqual({ code: "PUBLIC_WRITE_REFUSED", params: { column: "buyer_name" } });
+    }
+    for (const name of ["W.Hu", "M.De Vries", "K.Y.Ng", "Mary.Ann", "J.R.R. Tolkien", "St. John", "Zoë O'Neil-Brandt", "李小龙", "Ана Руис"]) {
+      expect((await demo.audience.quote(cinderBody(demo, name))).data["total"], name).toBeGreaterThan(0);
+    }
+    expect(await refused(() => demo.audience.buy(cinderBody(demo, "Rui at rui.com"), "plain-1"))).toEqual({ code: "PUBLIC_WRITE_REFUSED", params: { column: "buyer_name" } });
+    expect(await refused(() => demo.audience.buy(cinderBody(demo, " "), "plain-0"))).toEqual({ code: "PUBLIC_WRITE_REFUSED", params: { column: "buyer_name", reason: "required" } });
+    // A dry run prices the choice before the details are asked for.
+    expect((await demo.audience.quote({ values: { event_id: byName(demo, "Cinder").id }, tickets: cinderBody(demo, "").tickets })).data["total"]).toBeGreaterThan(0);
+  });
+
+  it("judges a signed-in buyer's account name the order fills in, and takes a name typed instead", async () => {
+    const demo = new DemoAdminium();
+    const mia = demo.world.all("customers").find((c) => c["email"] === "mia.okada@example.com")!;
+    mia["name"] = "Mia okada.com";
+    await signInAs(demo, "mia.okada@example.com");
+    expect(await refused(() => demo.audience.quote(cinderBody(demo, "", "mia.okada@example.com")))).toEqual({ code: "PUBLIC_WRITE_REFUSED", params: { column: "buyer_name" } });
+    const made = await demo.audience.buy(cinderBody(demo, "Mia Okada", "mia.okada@example.com"), "plain-2");
+    expect(demo.world.get("orders", made.data.id)!["buyer_name"]).toBe("Mia Okada");
+  });
+
+  it("refuses a ticket's name that is a web address, on the ticket's own name", async () => {
+    const demo = new DemoAdminium();
+    const made = await demo.audience.buy(cinderBody(demo, "Ana Ruiz"), "plain-3");
+    expect(await refused(() => demo.audience.nameTicket(made.tickets[0]!.id, "Get yours at tix.shop"))).toEqual({ code: "PUBLIC_WRITE_REFUSED", params: { column: "holder_name" } });
+    expect((await demo.audience.nameTicket(made.tickets[0]!.id, "Ana Ruiz"))["holder_name"]).toBe("Ana Ruiz");
+  });
+});

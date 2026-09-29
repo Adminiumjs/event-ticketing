@@ -197,6 +197,14 @@ const TYPE_SELECT = [
 const SIGNED_IN = { level: "verified", claimedBy: { table: "customers", column: "customer_id" } };
 const OWN_LINK = { claim: { by: "token", column: "link_token", stopped: "link_stopped", own: true, address: "email" } };
 const WITH_ORDER = { level: "verified", visibleWith: { table: "orders", via: "order_id" } };
+/**
+ * "Send it again" from the checkout's own link: the confirm email made again with a new confirm code (the old
+ * one opens nothing from then on), to the order's own address, only while the order waits for it. A waitlist
+ * offer claimed by transfer (its own email, by the offer's end) is not sent again from here: the box office can.
+ */
+const SEND_AGAIN = {
+  newLink: { column: "confirm_token", kind: "transfer-confirm", when: { where: [{ column: "status", eq: "confirming" }, { column: "offer_until", isNull: true }] } },
+};
 
 /** An order's own changes, through a signed-in session or its own link. */
 function orderEntry(keyed: Record<string, unknown>, who: Record<string, unknown>) {
@@ -410,7 +418,7 @@ export const PUBLIC_ACCESS = [
   },
 
   // ── one order, by its own link ──────────────────────────────────────────────
-  orderEntry({ key: "link" }, OWN_LINK),
+  orderEntry({ key: "link" }, { ...OWN_LINK, ...SEND_AGAIN }),
   ...ticketEntries({ key: "link" }),
   { table: "settings", key: "link", methods: ["GET"], level: "verified", select: BANK_SELECT },
 

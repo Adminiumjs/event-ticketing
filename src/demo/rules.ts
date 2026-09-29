@@ -2856,6 +2856,22 @@ export const MANIFEST_RULES = {
         "own": true,
         "address": "email"
       },
+      "newLink": {
+        "column": "confirm_token",
+        "kind": "transfer-confirm",
+        "when": {
+          "where": [
+            {
+              "column": "status",
+              "eq": "confirming"
+            },
+            {
+              "column": "offer_until",
+              "isNull": true
+            }
+          ]
+        }
+      },
       "select": [
         "id",
         "number",

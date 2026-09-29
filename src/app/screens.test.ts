@@ -4,10 +4,10 @@
  * draws come out of the rows and rules, and a buyer's steps land where the
  * design says. Values only — the browser pass draws them.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { DemoAdminium } from "../demo/adminium.ts";
-import type { Id } from "../data/wire.ts";
+import { ApiError, type Id } from "../data/wire.ts";
 import { renderVals } from "./vals/base.ts";
 import { WaveApp } from "./wave.ts";
 
@@ -273,5 +273,139 @@ describe("signing out on every device", () => {
     demo.audience.signOutEverywhere = () => Promise.reject(new Error("offline"));
     await app.buyer.signOutEverywhere();
     expect([app.buyer.signedIn(), app.state.scr, app.state.toast?.msg]).toEqual([null, "signin", "Signed out here. We couldn't sign you out on your other devices — sign in and try again."]);
+  });
+});
+
+describe("the confirm email's Send it again", () => {
+  /** A Cinder checkout by transfer, on the "One more step" screen. */
+  async function waiting() {
+    const o = await open();
+    const { app, v } = o;
+    const cinder = show(app, "Cinder");
+    app.setState({ sel: { [`${String(cinder.id)}:${String(cinder.types[0]!.id)}`]: 1 } });
+    app.startCheckout(cinder);
+    app.buyer.setCoField({ check: "ok" });
+    app.buyer.setBuyer({ name: "Ana Ruiz", email: "ana.ruiz@example.com" });
+    await app.buyer.hold();
+    app.buyer.setTicket(0, { name: "Ana Ruiz" });
+    app.buyer.setCoField({ pay: "transfer" });
+    await app.buyer.confirm();
+    const co = async () => (await v())["co"] as V;
+    return { ...o, co, id: app.state.co!.orderId! };
+  }
+  const contact = (demo: DemoAdminium) => String(demo.world.all("settings")[0]!["contact_email"]);
+
+  it("sends it again, says the old link no longer works, then waits out the minute", async () => {
+    const { app, demo, co, id } = await waiting();
+    let c = await co();
+    expect([app.state.co?.phase, c["mailOn"], c["againOn"], c["againOff"], c["againTxt"], c["againSayOn"]]).toEqual(["mail", true, true, false, "Send it again", false]);
+    const before = demo.world.get("orders", id)!["confirm_token"];
+    await app.buyer.sendAgain();
+    c = await co();
+    expect(demo.world.get("orders", id)!["confirm_token"]).not.toBe(before);
+    expect([c["againSay"], c["againWarn"], c["againOff"], c["againTxt"], app.state.toast?.msg]).toEqual([
+      "Sent again to a•••@example.com. The link in the earlier email no longer works — use the new one.",
+      false,
+      true,
+      "Send it again in 1:00",
+      "Sent again to a•••@example.com",
+    ]);
+    // Within the minute the button waits: nothing is asked.
+    const mails = () => demo.world.all("messages").filter((m) => m["kind"] === "transfer-confirm" && m["order_id"] === id).length;
+    await app.buyer.sendAgain();
+    expect(mails()).toBe(2);
+    demo.advance(1);
+    c = await co();
+    expect([c["againOff"], c["againTxt"]]).toEqual([false, "Send it again"]);
+  });
+
+  it("says when today's are spent, and hides the button", async () => {
+    const { app, demo, co } = await waiting();
+    for (let i = 0; i < 5; i += 1) {
+      await app.buyer.sendAgain();
+      demo.advance(1);
+    }
+    await app.buyer.sendAgain();
+    const c = await co();
+    expect([c["againOn"], c["againWarn"], c["againSay"]]).toEqual([false, true, `That's as many times as we can send it today. Use the newest email, or write to ${contact(demo)}.`]);
+    expect(app.state.co?.phase).toBe("mail");
+  });
+
+  it("says it can't send one now, and keeps the button", async () => {
+    const { app, demo, co } = await waiting();
+    demo.audience.failNext = "mail-down";
+    await app.buyer.sendAgain();
+    const c = await co();
+    expect([c["againOn"], c["againOff"], c["againWarn"], c["againSay"]]).toEqual([true, false, true, `We can't send it again right now. Try again in a few minutes, or write to ${contact(demo)}.`]);
+  });
+
+  it("says to wait a minute when Adminium asks for one", async () => {
+    const { app, demo, co } = await waiting();
+    demo.audience.confirmAgain = () => Promise.reject(new ApiError(429, "PUBLIC_RATE_LIMITED"));
+    await app.buyer.sendAgain();
+    const c = await co();
+    expect([c["againSay"], c["againOff"], c["againTxt"]]).toEqual(["Wait a minute, then send it again.", true, "Send it again in 1:00"]);
+  });
+
+  it("moves on to the order when it was confirmed from the email meanwhile", async () => {
+    const { app, demo, id } = await waiting();
+    await demo.audience.confirmTransfer(String(demo.world.get("orders", id)!["confirm_token"]));
+    await app.buyer.sendAgain();
+    expect([app.state.scr, app.state.co]).toEqual(["going", null]);
+  });
+});
+
+describe("a name Adminium refuses at checkout", () => {
+  it("is said on the name field for a guest", async () => {
+    const { app, v } = await open();
+    const neon = show(app, "Neon Circuit");
+    app.setState({ sel: { [`${String(neon.id)}:${String(neon.types.find((t) => t.name === "Standard")!.id)}`]: 1 } });
+    app.startCheckout(neon);
+    app.buyer.setCoField({ check: "ok" });
+    app.buyer.setBuyer({ name: "Lee at leetan.com", email: "lee.tan@example.com" });
+    await app.buyer.hold();
+    const c = (await v())["co"] as V;
+    expect([app.state.co?.phase, c["eNameOn"], c["eName"], c["failOn"]]).toEqual(["details", true, "Write the name in letters only — no numbers, web or email address.", false]);
+    app.buyer.setBuyer({ name: "Lee Tan" });
+    await app.buyer.hold();
+    expect(app.state.co?.phase).toBe("held");
+  });
+
+  it("shows the name field, signed in, when the account's name is refused, and takes the name typed there", async () => {
+    const { app, demo, v } = await open();
+    demo.world.all("customers").find((c) => c["email"] === "mia.okada@example.com")!["name"] = "Mia okada.com";
+    app.setState({ si: { ...app.state.si, email: "mia.okada@example.com" } });
+    await demo.audience.signIn("mia.okada@example.com");
+    app.setState({ si: { ...app.state.si, digits: demo.audience.mail.get("mia.okada@example.com")!.code.split("") } });
+    await app.buyer.verify();
+    await v();
+    const cinder = show(app, "Cinder");
+    app.setState({ sel: { [`${String(cinder.id)}:${String(cinder.types[0]!.id)}`]: 1 } });
+    app.startCheckout(cinder);
+    await vi.waitFor(() => expect(app.state.co?.errs["name"]).toBeTruthy());
+    let c = (await v())["co"] as V;
+    expect([c["locked"], c["nameAskOn"], c["bName"], c["eName"]]).toEqual([true, true, "Mia okada.com", "Write the name in letters only — no numbers, web or email address."]);
+    app.buyer.setBuyer({ name: "" });
+    await app.buyer.hold();
+    expect(app.state.co?.errs["name"]).toBe("Add your name");
+    app.buyer.setBuyer({ name: "Mia Okada" });
+    await app.buyer.hold();
+    c = (await v())["co"] as V;
+    expect([app.state.co?.phase, c["nameAskOn"]]).toEqual(["held", true]);
+    expect(demo.world.get("orders", app.state.co!.orderId!)!["buyer_name"]).toBe("Mia Okada");
+  });
+
+  it("is said on the ticket's own name field at confirm", async () => {
+    const { app, v } = await open();
+    const neon = show(app, "Neon Circuit");
+    app.setState({ sel: { [`${String(neon.id)}:${String(neon.types.find((t) => t.name === "Standard")!.id)}`]: 1 } });
+    app.startCheckout(neon);
+    app.buyer.setCoField({ check: "ok" });
+    app.buyer.setBuyer({ name: "Lee Tan", email: "lee.tan@example.com" });
+    await app.buyer.hold();
+    app.buyer.setTicket(0, { name: "Tickets at resale.shop" });
+    await app.buyer.confirm();
+    const t = (((await v())["co"] as V)["tix"] as V[])[0]!;
+    expect([app.state.co?.phase, t["errOn"], t["err"]]).toEqual(["held", true, "Write the name in letters only — no numbers, web or email address."]);
   });
 });
