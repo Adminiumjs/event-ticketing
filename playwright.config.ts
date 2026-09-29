@@ -2,9 +2,10 @@
  * The browser pass (`npm run e2e`).
  *
  *   demo   the website's demo build, served as the website serves it
- *          (`/demo/event-ticketing/app/`), on the lane's preview port: every
- *          screen and state the demo reaches, each in light, dark, Arabic and
- *          on a phone, swept by axe.
+ *          (`/demo/event-ticketing/app/`), on a preview port (`E2E_DEMO_PORT`,
+ *          default 8661), in light, dark, Arabic and on a phone. Today a smoke
+ *          pass: the demo opens in each; the screens, their states and an axe
+ *          sweep (`e2e/browser.ts` `check`) are added as the pass grows.
  *
  * The files are named `*.e2e.ts` so the unit suite (vitest) never collects them.
  */
