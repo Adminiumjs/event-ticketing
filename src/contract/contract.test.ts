@@ -762,7 +762,7 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         expect((await find("NG7T-6G8C")).checkIn).toBeNull();
         const std = (await door.rows("ticket_types")).find((t) => t["event_id"] === neon.id && t["name"] === "Standard")!;
         const sale = await door.newOrder({ values: { event_id: neon.id, buyer_name: "Door sale", channel: "door", email: null }, tickets: [{ ticket_type_id: std.id }, { ticket_type_id: std.id }] }, key("door-sale"));
-        await door.move(sale.data.id, "door");
+        // A door sale takes each ticket's money on the held order; the last one pays it.
         for (const t of sale.tickets) await door.collect(t.id, "card", 1);
         for (const t of sale.tickets) await door.checkIn(t.id, day.id, 1);
         expect((await door.list("orders", { where: [{ column: "id", eq: sale.data.id }] })).rows[0]!["status"]).toBe("paid");
@@ -855,6 +855,76 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         // The evening's own writes are among them.
         expect(left.filter((o) => touched.has(o.id)).length).toBeGreaterThan(0);
       }, 120_000);
+
+      describe("door fixes", () => {
+        /** A show of the door's own, doors in half an hour (check-in open now), its own room and types: nothing of the sample's. */
+        const night = async () => {
+          const box = await staffPort(ADMIN);
+          const now = Date.parse((await box.config()).now!);
+          const iso = (minutes: number) => new Date(now + minutes * 60_000).toISOString();
+          const room = await box.create("rooms", { name: `Door fixes ${engine}`, capacity: 200 });
+          const made = await box.saveEvent(
+            null,
+            { slug: key("door-fixes").toLowerCase(), name: "Door fixes", room_id: room.id, doors_at: iso(30), starts_at: iso(60), curfew_at: iso(240), ends_at: iso(240), status: "draft" },
+            {
+              event_days: [{ day: 1, doors_at: iso(30), curfew_at: iso(240) }],
+              ticket_types: [
+                { name: "Walk-up", price: "20.00", capacity: 40 },
+                { name: "Guest", price: "0.00", capacity: 10 },
+              ],
+              acts: [],
+              questions: [],
+            },
+          );
+          await box.update("events", made.id, { status: "published" });
+          const types = (await box.rows("ticket_types")).filter((t) => t["event_id"] === made.id);
+          const day = (await box.rows("event_days")).find((d) => d["event_id"] === made.id)!;
+          return { box, door: await staffPort(DOOR_PERSON), show: made, day, walkUp: types.find((t) => t["name"] === "Walk-up")!, guest: types.find((t) => t["name"] === "Guest")! };
+        };
+        const orderOf = async (port: AdminiumStaff, id: number) => (await port.list("orders", { where: [{ column: "id", eq: id }] })).rows[0]!;
+
+        it("sells at the door with Pay at the door switched off: the money on the held order, then paid, then in", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const { box, door, show, day, walkUp } = await night();
+          const settings = (await box.rows("settings"))[0]!;
+          await box.update("settings", settings.id, { door_on: false });
+          try {
+            const sale = await door.newOrder({ values: { event_id: show.id, buyer_name: "Door sale", channel: "door", email: null }, tickets: [{ ticket_type_id: walkUp.id }, { ticket_type_id: walkUp.id }] }, key("door-off"));
+            expect(sale.data["status"]).toBe("held");
+            // The door's role never needs "pay at the door" (and may not move an order there).
+            expect(await refusal(() => door.move(sale.data.id, "door"))).toMatchObject({ status: 403 });
+            for (const t of sale.tickets) await door.collect(t.id, "cash", null);
+            const paid = await orderOf(door, sale.data.id);
+            expect([paid["status"], paid["paid_method"], money(paid["balance"]), money(paid["collected"])]).toEqual(["paid", "cash", "0.00", "40.00"]);
+            for (const t of sale.tickets) expect((await door.checkIn(t.id, day.id, null))["status"]).toBe("in");
+          } finally {
+            await box.update("settings", settings.id, { door_on: true });
+          }
+        }, 240_000);
+
+        it("issues a ticket with nothing to pay at the door as paid (the door's role has no 'no charge')", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const { door, show, guest } = await night();
+          const sale = await door.newOrder({ values: { event_id: show.id, buyer_name: "Door sale", channel: "door", email: null }, tickets: [{ ticket_type_id: guest.id }] }, key("door-free"));
+          expect(money(sale.data["total"])).toBe("0.00");
+          expect((await door.move(sale.data.id, "paid"))["status"]).toBe("paid");
+          expect(await refusal(() => door.move(sale.data.id, "no_charge"))).toMatchObject({ status: 403 });
+        }, 240_000);
+
+        it("takes no door money on an order let go, and keeps the door's role from voiding money or renaming a buyer", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const { box, door, show, walkUp } = await night();
+          const gone = await box.newOrder({ values: { event_id: show.id, channel: "box_office" }, tickets: [{ ticket_type_id: walkUp.id }] }, key("let-go"));
+          await box.move(gone.data.id, "let_go");
+          expect(await refusal(() => door.collect(gone.tickets[0]!.id, "card", null))).toMatchObject({ status: 409, code: "STATE_MOVE_REFUSED", params: { requires: "linked" } });
+          const sale = await door.newOrder({ values: { event_id: show.id, buyer_name: "Door sale", channel: "door", email: null }, tickets: [{ ticket_type_id: walkUp.id }] }, key("door-void"));
+          const taken = await door.collect(sale.tickets[0]!.id, "card", null);
+          expect(await refusal(() => door.update("door_collections", taken.id, { state: "voided" }))).toMatchObject({ status: 403, code: "TABLE_FORBIDDEN" });
+          expect(await refusal(() => door.update("orders", sale.data.id, { buyer_name: "Someone else" }))).toMatchObject({ status: 403, code: "COLUMN_FORBIDDEN" });
+          // The box office still can.
+          expect((await box.update("door_collections", taken.id, { state: "voided" }))["state"]).toBe("voided");
+        }, 240_000);
+      });
     });
   });
 });
