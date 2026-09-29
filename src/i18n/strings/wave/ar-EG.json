@@ -162,7 +162,7 @@
  "Sign out everywhere": "تسجيل الخروج من كل مكان",
  "Cancel": "إلغاء",
  "Delete my details?": "حذف بياناتي؟",
- "Your sign-in and your name and email on the account are removed. Tickets you already have still work, and the links in your emails still open them.": "يُحذف تسجيل دخولك واسمك وبريدك الإلكتروني من الحساب. التذاكر التي لديك تظل صالحة، والروابط في رسائلك تظل تفتحها.",
+ "Your sign-in and your name and email on the account are removed. Tickets you already have still work at the door, but the links in your emails stop opening your orders.": "يُحذف تسجيل دخولك واسمك وبريدك الإلكتروني من الحساب. التذاكر التي لديك تظل صالحة عند الدخول، لكن الروابط في رسائلك لن تفتح طلباتك بعد الآن.",
  "For your safety, sign in again to delete your details.": "حفاظا على أمانك، سجّل الدخول مجددا لحذف بياناتك.",
  "Send me a link": "أرسل لي رابطا",
  "Which ticket?": "أي تذكرة؟",
@@ -1382,5 +1382,6 @@
  "{who} is cancelled and {amount} becomes due back. {buyer} is told.": "تُلغى {who} ويصبح {amount} مستحق الرد. يُبلَّغ {buyer} بذلك.",
  "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "تُلغى {who} ويصبح {amount} مستحق الرد. يُبلَّغ {buyer} بذلك.",
  "Receipt downloaded": "تم تنزيل الإيصال",
- "The receipt couldn't be made just now. Try again in a minute.": "تعذّر إنشاء الإيصال الآن. حاول مرة أخرى بعد دقيقة."
+ "The receipt couldn't be made just now. Try again in a minute.": "تعذّر إنشاء الإيصال الآن. حاول مرة أخرى بعد دقيقة.",
+ "Signed out here. We couldn't sign you out on your other devices — sign in and try again.": "تم تسجيل خروجك هنا. لم نتمكن من تسجيل خروجك على أجهزتك الأخرى — سجّل الدخول وحاول مرة أخرى."
 }

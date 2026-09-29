@@ -162,7 +162,7 @@
  "Sign out everywhere": "全部退出",
  "Cancel": "取消",
  "Delete my details?": "删除我的信息？",
- "Your sign-in and your name and email on the account are removed. Tickets you already have still work, and the links in your emails still open them.": "你的登录信息以及账户中的姓名和邮箱将被删除。已有的门票仍然有效，邮件中的链接仍可打开它们。",
+ "Your sign-in and your name and email on the account are removed. Tickets you already have still work at the door, but the links in your emails stop opening your orders.": "你的登录信息以及账户中的姓名和邮箱将被删除。已有的门票在入场时仍然有效，但邮件中的链接将无法再打开你的订单。",
  "For your safety, sign in again to delete your details.": "为了你的安全，请重新登录后再删除信息。",
  "Send me a link": "给我发送链接",
  "Which ticket?": "哪张票？",
@@ -1382,5 +1382,6 @@
  "{who} is cancelled and {amount} becomes due back. {buyer} is told.": "{who}将被取消，需退还 {amount}。系统会通知 {buyer}。",
  "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "{who}将被取消，需退还 {amount}。系统会通知 {buyer}。",
  "Receipt downloaded": "收据已下载",
- "The receipt couldn't be made just now. Try again in a minute.": "暂时无法生成收据，请一分钟后再试。"
+ "The receipt couldn't be made just now. Try again in a minute.": "暂时无法生成收据，请一分钟后再试。",
+ "Signed out here. We couldn't sign you out on your other devices — sign in and try again.": "已在此设备退出登录。未能在你的其他设备上退出登录——请登录后再试一次。"
 }

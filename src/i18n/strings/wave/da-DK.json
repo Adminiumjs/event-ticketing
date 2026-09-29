@@ -162,7 +162,7 @@
  "Sign out everywhere": "Log ud overalt",
  "Cancel": "Annuller",
  "Delete my details?": "Slet mine oplysninger?",
- "Your sign-in and your name and email on the account are removed. Tickets you already have still work, and the links in your emails still open them.": "Dit login samt navn og mail på kontoen fjernes. Billetter, du allerede har, virker stadig, og linkene i dine mails åbner dem stadig.",
+ "Your sign-in and your name and email on the account are removed. Tickets you already have still work at the door, but the links in your emails stop opening your orders.": "Dit login samt navn og mail på kontoen fjernes. Billetter, du allerede har, virker stadig ved indgangen, men linkene i dine mails åbner ikke længere dine bestillinger.",
  "For your safety, sign in again to delete your details.": "Af hensyn til din sikkerhed skal du logge ind igen for at slette dine oplysninger.",
  "Send me a link": "Send mig et link",
  "Which ticket?": "Hvilken billet?",
@@ -1382,5 +1382,6 @@
  "{who} is cancelled and {amount} becomes due back. {buyer} is told.": "{who} annulleres, og {amount} skal betales tilbage. {buyer} får besked.",
  "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "{who} annulleres, og {amount} skal betales tilbage. {buyer} får besked.",
  "Receipt downloaded": "Kvittering hentet",
- "The receipt couldn't be made just now. Try again in a minute.": "Kvitteringen kunne ikke laves lige nu. Prøv igen om et minut."
+ "The receipt couldn't be made just now. Try again in a minute.": "Kvitteringen kunne ikke laves lige nu. Prøv igen om et minut.",
+ "Signed out here. We couldn't sign you out on your other devices — sign in and try again.": "Logget ud her. Vi kunne ikke logge dig ud på dine andre enheder — log ind, og prøv igen."
 }

@@ -109,12 +109,20 @@ describe("nobody in the audience reads what is not theirs", () => {
     const buyerTickets = manifest.publicAccess.filter((e) => e.table === "tickets" && (e.select ?? []).includes("code") && e["visibleWith"] !== undefined);
     expect(buyerTickets.length).toBeGreaterThan(0);
     for (const e of buyerTickets) {
+      // Who holds the ticket, and at what address, is never read by the buyer at all.
+      expect((e.select ?? []).filter((c) => ["holder_customer_id", "holder_email", "pending_email"].includes(c))).toEqual([]);
       expect(e["withhold"]).toEqual({
-        columns: ["code", "holder_email"],
+        columns: ["code"],
         unlessHolder: "holder_customer_id",
         when: { where: [{ column: "order_status", in: ["held", "confirming", "offered", "awaiting_transfer", "overdue", "released"] }] },
       });
     }
+  });
+
+  it("reads back none of the answers and access needs a buyer writes: an order's forwarded link carries none", () => {
+    const buyerReads = manifest.publicAccess.filter((e) => (e.table === "orders" || e.table === "tickets") && e.key !== "ticket" && (e.methods ?? []).includes("GET"));
+    expect(buyerReads.length).toBeGreaterThan(0);
+    expect(buyerReads.flatMap((e) => (e.select ?? []).filter((c) => c === "answers" || c === "access_note").map((c) => `${e.key ?? "customer"} ${e.table}.${c}`))).toEqual([]);
   });
 
   it("shows a friend the code on the page their link opens only once they accept it", () => {

@@ -247,6 +247,15 @@ export class WaveApp {
     const c = this.cache.get(key);
     return c?.error !== undefined && !this.stale.has(key);
   }
+  /**
+   * Forget Adminium's answers under a prefix, the one on screen too: what one person read never shows while
+   * the next person's answers are on their way (a sign-out, a sign-in as someone else, deleted details).
+   */
+  drop(prefix: string): void {
+    for (const key of [...this.cache.keys()]) if (key.startsWith(prefix)) this.cache.delete(key);
+    for (const key of [...this.stale.keys()]) if (key.startsWith(prefix)) this.stale.delete(key);
+    this.bump();
+  }
   /** After a write, or the clock moving: ask everything again, keeping what is on screen until the answers come. */
   refresh(prefix = ""): void {
     if (prefix === "") this.askedAt = Date.now();

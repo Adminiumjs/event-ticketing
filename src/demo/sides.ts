@@ -8,25 +8,94 @@
  *
  * DEMO BUILD ONLY — nothing in a real build imports it.
  */
-import type { AudiencePort, BoxOfficePort, DoorPort, EventChildren, OrderWithTickets, Person, StaffPerson, Venue } from "../data/ports.ts";
+import type { AudiencePort, BankDoor, BoxOfficePort, DoorPort, EventChildren, OrderWithTickets, Person, StaffPerson, Venue } from "../data/ports.ts";
 import { ApiError, type ClaimReply, type Config, type HistoryEntry, type Id, type ListQuery, type ListReply, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type TypeLeft, type Where } from "../data/wire.ts";
 import { toMs } from "../lib/venueTime.ts";
-import { normalizeCode } from "./codes.ts";
+import { normalizeCode, randomCode } from "./codes.ts";
 import { holds, type Engine, type Writer } from "./engine.ts";
 import type { Table } from "./world.ts";
 import { MANIFEST_RULES } from "./rules.ts";
 
-type Withhold = { columns: string[]; when: { where: Parameters<typeof holds>[1][] } };
-type Entry = { table: string; key?: string; select?: string[]; visibleWith?: unknown; withhold?: Withhold };
+type Withhold = { columns: string[]; unlessHolder?: string; when: { where: Parameters<typeof holds>[1][] } };
+type Entry = {
+  table: string;
+  key?: string;
+  kind?: string;
+  level?: string;
+  methods: string[];
+  select?: string[];
+  filters?: { column: string }[];
+  claim?: unknown;
+  claimedBy?: unknown;
+  visibleWith?: unknown;
+  unlockBy?: unknown;
+  withhold?: Withhold;
+  writable?: string[];
+  writableValues?: Record<string, unknown[]>;
+  writableWhen?: Record<string, unknown>;
+  defaults?: Record<string, unknown>;
+  children?: Record<string, { select?: string[] }>;
+};
 const ENTRIES = MANIFEST_RULES.publicAccess as unknown as Entry[];
-/** The buyer's read of an order's tickets, and a ticket's own link: what each shows and holds back. */
-const BUYER_WITHHOLD = ENTRIES.find((e) => e.table === "tickets" && e.visibleWith !== undefined && e.withhold !== undefined)!.withhold!;
-const TICKET_LINK = ENTRIES.find((e) => e.table === "tickets" && e.key === "ticket") as Required<Pick<Entry, "select" | "withhold">>;
+/** The manifest's own public entry, found as a test finds it: the demo reads and writes through it, as the server does. */
+function entry(what: string, find: (e: Entry) => boolean): Entry {
+  const found = ENTRIES.find(find);
+  if (found === undefined) throw new Error(`the manifest has no public entry for ${what}`);
+  return found;
+}
+const moves = (e: Entry, to: string) => (e.writableValues?.["status"] ?? []).includes(to);
+const plain = (e: Entry) => e.key === undefined && e.level === undefined && e.claim === undefined && e.claimedBy === undefined && e.visibleWith === undefined && e.kind === undefined && e.unlockBy === undefined;
+const mineOf = (e: Entry) => e.key === undefined && e.table === "tickets" && e.visibleWith !== undefined;
+/** What each read shows: its entry's own select, nothing more. */
+const READ = {
+  settings: entry("the venue", (e) => e.table === "settings" && plain(e)),
+  bank: entry("the bank details", (e) => e.table === "settings" && e.key === undefined && e.level === "verified"),
+  rooms: entry("the rooms", (e) => e.table === "rooms" && plain(e)),
+  events: entry("the shows", (e) => e.table === "events" && plain(e)),
+  days: entry("the days", (e) => e.table === "event_days" && plain(e)),
+  acts: entry("the acts", (e) => e.table === "acts" && !(e.filters ?? []).some((f) => f.column === "sets_published")),
+  actTimes: entry("the set times", (e) => e.table === "acts" && (e.filters ?? []).some((f) => f.column === "sets_published")),
+  types: entry("the ticket types", (e) => e.table === "ticket_types" && plain(e)),
+  codeTypes: entry("a code's ticket types", (e) => e.table === "ticket_types" && e.unlockBy !== undefined),
+  questions: entry("the questions", (e) => e.table === "questions" && plain(e)),
+  buy: entry("buying", (e) => e.table === "orders" && e.methods.includes("POST")),
+  join: entry("joining a waitlist", (e) => e.table === "waitlist" && e.methods.includes("POST")),
+  remind: entry("a reminder", (e) => e.table === "reminders" && e.methods.includes("POST")),
+  myOrders: entry("a person's orders", (e) => e.table === "orders" && e.key === undefined && e.claimedBy !== undefined && e.methods.includes("GET")),
+  linkOrder: entry("an order's own link", (e) => e.table === "orders" && e.key === "link"),
+  confirmOrder: entry("the confirm link", (e) => e.table === "orders" && e.key === "confirm"),
+  tickets: entry("an order's tickets", (e) => mineOf(e) && e.methods.includes("GET")),
+  held: entry("a friend's tickets they hold", (e) => e.table === "tickets" && e.key === undefined && e.claimedBy !== undefined),
+  waitlist: entry("a person's waitlist places", (e) => e.table === "waitlist" && e.key === undefined && e.methods.includes("GET")),
+  ticket: entry("a ticket's own link", (e) => e.table === "tickets" && e.key === "ticket"),
+};
+/** Each change a buyer makes to a ticket: the entry whose rules judge it. */
+const CHANGE = {
+  send: entry("sending a ticket", (e) => mineOf(e) && moves(e, "offered")),
+  refund: entry("a refund asked", (e) => mineOf(e) && moves(e, "refund_asked")),
+  // A place handed to the waitlist: part of an offer not wanted, or a buyer's cancel on a show that keeps one.
+  names: entry("the names", (e) => mineOf(e) && (e.writable ?? []).includes("holder_name")),
+  cancel: entry("a cancel", (e) => mineOf(e) && moves(e, "cancelled")),
+  toWaitlist: entry("a cancel on a waitlist show", (e) => mineOf(e) && moves(e, "returned") && (e.writableWhen?.["waitlist_on"] as unknown[] | undefined)?.includes(true) === true),
+};
+/** A row as an entry shows it: its own columns only. */
+const shown = (row: Row, e: Entry): Row => {
+  const out: Row = { id: row.id };
+  for (const column of e.select ?? []) out[column] = row[column] ?? null;
+  return out;
+};
+/** The rows a linked time is read from (a ticket's show, for its doors). */
+const LINKED: Record<string, Table> = { event_id: "events", order_id: "orders" };
+/** A value an entry's rule names, as the database compares it: a number with a number, "no value" with null. */
+const same = (value: unknown, v: unknown): boolean => {
+  if (v === null) return value === null || value === undefined;
+  if (typeof v === "boolean") return value === v || value === (v ? 1 : 0);
+  if (typeof v === "number") return value !== null && value !== undefined && value !== "" && Number(value) === v;
+  return value === v;
+};
 
 const copy = (row: Row): Row => ({ ...row });
 const LIVE_ORDER = ["door", "awaiting_transfer", "overdue", "no_charge", "paid"];
-/** An order's states in which its tickets can be named. */
-const NAMED = ["held", "confirming", "offered", "door", "no_charge", "paid", "awaiting_transfer", "overdue"];
 /** The orders a signed-in person sees: every one that was ever confirmed, and an offer made to them. */
 const LIVE_OR_PAST = [...LIVE_ORDER, "offered", "released", "cancelled", "not_collected"];
 /** A small stable hash (the demo's emailed codes). */
@@ -56,6 +125,9 @@ export function meets(row: Row, w: Where): boolean {
   return true;
 }
 
+/** The staff's hand in a change the server makes itself (a forget's renewed links). */
+const SERVER: Writer = { origin: "staff", name: null, roles: [] };
+
 /** A buyer found by the address typed, or made (and never told which). */
 function identity(engine: Engine, email: string, name: string | null): Id {
   const found = engine.world.all("customers").find((c) => c["email"] === email.trim().toLowerCase());
@@ -78,6 +150,8 @@ export class DemoAudience implements AudiencePort {
   private readonly writer: Writer = { origin: "public", name: null, roles: [] };
   /** The order this browser's link opened. */
   private openedOrder: Id | null = null;
+  /** The order this browser's confirm link opened. */
+  private openedConfirm: Id | null = null;
   private clientKeys = new Map<string, Id>();
   /** Who this browser is signed in as, and since when. */
   private signed: { customer: Id; at: number } | null = null;
@@ -98,17 +172,21 @@ export class DemoAudience implements AudiencePort {
     const w = this.engine.world;
     const published = w.where("events", (e) => e["status"] === "published" || e["status"] === "cancelled");
     const ids = new Set(published.map((e) => e.id));
+    // Each read as its own entry shows it (the bank details are not the venue's public face).
     return {
-      settings: copy(w.all("settings")[0]!),
-      rooms: w.all("rooms").map(copy),
-      events: published.map(copy),
-      days: w.where("event_days", (d) => ids.has(d["event_id"] as Id)).map(copy),
+      settings: shown(w.all("settings")[0]!, READ.settings),
+      rooms: w.all("rooms").map((r) => shown(r, READ.rooms)),
+      events: published.map((e) => shown(e, READ.events)),
+      days: w.where("event_days", (d) => ids.has(d["event_id"] as Id)).map((d) => shown(d, READ.days)),
       // Set times only once the show's are up.
       acts: w
         .where("acts", (a) => ids.has(a["event_id"] as Id))
-        .map((a) => (w.get("events", a["event_id"] as Id)?.["sets_published"] === true ? copy(a) : { ...copy(a), starts_at: null, ends_at: null })),
-      types: w.where("ticket_types", (t) => ids.has(t["event_id"] as Id) && t["visibility"] === "public").map(copy),
-      questions: w.where("questions", (q) => ids.has(q["event_id"] as Id)).map(copy),
+        .map((a) => {
+          const timed = w.get("events", a["event_id"] as Id)?.["sets_published"] === true;
+          return { ...shown(a, timed ? READ.actTimes : READ.acts), starts_at: timed ? (a["starts_at"] ?? null) : null, ends_at: timed ? (a["ends_at"] ?? null) : null, sets_published: timed };
+        }),
+      types: w.where("ticket_types", (t) => ids.has(t["event_id"] as Id) && t["visibility"] === "public").map((t) => shown(t, READ.types)),
+      questions: w.where("questions", (q) => ids.has(q["event_id"] as Id)).map((q) => shown(q, READ.questions)),
     };
   }
 
@@ -120,7 +198,7 @@ export class DemoAudience implements AudiencePort {
     const wanted = normalizeCode(code);
     const w = this.engine.world;
     const codes = w.where("codes", (c) => normalizeCode(String(c["code"])) === wanted && c["active"] === true && c["unlocks_type_id"] !== null);
-    return codes.map((c) => w.get("ticket_types", c["unlocks_type_id"] as Id)!).filter((t) => t["event_id"] === eventId).map(copy);
+    return codes.map((c) => w.get("ticket_types", c["unlocks_type_id"] as Id)!).filter((t) => t["event_id"] === eventId).map((t) => shown(t, READ.codeTypes));
   }
 
   private orderValues(body: OrderBody): Record<string, unknown> {
@@ -146,7 +224,7 @@ export class DemoAudience implements AudiencePort {
     try {
       engine.transaction(() => {
         const made = engine.create("orders", this.orderValues(body), this.writer, { table: "tickets", via: "order_id", rows: body.tickets.map((t) => ({ ...t })) });
-        reply = { data: made.row, tickets: made.children };
+        reply = { data: shown(made.row, READ.buy), tickets: made.children.map((t) => this.child(t)) };
         throw new DryRun();
       });
     } catch (error) {
@@ -160,7 +238,7 @@ export class DemoAudience implements AudiencePort {
     const again = this.clientKeys.get(clientKey);
     if (again !== undefined) {
       const order = engine.world.get("orders", again)!;
-      return { data: copy(order), tickets: engine.world.where("tickets", (t) => t["order_id"] === again).map(copy), replayed: true };
+      return { data: shown(order, READ.buy), tickets: engine.world.where("tickets", (t) => t["order_id"] === again).map((t) => this.child(t)), replayed: true };
     }
     const email = String(body.values["email"] ?? "");
     const name = (body.values["buyer_name"] as string | undefined) ?? null;
@@ -178,7 +256,14 @@ export class DemoAudience implements AudiencePort {
     });
     this.clientKeys.set(clientKey, made.row.id);
     this.openedOrder = made.row.id;
-    return { data: made.row, tickets: made.children, link: { key: "link", token: String(made.row["link_token"]) } };
+    return { data: shown(made.row, READ.buy), tickets: made.children.map((t) => this.child(t)), link: { key: "link", token: String(made.row["link_token"]) } };
+  }
+
+  /** A ticket of an order just made, as the create answers it. */
+  private child(t: Row): Row {
+    const out: Row = { id: t.id };
+    for (const column of READ.buy.children?.["tickets"]?.select ?? []) out[column] = t[column] ?? null;
+    return out;
   }
 
   async openOrder(token: string): Promise<ClaimReply> {
@@ -195,20 +280,33 @@ export class DemoAudience implements AudiencePort {
   }
 
   /**
-   * A ticket of the opened order, read as its buyer, as the manifest's withhold says: a friend's code and
-   * address stay with the friend, and no code shows before the order is paid or confirmed to pay at the door.
+   * A ticket of an order, read as its buyer — signed in (`reader`) or by the order's own link (nobody) — as the
+   * manifest's entry says: its own columns only; a friend's code stays with the friend who holds it, and no
+   * code shows before the order is paid or confirmed to pay at the door.
    */
-  private asBuyer(ticket: Row): Row {
-    const order = this.engine.world.get("orders", ticket["order_id"] as Id)!;
-    const out = copy(ticket);
-    const byHolder = ticket["holder_customer_id"] !== null && ticket["holder_customer_id"] !== order["customer_id"];
-    if (byHolder || BUYER_WITHHOLD.when.where.every((c) => holds(ticket, c))) for (const column of BUYER_WITHHOLD.columns) out[column] = null;
+  private asBuyer(ticket: Row, reader: Id | null = this.signed?.customer ?? null): Row {
+    const out = shown(ticket, READ.tickets);
+    const w = READ.tickets.withhold!;
+    const holder = w.unlessHolder === undefined ? null : ticket[w.unlessHolder];
+    const byHolder = holder !== null && holder !== undefined && holder !== reader;
+    if (byHolder || w.when.where.every((c) => holds(ticket, c))) for (const column of w.columns) out[column] = null;
     return out;
+  }
+  /** The reader a ticket of this order is read as: its buyer when signed in, nobody through the link. */
+  private readerOf(orderId: Id): Id | null {
+    return this.openedOrder === orderId && (this.signed === null || this.engine.world.get("orders", orderId)?.["customer_id"] !== this.signed.customer) ? null : (this.signed?.customer ?? null);
   }
 
   async order(): Promise<OrderWithTickets> {
     const order = this.opened();
-    return { order: copy(order), tickets: this.engine.world.where("tickets", (t) => t["order_id"] === order.id).map((t) => this.asBuyer(t)) };
+    return { order: shown(order, READ.linkOrder), tickets: this.engine.world.where("tickets", (t) => t["order_id"] === order.id).map((t) => this.asBuyer(t, null)) };
+  }
+
+  async bank(door: BankDoor): Promise<Row> {
+    // Each door's bank read is for a proved session only: the link's, the confirm link's, the signed-in person's.
+    const open = door === "link" ? this.openedOrder !== null : door === "confirm" ? this.openedConfirm !== null : this.signed !== null;
+    if (!open) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
+    return shown(this.engine.world.all("settings")[0]!, READ.bank);
   }
 
   /** The order a write names: one of the signed-in person's, or the one this browser's link opened. */
@@ -230,7 +328,7 @@ export class DemoAudience implements AudiencePort {
         if (keep < 1 || keep > tickets.length) throw new ApiError(400, "PUBLIC_WRITE_REFUSED", { column: "keep", reason: "out-of-range" });
         for (const t of tickets.slice(keep)) engine.update("tickets", t.id, { status: "returned", cancel_cause: "claim" }, { origin: "staff", name: null, roles: [] });
       }
-      const moved = engine.update("orders", order.id, { status }, this.writer);
+      const moved = shown(engine.update("orders", order.id, { status }, this.writer), orderId === undefined ? READ.linkOrder : READ.myOrders);
       // A claimed offer takes its places from the waitlist's: the places it was owed go back on sale as it is sold.
       if (order["waitlist_id"] !== null && status !== "let_go") {
         const kept = engine.world.where("tickets", (t) => t["order_id"] === order.id && t["status"] === "valid").length;
@@ -243,7 +341,8 @@ export class DemoAudience implements AudiencePort {
   async confirmTransfer(token: string): Promise<Row> {
     const order = this.engine.world.all("orders").find((o) => o["confirm_token"] === token);
     if (order === undefined || order["status"] !== "confirming") throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
-    return this.engine.update("orders", order.id, { status: "awaiting_transfer" }, this.writer);
+    this.openedConfirm = order.id;
+    return shown(this.engine.update("orders", order.id, { status: "awaiting_transfer" }, this.writer), READ.confirmOrder);
   }
 
   /** A ticket of the order this browser's link opened, or of one of the signed-in person's orders. */
@@ -257,42 +356,68 @@ export class DemoAudience implements AudiencePort {
     return ticket;
   }
 
-  async sendTicket(ticketId: Id, email: string, name: string): Promise<Row> {
+  /**
+   * Whether an entry's rules let a change reach this row now: each value it names (a ticket nobody else holds,
+   * an order confirmed to pay at the door, no door money taken), and a window on a linked row's time (before
+   * the show's doors). As the server's own WHERE: a row outside them is not there.
+   */
+  private allows(e: Entry, row: Row): boolean {
+    for (const [column, when] of Object.entries(e.writableWhen ?? {})) {
+      if (Array.isArray(when)) {
+        if (!when.some((v) => same(row[column], v))) return false;
+        continue;
+      }
+      const before = (when as { before?: { column?: string } }).before?.column;
+      const table = LINKED[column];
+      if (before === undefined || table === undefined) throw new Error(`the demo does not judge "${column}" on a buyer's change`);
+      const linked = this.engine.world.get(table, row[column] as Id);
+      if (linked === undefined || this.engine.now >= (toMs(linked[before]) ?? 0)) return false;
+    }
+    return true;
+  }
+
+  /** A buyer's change to a ticket of theirs, through the entry whose rules judge it, answered as the entry shows it. */
+  private change(ticketId: Id, e: Entry, values: Record<string, unknown>): Row {
     const ticket = this.mine(ticketId);
-    if (!["door", "no_charge", "paid"].includes(String(ticket["order_status"])) || ticket["holder_customer_id"] !== null) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
-    return this.asBuyer(this.engine.update("tickets", ticketId, { status: "offered", pending_email: email.trim().toLowerCase(), pending_name: name }, this.writer));
+    if (!this.allows(e, ticket)) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
+    for (const [column, allowed] of Object.entries(e.writableValues ?? {})) {
+      if (values[column] !== undefined && !allowed.includes(values[column])) throw new ApiError(400, "PUBLIC_WRITE_REFUSED", { column, reason: "value" });
+    }
+    const written = this.engine.update("tickets", ticketId, { ...(e.defaults ?? {}), ...values }, this.writer);
+    return this.asBuyer(written, this.readerOf(ticket["order_id"] as Id));
+  }
+
+  async sendTicket(ticketId: Id, email: string, name: string): Promise<Row> {
+    return this.change(ticketId, CHANGE.send, { status: "offered", pending_email: email.trim().toLowerCase(), pending_name: name });
   }
 
   async takeBack(ticketId: Id): Promise<Row> {
-    this.mine(ticketId);
-    return this.asBuyer(this.engine.update("tickets", ticketId, { status: "valid", pending_email: null, pending_name: null }, this.writer));
+    return this.change(ticketId, CHANGE.send, { status: "valid", pending_email: null, pending_name: null });
   }
 
   async askRefund(ticketId: Id): Promise<Row> {
-    const ticket = this.mine(ticketId);
-    if (ticket["order_status"] !== "paid") throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
-    return this.asBuyer(this.engine.update("tickets", ticketId, { status: "refund_asked" }, this.writer));
+    return this.change(ticketId, CHANGE.refund, { status: "refund_asked" });
   }
 
   async withdrawRefund(ticketId: Id): Promise<Row> {
-    this.mine(ticketId);
-    return this.asBuyer(this.engine.update("tickets", ticketId, { status: "valid" }, this.writer));
+    return this.change(ticketId, CHANGE.refund, { status: "valid" });
   }
 
-  async cancelTicket(ticketId: Id): Promise<Row> {
-    const ticket = this.mine(ticketId);
-    const event = this.engine.world.get("events", ticket["event_id"] as Id)!;
-    if (ticket["order_status"] !== "door" || this.engine.now >= (toMs(event["doors_at"]) ?? 0)) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
-    return this.asBuyer(this.engine.update("tickets", ticketId, { status: "cancelled", cancel_cause: "buyer" }, this.writer));
+  async cancelTicket(ticketId: Id, toWaitlist = false): Promise<Row> {
+    return toWaitlist ? this.change(ticketId, CHANGE.toWaitlist, { status: "returned", cancel_cause: "buyer" }) : this.change(ticketId, CHANGE.cancel, { status: "cancelled" });
   }
 
   async openTicket(token: string): Promise<Row> {
     const ticket = this.engine.world.all("tickets").find((t) => t["link_token"] === token);
     if (ticket === undefined) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
-    // What the ticket's own link reads; the code only once the friend has accepted it.
-    const out: Row = { id: ticket.id };
-    for (const column of TICKET_LINK.select) out[column] = ticket[column] ?? null;
-    if (TICKET_LINK.withhold.when.where.every((c) => holds(ticket, c))) for (const column of TICKET_LINK.withhold.columns) out[column] = null;
+    return this.byTicketLink(ticket);
+  }
+
+  /** What the ticket's own link reads; the code only once the friend has accepted it. */
+  private byTicketLink(ticket: Row): Row {
+    const out = shown(ticket, READ.ticket);
+    const w = READ.ticket.withhold!;
+    if (w.when.where.every((c) => holds(ticket, c))) for (const column of w.columns) out[column] = null;
     return out;
   }
 
@@ -302,7 +427,7 @@ export class DemoAudience implements AudiencePort {
     const engine = this.engine;
     return engine.transaction(() => {
       const friend = identity(engine, String(ticket["pending_email"]), name);
-      return engine.update("tickets", ticket.id, { status: "valid", holder_name: name, holder_customer_id: friend }, this.writer);
+      return this.byTicketLink(engine.update("tickets", ticket.id, { status: "valid", holder_name: name, holder_customer_id: friend }, this.writer));
     });
   }
 
@@ -310,39 +435,35 @@ export class DemoAudience implements AudiencePort {
     const engine = this.engine;
     return masked(() => engine.transaction(() => {
       const customer = identity(engine, email, null);
-      return engine.create("waitlist", { event_id: eventId, email: email.trim().toLowerCase(), qty, customer_id: customer }, this.writer).row;
+      return shown(engine.create("waitlist", { event_id: eventId, email: email.trim().toLowerCase(), qty, customer_id: customer }, this.writer).row, READ.join);
     }));
   }
 
+  /** The names on an order's tickets: its buyer's only (a friend holding a ticket reads it, and changes nothing). */
   async nameTicket(ticketId: Id, name: string, answers?: Record<string, string> | null): Promise<Row> {
-    const ticket = this.engine.world.get("tickets", ticketId);
-    const holds = ticket !== undefined && this.signed !== null && ticket["holder_customer_id"] === this.signed.customer;
-    if (!holds) this.mine(ticketId);
-    if (!NAMED.includes(String(ticket!["order_status"]))) throw new ApiError(400, "PUBLIC_WRITE_REFUSED");
     if (name.trim() === "") throw new ApiError(400, "PUBLIC_WRITE_REFUSED", { column: "holder_name", reason: "required" });
     const values: Record<string, unknown> = { holder_name: name.trim() };
     if (answers !== undefined) values["answers"] = answers;
-    return this.asBuyer(this.engine.update("tickets", ticketId, values, this.writer));
+    return this.change(ticketId, CHANGE.names, values);
   }
 
   async updateOrder(values: { answers?: Record<string, string> | null; access_note?: string | null; opt_in?: boolean }, orderId?: Id): Promise<Row> {
     const order = this.target(orderId);
-    return copy(this.engine.update("orders", order.id, { ...values }, this.writer));
+    return shown(this.engine.update("orders", order.id, { ...values }, this.writer), orderId === undefined ? READ.linkOrder : READ.myOrders);
   }
 
   async keep(orderId: Id): Promise<Row> {
     const order = this.engine.world.get("orders", orderId);
     const own = order !== undefined && (order.id === this.openedOrder || (this.signed !== null && order["customer_id"] === this.signed.customer));
     if (!own) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
-    return copy(this.engine.update("orders", orderId, { kept_at: new Date(this.engine.now).toISOString() }, this.writer));
+    return shown(this.engine.update("orders", orderId, { kept_at: new Date(this.engine.now).toISOString() }, this.writer), READ.myOrders);
   }
 
   async openConfirm(token: string): Promise<Row> {
     const order = this.engine.world.all("orders").find((o) => o["confirm_token"] === token);
     if (order === undefined) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
-    const out: Row = { id: order.id };
-    for (const c of ["number", "status", "event_id", "total", "ticket_count", "held_until", "offer_until", "pay_by"]) out[c] = order[c] ?? null;
-    return out;
+    this.openedConfirm = order.id;
+    return shown(order, READ.confirmOrder);
   }
 
   // ── signing in by email ──────────────────────────────────────────────────
@@ -406,13 +527,26 @@ export class DemoAudience implements AudiencePort {
     this.signed = null;
   }
 
+  /**
+   * "Delete my details": the account emptied, and the person's links stopped as the server stops them — each
+   * of their orders' own link and confirm link, and the link of each ticket they hold, renewed — so an old email
+   * opens nothing; a link this browser opened for them is closed too.
+   */
   async forget(): Promise<void> {
     if (this.signed === null) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
     // Deleting details asks for a fresh sign-in: within the last ten minutes.
     if (this.engine.now - this.signed.at > 10 * 60_000) throw new ApiError(403, "PUBLIC_CODE_STEP_UP");
     const id = this.signed.customer;
-    this.engine.world.get("customers", id);
-    this.engine.update("customers", id, { email: null, name: null, opt_in: false, forgotten_at: new Date(this.engine.now).toISOString() }, { origin: "staff", name: null, roles: [] });
+    const engine = this.engine;
+    engine.transaction(() => {
+      engine.update("customers", id, { email: null, name: null, opt_in: false, forgotten_at: new Date(engine.now).toISOString() }, SERVER);
+      for (const o of engine.world.where("orders", (x) => x["customer_id"] === id)) {
+        engine.update("orders", o.id, { link_token: randomCode(16), confirm_token: randomCode(16) }, SERVER);
+        if (this.openedOrder === o.id) this.openedOrder = null;
+        if (this.openedConfirm === o.id) this.openedConfirm = null;
+      }
+      for (const t of engine.world.where("tickets", (x) => x["holder_customer_id"] === id)) engine.update("tickets", t.id, { link_token: randomCode(16) }, SERVER);
+    });
     this.signed = null;
   }
 
@@ -426,8 +560,8 @@ export class DemoAudience implements AudiencePort {
     const w = this.engine.world;
     const orders = w.where("orders", (o) => o["customer_id"] === me && LIVE_OR_PAST.includes(String(o["status"])));
     return {
-      orders: orders.map((o) => ({ order: copy(o), tickets: w.where("tickets", (t) => t["order_id"] === o.id).map((t) => this.asBuyer(t)) })),
-      held: w.where("tickets", (t) => t["holder_customer_id"] === me && w.get("orders", t["order_id"] as Id)?.["customer_id"] !== me).map(copy),
+      orders: orders.map((o) => ({ order: shown(o, READ.myOrders), tickets: w.where("tickets", (t) => t["order_id"] === o.id).map((t) => this.asBuyer(t, me)) })),
+      held: w.where("tickets", (t) => t["holder_customer_id"] === me && w.get("orders", t["order_id"] as Id)?.["customer_id"] !== me).map((t) => shown(t, READ.held)),
     };
   }
 
@@ -440,30 +574,31 @@ export class DemoAudience implements AudiencePort {
     const me = this.signedIn();
     const order = this.engine.world.get("orders", orderId);
     if (order === undefined || order["customer_id"] !== me) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
-    return { order: copy(order), tickets: this.engine.world.where("tickets", (t) => t["order_id"] === order.id).map((t) => this.asBuyer(t)) };
+    return { order: shown(order, READ.myOrders), tickets: this.engine.world.where("tickets", (t) => t["order_id"] === order.id).map((t) => this.asBuyer(t, me)) };
   }
 
   async myWaitlist(): Promise<Row[]> {
     const me = this.signedIn();
-    return this.engine.world.where("waitlist", (x) => x["customer_id"] === me).map(copy);
+    return this.engine.world.where("waitlist", (x) => x["customer_id"] === me).map((x) => shown(x, READ.waitlist));
   }
 
   async leaveWaitlist(waitlistId: Id): Promise<Row> {
     const me = this.signedIn();
     const row = this.engine.world.get("waitlist", waitlistId);
     if (row === undefined || row["customer_id"] !== me) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
-    return copy(this.engine.update("waitlist", waitlistId, { status: "left" }, this.writer));
+    return shown(this.engine.update("waitlist", waitlistId, { status: "left" }, this.writer), READ.waitlist);
   }
 
   async remindMe(eventId: Id, email: string, ticketTypeId: Id | null): Promise<Row> {
     const engine = this.engine;
     return masked(() => engine.transaction(() => {
       const customer = identity(engine, email, null);
-      return engine.create(
+      const made = engine.create(
         "reminders",
         { event_id: eventId, email: email.trim().toLowerCase(), ticket_type_id: ticketTypeId, target: ticketTypeId === null ? "sale" : String(ticketTypeId), customer_id: customer },
         this.writer,
       ).row;
+      return shown(made, READ.remind);
     }));
   }
 }

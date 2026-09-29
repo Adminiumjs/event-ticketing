@@ -347,3 +347,198 @@ describe("a code while nothing is paid", () => {
     expect([theirs["holder_name"], theirs["code"]]).toEqual(["Kai Renner", demo.world.get("tickets", ana.id)!["code"]]);
   });
 });
+
+// ── what a buyer reaches, and nothing more ──────────────────────────────────
+
+/** Signs the demo's audience in as a person, with the code "emailed" to them. */
+async function signInAs(demo: DemoAdminium, email: string): Promise<void> {
+  await demo.audience.signIn(email);
+  await demo.audience.verify(email, demo.audience.mail.get(email)!.code);
+}
+const buyerOf = (demo: DemoAdminium, number: string) => String(demo.world.get("customers", order(demo, number)["customer_id"] as Id)!["email"]);
+
+describe("another buyer's rows", () => {
+  it("are not there for a signed-in person: an order, its tickets and a waitlist place, by id, through every door", async () => {
+    const demo = new DemoAdminium();
+    const mine = order(demo, "WV-S8761");
+    const me = mine["customer_id"];
+    await signInAs(demo, buyerOf(demo, "WV-S8761"));
+    const theirs = demo.world.all("orders").find((o) => o["customer_id"] !== me && o["status"] === "door" && o["event_id"] === byName(demo, "Neon Circuit").id)!;
+    const ticket = demo.world.where("tickets", (t) => t["order_id"] === theirs.id)[0]!;
+    const place = demo.world.all("waitlist").find((x) => x["customer_id"] !== me && x["status"] === "waiting")!;
+    const before = { order: { ...theirs }, ticket: { ...ticket }, place: { ...place } };
+    for (const run of [
+      () => demo.audience.myOrder(theirs.id),
+      () => demo.audience.updateOrder({ access_note: "mine now" }, theirs.id),
+      () => demo.audience.keep(theirs.id),
+      () => demo.audience.choose("let_go", undefined, theirs.id),
+      () => demo.audience.sendTicket(ticket.id, "taker@example.com", "A Taker"),
+      () => demo.audience.takeBack(ticket.id),
+      () => demo.audience.askRefund(ticket.id),
+      () => demo.audience.withdrawRefund(ticket.id),
+      () => demo.audience.cancelTicket(ticket.id),
+      () => demo.audience.cancelTicket(ticket.id, true),
+      () => demo.audience.nameTicket(ticket.id, "Someone Else"),
+      () => demo.audience.leaveWaitlist(place.id),
+    ]) {
+      expect((await refused(run)).code).toBe("PUBLIC_REF_NOT_FOUND");
+    }
+    const { orders, held } = await demo.audience.myOrders();
+    expect(orders.every((o) => o.order.id !== theirs.id) && held.every((t) => t.id !== ticket.id)).toBe(true);
+    expect((await demo.audience.myWaitlist()).every((x) => x.id !== place.id)).toBe(true);
+    expect([demo.world.get("orders", theirs.id), demo.world.get("tickets", ticket.id), demo.world.get("waitlist", place.id)]).toEqual([before.order, before.ticket, before.place]);
+  });
+
+  it("are not there through another order's own link either", async () => {
+    const demo = new DemoAdminium();
+    const mine = order(demo, "WV-S8761");
+    await demo.audience.openOrder(String(mine["link_token"]));
+    const theirs = demo.world.all("orders").find((o) => o.id !== mine.id && o["status"] === "door")!;
+    const ticket = demo.world.where("tickets", (t) => t["order_id"] === theirs.id)[0]!;
+    for (const run of [() => demo.audience.nameTicket(ticket.id, "X"), () => demo.audience.cancelTicket(ticket.id), () => demo.audience.sendTicket(ticket.id, "x@example.com", "X"), () => demo.audience.updateOrder({ access_note: "x" }, theirs.id)]) {
+      expect((await refused(run)).code).toBe("PUBLIC_REF_NOT_FOUND");
+    }
+  });
+});
+
+describe("what the audience's reads show", () => {
+  it("is each entry's own columns: no link or confirm codes, retry keys, notes, accounts or the bank on the venue", async () => {
+    const demo = new DemoAdminium();
+    await signInAs(demo, buyerOf(demo, "WV-S8761"));
+    const { orders } = await demo.audience.myOrders();
+    const o = orders.find((x) => x.order.id === order(demo, "WV-S8761").id)!;
+    for (const column of ["link_token", "confirm_token", "client_key", "note", "customer_id", "answers", "access_note"]) expect(o.order, column).not.toHaveProperty(column);
+    for (const column of ["holder_customer_id", "link_token", "pending_email", "holder_email", "answers"]) expect(o.tickets[0], column).not.toHaveProperty(column);
+    const venue = await demo.audience.venue();
+    expect(Object.keys(venue.settings).filter((k) => k.startsWith("bank_"))).toEqual([]);
+  });
+
+  it("gives the bank details to a proved session only, through the door the page came by", async () => {
+    const demo = new DemoAdminium();
+    for (const door of ["link", "me", "confirm"] as const) expect((await refused(() => demo.audience.bank(door))).code).toBe("PUBLIC_REF_NOT_FOUND");
+    const settings = demo.world.all("settings")[0]!;
+    expect(String(settings["bank_account_number"] ?? "")).not.toBe("");
+    // A transfer checkout: its own link, then the emailed confirm link, each reads them.
+    const cinder = byName(demo, "Cinder");
+    const reply = await demo.audience.buy({ values: { event_id: cinder.id, buyer_name: "Ana Ruiz", email: "ana.ruiz@example.com" }, tickets: [{ ticket_type_id: typeOf(demo, "Cinder", "Standard").id }] }, "bank");
+    const bank = await demo.audience.bank("link");
+    expect([bank["bank_account_name"], bank["bank_account_number"]]).toEqual([settings["bank_account_name"], settings["bank_account_number"]]);
+    expect(Object.keys(bank).filter((k) => k !== "id" && !k.startsWith("bank_"))).toEqual([]);
+    await demo.audience.choose("confirming");
+    await demo.audience.openConfirm(String(demo.world.get("orders", reply.data.id)!["confirm_token"]));
+    expect((await demo.audience.bank("confirm"))["bank_account_number"]).toBe(settings["bank_account_number"]);
+  });
+});
+
+describe("a ticket a friend accepted", () => {
+  it("reads as accepted to its buyer, with no code and no account, and nothing its buyer does reaches it", async () => {
+    const demo = new DemoAdminium();
+    await demo.audience.openOrder(String(order(demo, "WV-S8761")["link_token"]));
+    const ana = ticketByCode(demo, "P4MA-7VKE");
+    await demo.audience.sendTicket(ana.id, "kai.renner@example.com", "Kai Renner");
+    await demo.audience.acceptTicket(String(demo.world.get("tickets", ana.id)!["link_token"]), "Kai Renner");
+    const seen = (await demo.audience.order()).tickets.find((t) => t.id === ana.id)!;
+    expect([seen["accepted_at"] !== null, seen["code"], "holder_customer_id" in seen]).toEqual([true, null, false]);
+    for (const run of [
+      () => demo.audience.cancelTicket(ana.id),
+      () => demo.audience.askRefund(ana.id),
+      () => demo.audience.takeBack(ana.id),
+      () => demo.audience.sendTicket(ana.id, "x@example.com", "X"),
+      () => demo.audience.nameTicket(ana.id, "Someone"),
+    ]) {
+      expect((await refused(run)).code).toBe("PUBLIC_REF_NOT_FOUND");
+    }
+    expect([demo.world.get("tickets", ana.id)!["status"], demo.world.get("tickets", ana.id)!["holder_name"]]).toEqual(["valid", "Kai Renner"]);
+  });
+
+  it("is its holder's to read, and not theirs to rename", async () => {
+    const demo = new DemoAdminium();
+    await demo.audience.openOrder(String(order(demo, "WV-S8761")["link_token"]));
+    const ana = ticketByCode(demo, "P4MA-7VKE");
+    await demo.audience.sendTicket(ana.id, "kai.renner@example.com", "Kai Renner");
+    await demo.audience.acceptTicket(String(demo.world.get("tickets", ana.id)!["link_token"]), "Kai Renner");
+    await demo.audience.signOut();
+    await signInAs(demo, "kai.renner@example.com");
+    const { held } = await demo.audience.myOrders();
+    expect(held.find((t) => t.id === ana.id)?.["code"]).toBe(demo.world.get("tickets", ana.id)!["code"]);
+    expect((await refused(() => demo.audience.nameTicket(ana.id, "Someone Else"))).code).toBe("PUBLIC_REF_NOT_FOUND");
+    expect(demo.world.get("tickets", ana.id)!["holder_name"]).toBe("Kai Renner");
+  });
+});
+
+describe("a buyer's own cancel", () => {
+  it("hands the place to the waitlist on a show that keeps one, through its own door only", async () => {
+    const demo = new DemoAdminium();
+    const velvet = byName(demo, "Velvet Hour").id;
+    const ticket = demo.world.all("tickets").find((t) => t["event_id"] === velvet && t["order_status"] === "door" && t["status"] === "valid" && t["holder_customer_id"] === null)!;
+    await demo.audience.openOrder(String(demo.world.get("orders", ticket["order_id"] as Id)!["link_token"]));
+    expect((await refused(() => demo.audience.cancelTicket(ticket.id))).code).toBe("PUBLIC_REF_NOT_FOUND");
+    const back = await demo.audience.cancelTicket(ticket.id, true);
+    expect(back["status"]).toBe("returned");
+    expect([demo.world.get("tickets", ticket.id)!["status"], demo.world.get("tickets", ticket.id)!["cancel_cause"]]).toEqual(["returned", "buyer"]);
+    // Still sold out for the public: the place waits for the next in line.
+    expect((await demo.audience.left(velvet))[0]?.state).toBe("sold_out");
+  });
+
+  it("puts the place back on sale on a show without a waitlist, and not once the door has taken its money", async () => {
+    const demo = new DemoAdminium();
+    await demo.audience.openOrder(String(order(demo, "WV-S8761")["link_token"]));
+    const [mia, ana] = ["H3TW-9CXR", "P4MA-7VKE"].map((code) => ticketByCode(demo, code));
+    expect((await refused(() => demo.audience.cancelTicket(mia!.id, true))).code).toBe("PUBLIC_REF_NOT_FOUND");
+    demo.advanceTo(at("2026-07-28T19:35"));
+    await demo.door.collect(mia!.id, "card", null);
+    expect((await refused(() => demo.audience.cancelTicket(mia!.id))).code).toBe("PUBLIC_REF_NOT_FOUND");
+    expect((await demo.audience.cancelTicket(ana!.id))["status"]).toBe("cancelled");
+    demo.advanceTo(at("2026-07-28T20:01"));
+    expect(demo.world.get("tickets", mia!.id)!["status"]).toBe("valid");
+  });
+
+  it("is refused once the ticket is in", async () => {
+    const demo = new DemoAdminium();
+    await demo.audience.openOrder(String(order(demo, "WV-S8761")["link_token"]));
+    const mia = ticketByCode(demo, "H3TW-9CXR");
+    demo.advanceTo(at("2026-07-28T19:40"));
+    // The door let it in without its money (a person's call at the door): the buyer cannot cancel it now.
+    demo.world.get("tickets", mia.id)!["times_in"] = 1;
+    expect((await refused(() => demo.audience.cancelTicket(mia.id))).code).toBe("PUBLIC_REF_NOT_FOUND");
+  });
+});
+
+describe("a refund request", () => {
+  it("is a paid order's only: nothing paid at the door yet, nothing to ask back", async () => {
+    const demo = new DemoAdminium();
+    await demo.audience.openOrder(String(order(demo, "WV-S8761")["link_token"]));
+    const ana = ticketByCode(demo, "P4MA-7VKE");
+    expect(await refused(() => demo.audience.askRefund(ana.id))).toMatchObject({ code: "STATE_MOVE_REFUSED", params: { requires: "order_status" } });
+    expect(demo.world.get("tickets", ana.id)!["status"]).toBe("valid");
+  });
+});
+
+describe("deleting a buyer's details", () => {
+  it("stops their orders' own links and confirm links: an old email opens nothing", async () => {
+    const demo = new DemoAdminium();
+    const mine = order(demo, "WV-S8761");
+    const [oldLink, oldConfirm] = [String(mine["link_token"]), String(mine["confirm_token"])];
+    await demo.audience.openOrder(oldLink);
+    await signInAs(demo, buyerOf(demo, "WV-S8761"));
+    await demo.audience.forget();
+    expect((await refused(() => demo.audience.order())).code).toBe("PUBLIC_REF_NOT_FOUND");
+    expect((await refused(() => demo.audience.openOrder(oldLink))).code).toBe("PUBLIC_REF_NOT_FOUND");
+    expect((await refused(() => demo.audience.openConfirm(oldConfirm))).code).toBe("PUBLIC_REF_NOT_FOUND");
+  });
+
+  it("stops the link of a ticket they hold from a friend", async () => {
+    const demo = new DemoAdminium();
+    await demo.audience.openOrder(String(order(demo, "WV-S8761")["link_token"]));
+    const ana = ticketByCode(demo, "P4MA-7VKE");
+    await demo.audience.sendTicket(ana.id, "kai.renner@example.com", "Kai Renner");
+    const link = String(demo.world.get("tickets", ana.id)!["link_token"]);
+    await demo.audience.acceptTicket(link, "Kai Renner");
+    await demo.audience.signOut();
+    await signInAs(demo, "kai.renner@example.com");
+    await demo.audience.forget();
+    expect((await refused(() => demo.audience.openTicket(link))).code).toBe("PUBLIC_REF_NOT_FOUND");
+    // The ticket itself still works at the door: it keeps its holder's code.
+    expect(demo.world.get("tickets", ana.id)!["status"]).toBe("valid");
+  });
+});

@@ -174,3 +174,104 @@ describe("signed in as Mia", () => {
     expect([row["status"], row["total"]]).toEqual(["door", 20]);
   });
 });
+
+describe("the bank details a transfer asks for", () => {
+  it("fill the order page of a transfer still awaited, read through the order's own link", async () => {
+    const { app, demo, v } = await open();
+    const waiting = demo.world.all("orders").find((o) => o["status"] === "awaiting_transfer" && o["link_token"] !== null)!;
+    await app.arrive("o", `#${String(waiting["link_token"])}`);
+    const bank = ((await v())["gw"] as V)["bank"] as { k: string; v: string }[];
+    const settings = demo.world.all("settings")[0]!;
+    expect(bank.slice(0, 4).map((r) => r.v)).toEqual(["bank_account_name", "bank_name", "bank_account_number", "bank_routing"].map((c) => String(settings[c] ?? "")));
+    expect(bank.find((r) => r.k === "Account number")!.v).not.toBe("");
+  });
+
+  it("fill the confirm page once the emailed link confirms the order", async () => {
+    const { app, demo, v } = await open();
+    const cinder = show(app, "Cinder");
+    const reply = await demo.audience.buy({ values: { event_id: cinder.id, buyer_name: "Ana Ruiz", email: "ana.ruiz@example.com" }, tickets: [{ ticket_type_id: cinder.types[0]!.id }] }, "bank-confirm");
+    await demo.audience.choose("confirming");
+    await app.arrive("confirm", `#${String(demo.world.get("orders", reply.data.id)!["confirm_token"])}`);
+    await v();
+    await app.buyer.confirmByEmail();
+    const cf = (await v())["cf"] as V;
+    expect(cf["doneOn"]).toBe(true);
+    expect((cf["bank"] as { k: string; v: string }[]).find((r) => r.k === "Account number")!.v).toBe(String(demo.world.all("settings")[0]!["bank_account_number"]));
+  });
+});
+
+describe("a ticket its buyer sent on, once the friend accepted it", () => {
+  it("reads 'Sent to Kai Renner' on the order page, and its menu offers no cancel", async () => {
+    const { app, demo, v } = await open();
+    const mia = demo.world.all("orders").find((o) => o["number"] === "WV-S8761")!;
+    await app.arrive("o", `#${String(mia["link_token"])}`);
+    const ana = demo.world.all("tickets").find((t) => t["code"] === "P4MA-7VKE")!;
+    await demo.audience.sendTicket(ana.id, "kai.renner@example.com", "Kai Renner");
+    await demo.audience.acceptTicket(String(demo.world.get("tickets", ana.id)!["link_token"]), "Kai Renner");
+    app.refresh("aud:");
+    await v();
+    const read = app.buyer.going()!.tickets.find((t) => t.id === ana.id)!;
+    expect("holder_customer_id" in read).toBe(false);
+    const tile = (((await v())["gw"] as V)["tickets"] as V[]).find((t) => t["holder"] === "Kai Renner")!;
+    expect([tile["codeOn"], bidi(tile["waitTxt"])]).toEqual([false, "Sent to Kai Renner"]);
+    app.openSheet("tMenu", { ticket: ana.id });
+    const labels = ((((await v())["sh"] as V)["list"] as V[]) ?? []).map((i) => i["label"]);
+    expect(labels).not.toContain("Cancel this ticket");
+  });
+});
+
+describe("a pay-at-the-door ticket's menu", () => {
+  it("offers a cancel before the door takes its money, and none after", async () => {
+    const { app, demo, v } = await open();
+    const mia = demo.world.all("orders").find((o) => o["number"] === "WV-S8761")!;
+    await app.arrive("o", `#${String(mia["link_token"])}`);
+    await v();
+    const ticket = demo.world.all("tickets").find((t) => t["code"] === "H3TW-9CXR")!;
+    const menu = async () => {
+      app.openSheet("tMenu", { ticket: ticket.id });
+      return ((((await v())["sh"] as V)["list"] as V[]) ?? []).map((i) => i["label"]);
+    };
+    expect(await menu()).toContain("Cancel this ticket");
+    demo.advanceTo(Date.parse("2026-07-28T19:35:00-04:00"));
+    await demo.door.collect(ticket.id, "card", null);
+    app.refresh("aud:");
+    expect(await menu()).not.toContain("Cancel this ticket");
+  });
+});
+
+describe("one person after another on the same tab", () => {
+  it("never shows the last person's tickets to the next, even when the next one's read fails", async () => {
+    const { app, demo, v } = await open();
+    const signIn = async (email: string) => {
+      app.setState({ si: { ...app.state.si, email } });
+      await demo.audience.signIn(email);
+      app.setState({ si: { ...app.state.si, digits: demo.audience.mail.get(email)!.code.split("") } });
+      await app.buyer.verify();
+      await v();
+    };
+    await signIn("mia.okada@example.com");
+    const mias = app.buyer.mine()!.orders.map((o) => o.order.id);
+    expect(mias.length).toBeGreaterThan(0);
+    await app.buyer.signOut();
+    // The next person's orders never come: nothing of Mia's is on screen meanwhile, nor after.
+    demo.audience.myOrders = () => Promise.reject(new Error("offline"));
+    await signIn("kai.renner@example.com");
+    const shown = app.buyer.mine()?.orders.map((o) => o.order.id) ?? [];
+    expect(shown.filter((id) => mias.includes(id))).toEqual([]);
+    expect([app.state.going, app.state.dm, app.state.co]).toEqual([null, null, null]);
+  });
+});
+
+describe("signing out on every device", () => {
+  it("signs this device out and says so when Adminium did not take it", async () => {
+    const { app, demo, v } = await open();
+    app.setState({ si: { ...app.state.si, email: "mia.okada@example.com" } });
+    await demo.audience.signIn("mia.okada@example.com");
+    app.setState({ si: { ...app.state.si, digits: demo.audience.mail.get("mia.okada@example.com")!.code.split("") } });
+    await app.buyer.verify();
+    await v();
+    demo.audience.signOutEverywhere = () => Promise.reject(new Error("offline"));
+    await app.buyer.signOutEverywhere();
+    expect([app.buyer.signedIn(), app.state.scr, app.state.toast?.msg]).toEqual([null, "signin", "Signed out here. We couldn't sign you out on your other devices — sign in and try again."]);
+  });
+});

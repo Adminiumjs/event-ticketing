@@ -67,12 +67,19 @@ export interface AudiencePort {
   /** The emailed confirm link: the transfer checkout goes on to waiting for the transfer. */
   confirmTransfer(token: string): Promise<Row>;
 
+  /**
+   * The venue's bank details, for a transfer: read through the door the page came by (the order's own link,
+   * the emailed confirm link, or the signed-in person), each of which only a proved session may read.
+   */
+  bank(door: BankDoor): Promise<Row>;
+
   /** A ticket sent to a friend, taken back, a refund asked or withdrawn, or cancelled when nothing was paid. */
   sendTicket(ticketId: Id, email: string, name: string): Promise<Row>;
   takeBack(ticketId: Id): Promise<Row>;
   askRefund(ticketId: Id): Promise<Row>;
   withdrawRefund(ticketId: Id): Promise<Row>;
-  cancelTicket(ticketId: Id): Promise<Row>;
+  /** Cancelled when nothing was paid; on a show that keeps a waitlist (`toWaitlist`) the place goes to it. */
+  cancelTicket(ticketId: Id, toWaitlist?: boolean): Promise<Row>;
 
   /** A friend's ticket, opened by the link emailed to them, and accepted in their name. */
   openTicket(token: string): Promise<Row>;
@@ -113,6 +120,9 @@ export interface AudiencePort {
   myWaitlist(): Promise<Row[]>;
   leaveWaitlist(waitlistId: Id): Promise<Row>;
 }
+
+/** The door a page reads the bank details through. */
+export type BankDoor = "link" | "confirm" | "me";
 
 /** Who a sign-in names. */
 export interface Person {

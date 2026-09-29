@@ -70,6 +70,8 @@ export const blankSi = (): Si => ({ step: "email", email: "", check: "idle", mai
 /** A retry key a form mints once. */
 const mintKey = () => crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 const okEmail = (v: string) => /^\S+@\S+\.\S+$/.test(v.trim());
+/** The answers that belong to whoever is signed in, or to a link this tab opened for them. */
+const PERSONAL = ["aud:me:", "aud:order:", "aud:bank:", "aud:friend:", "aud:confirm:"];
 export const masked = (email: string): string => (email === "" ? "" : `${email.charAt(0)}•••@${email.split("@")[1] ?? ""}`);
 
 export class Buyer {
@@ -109,9 +111,20 @@ export class Buyer {
     }
     return this.person;
   }
+  /**
+   * Who is signed in now. When that is someone else (or nobody), whatever the last person read goes at once —
+   * their orders, codes, bank details, an order or a friend's ticket on screen — never shown while the next
+   * person's answers are on their way, nor left standing when those fail.
+   */
   private setPerson(p: Person | null): void {
+    const changed = (this.person?.email ?? null) !== (p?.email ?? null);
     this.person = p;
-    this.app.refresh("aud:me:");
+    if (!changed) {
+      this.app.refresh("aud:me:");
+      return;
+    }
+    for (const prefix of PERSONAL) this.app.drop(prefix);
+    this.app.setState({ going: null, dm: null, co: null });
   }
 
   // ── checkout ────────────────────────────────────────────────────────────
@@ -567,11 +580,16 @@ export class Buyer {
     void this.port.prove().then((ok) => this.setCo({ check: ok ? "ok" : "fail" }));
     this.app.toast(tr("Signed out — carry on as a guest"), "log-out");
   }
+  /** Signed out on every device; when Adminium did not take it, this device is signed out and the page says the others are not. */
   async signOutEverywhere(): Promise<void> {
-    await this.port.signOutEverywhere().catch(() => undefined);
+    let refused = false;
+    await this.port.signOutEverywhere().catch(() => {
+      refused = true;
+    });
     this.setPerson(null);
     this.app.go("signin", { si: blankSi() });
-    this.app.toast(tr("Signed out everywhere"), "log-out");
+    if (refused) this.app.toast(tr("Signed out here. We couldn't sign you out on your other devices — sign in and try again."), "triangle-alert");
+    else this.app.toast(tr("Signed out everywhere"), "log-out");
   }
   /** Delete my details: the server asks for a fresh sign-in first when it wants one (the same sheet says so). */
   async forget(): Promise<void> {

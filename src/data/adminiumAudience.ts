@@ -17,7 +17,7 @@
  */
 import { createPublicClient, PublicApiError, type HeldSession, type PublicClient, type Row as ClientRow } from "@adminiumjs/public-client";
 
-import type { AudiencePort, OrderWithTickets, Person, Venue } from "./ports.ts";
+import type { AudiencePort, BankDoor, OrderWithTickets, Person, Venue } from "./ports.ts";
 import { publicRefs, type Refs } from "./publicRefs.ts";
 import { ApiError, type ClaimReply, type Config, type Id, type OrderBody, type OrderReply, type QuoteReply, type Row, type TypeLeft } from "./wire.ts";
 
@@ -342,6 +342,14 @@ export class AdminiumAudience implements AudiencePort {
     });
   }
 
+  bank(door: BankDoor): Promise<Row> {
+    return answer(async () => {
+      const [client, ref] = door === "link" ? [this.client("link"), this.refs.linkBank] : door === "confirm" ? [this.client("confirm"), this.refs.confirmBank] : [this.customer, this.refs.bank];
+      if (!client.isClaimed()) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
+      return (await all(client, ref))[0] ?? ({ id: 0 } as Row);
+    });
+  }
+
   // ── a ticket's changes ──────────────────────────────────────────────────
 
   /** The door a change to a ticket goes through: its order's own link, or the signed-in person. */
@@ -372,7 +380,9 @@ export class AdminiumAudience implements AudiencePort {
   withdrawRefund(ticketId: Id): Promise<Row> {
     return this.changeTicket(ticketId, { status: "valid" }, this.statusRefs);
   }
-  cancelTicket(ticketId: Id): Promise<Row> {
+  cancelTicket(ticketId: Id, toWaitlist = false): Promise<Row> {
+    // On a show that keeps a waitlist the place goes to the next in line, never straight back on sale.
+    if (toWaitlist) return this.changeTicket(ticketId, { status: "returned", cancel_cause: "buyer" }, { link: this.refs.linkReturns, mine: this.refs.myReturns });
     return this.changeTicket(ticketId, { status: "cancelled" }, { link: this.refs.linkCancels, mine: this.refs.myCancels });
   }
   nameTicket(ticketId: Id, name: string, answers?: Record<string, string> | null): Promise<Row> {
@@ -486,10 +496,18 @@ export class AdminiumAudience implements AudiencePort {
     });
   }
 
+  /**
+   * Signs out on every device. When Adminium does not take it (offline, too many requests, a fault), this
+   * device is signed out all the same — the session dropped here whatever the server says — and the refusal
+   * reaches the page, which says the other devices are still signed in.
+   */
   signOutEverywhere(): Promise<void> {
     return answer(async () => {
       try {
         await this.customer.signOutEverywhere();
+      } catch (error) {
+        await this.customer.signOut().catch(() => undefined);
+        throw error;
       } finally {
         for (const [key, client] of Object.entries(this.clients)) if (key !== "customer" && client.isClaimed()) await client.signOut().catch(() => undefined);
         this.signedAs = null;

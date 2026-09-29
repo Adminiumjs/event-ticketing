@@ -162,7 +162,7 @@
  "Sign out everywhere": "Se déconnecter partout",
  "Cancel": "Annuler",
  "Delete my details?": "Supprimer mes données ?",
- "Your sign-in and your name and email on the account are removed. Tickets you already have still work, and the links in your emails still open them.": "Votre connexion ainsi que le nom et l'e-mail du compte sont supprimés. Les billets que vous avez déjà restent valables, et les liens de vos e-mails les ouvrent toujours.",
+ "Your sign-in and your name and email on the account are removed. Tickets you already have still work at the door, but the links in your emails stop opening your orders.": "Votre connexion ainsi que le nom et l'e-mail du compte sont supprimés. Les billets que vous avez déjà restent valables à l'entrée, mais les liens de vos e-mails n'ouvrent plus vos commandes.",
  "For your safety, sign in again to delete your details.": "Pour votre sécurité, reconnectez-vous pour supprimer vos données.",
  "Send me a link": "M'envoyer un lien",
  "Which ticket?": "Quel billet ?",
@@ -1382,5 +1382,6 @@
  "{who} is cancelled and {amount} becomes due back. {buyer} is told.": "{who} est annulé, et {amount} est à rembourser. {buyer} est prévenu.",
  "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "{who} sont annulés, et {amount} est à rembourser. {buyer} est prévenu.",
  "Receipt downloaded": "Reçu téléchargé",
- "The receipt couldn't be made just now. Try again in a minute.": "Le reçu n'a pas pu être créé pour l'instant. Réessayez dans une minute."
+ "The receipt couldn't be made just now. Try again in a minute.": "Le reçu n'a pas pu être créé pour l'instant. Réessayez dans une minute.",
+ "Signed out here. We couldn't sign you out on your other devices — sign in and try again.": "Déconnecté ici. Nous n'avons pas pu vous déconnecter de vos autres appareils — connectez-vous et réessayez."
 }

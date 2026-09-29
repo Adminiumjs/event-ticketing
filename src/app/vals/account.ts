@@ -32,12 +32,20 @@ const qrOf = (code: string): string => {
 const first = (name: unknown) => String(name ?? "").split(" ")[0] ?? "";
 const LIVE = ["door", "no_charge", "paid", "awaiting_transfer", "overdue"];
 
+/**
+ * A ticket a friend accepted: stamped when they took it, and its code (a new one, theirs) never shown to the
+ * buyer. Who the friend is stays with Adminium: the buyer's reads never carry the holder's account.
+ */
+export function acceptedByFriend(t: Row): boolean {
+  return t["accepted_at"] !== null && t["accepted_at"] !== undefined && (t["code"] === null || t["code"] === undefined);
+}
+
 /** A ticket's line on the buyer's pages: its words and tone, from its own state and its order's. */
 export function ticketStatus(app: WaveApp, show: Show, order: Row, t: Row): Status {
   const os = String(order["status"]);
   const ts = String(t["status"]);
   const mine = app.signedIn();
-  if (t["holder_customer_id"] !== null && t["holder_customer_id"] !== undefined && t["holder_name"] !== null && t["code"] === null && os !== "awaiting_transfer")
+  if (acceptedByFriend(t) && t["holder_name"] !== null && os !== "awaiting_transfer")
     return { txt: tr("Sent to {name}", { name: String(t["holder_name"]) }), k: "muted", icon: "forward" };
   if (show.cancelled || os === "cancelled")
     return n(order["paid_in"]) - n(order["refunded"]) > 0.004 ? { txt: tr("Cancelled — refund due"), k: "danger", icon: "circle-x" } : { txt: tr("Cancelled"), k: "muted", icon: "circle-x" };
@@ -55,6 +63,11 @@ export function ticketStatus(app: WaveApp, show: Show, order: Row, t: Row): Stat
   if (os === "overdue") return { txt: tr("Transfer overdue · goes back on sale {date}, {time}", { date: fD(releaseAt(app, order)), time: fT(releaseAt(app, order)) }), k: "danger", icon: "hourglass" };
   void mine;
   return { txt: tr("Valid"), k: "pos", icon: "circle-check" };
+}
+
+/** A pay-at-the-door ticket its buyer may still cancel: before doors, no money taken for it, not let in. */
+function untouchedAtDoor(app: WaveApp, show: Show, t: Row): boolean {
+  return app.now < show.doors && n(t["collected"]) <= 0.004 && n(t["times_in"]) === 0 && !acceptedByFriend(t);
 }
 
 /** When an overdue transfer goes back on sale: its deadline plus the venue's grace. */
@@ -431,7 +444,8 @@ function goingVals(app: WaveApp, w: World): V {
     sub = tr("This one's happened. Nothing was paid at the door, so there's nothing to pay.");
   } else if (waiting) heading = tr("Awaiting payment");
   const balance = n(order["balance"]);
-  const bankRows = app.get(`aud:bank:${String(order.id)}`, async () => (await app.ports.audience!.venue()).settings);
+  const door = app.state.going?.via === "me" ? "me" : "link";
+  const bankRows = waiting ? app.get(`aud:bank:${door}:${String(order.id)}`, () => app.ports.audience!.bank(door)) : undefined;
   const overdue = os === "overdue";
   return {
     pad: nar ? "24px 16px 48px" : "40px 32px 72px",
@@ -516,7 +530,7 @@ function paidWords(method: unknown): string {
 
 /** The tickets of an order its buyer may send to a friend: valid, nobody else's, not offered already. */
 function sendable(o: OrderWithTickets): Row[] {
-  return o.tickets.filter((t) => t["status"] === "valid" && (t["holder_customer_id"] === null || t["holder_customer_id"] === undefined) && t["code"] !== null);
+  return o.tickets.filter((t) => t["status"] === "valid" && !acceptedByFriend(t) && t["code"] !== null && t["code"] !== undefined);
 }
 
 // ── sign in ───────────────────────────────────────────────────────────────
@@ -972,7 +986,8 @@ function confirmVals(app: WaveApp, w: World): V {
   const heldUntil = ms(o["held_until"]);
   const ranOut = st === "expired" || st === "let_go" || (st === "confirming" && heldUntil !== null && heldUntil <= app.now);
   const done = c.done || st === "awaiting_transfer" || st === "overdue" || st === "paid";
-  const settings = app.get("aud:confirm:bank", async () => (await app.ports.audience!.venue()).settings);
+  // The bank details only once the order is confirmed: the confirm link's own session reads them.
+  const settings = done ? app.get(`aud:confirm:bank:${c.token}`, () => app.ports.audience!.bank("confirm")) : undefined;
   return {
     on: true,
     no: String(o["number"] ?? ""),
@@ -1101,7 +1116,7 @@ export function accountSheet(app: WaveApp, w: World, o: V & { list: unknown[]; b
       icon: "user-x",
       tone: "danger",
       title: tr("Delete my details?"),
-      body: tr("Your sign-in and your name and email on the account are removed. Tickets you already have still work, and the links in your emails still open them."),
+      body: tr("Your sign-in and your name and email on the account are removed. Tickets you already have still work at the door, but the links in your emails stop opening your orders."),
       btns: [P(tr("Delete my details"), () => void b.forget(), "d"), P(tr("Keep them"), () => app.closeSheet(), "g")],
     });
   if (k === "delAuth")
@@ -1136,7 +1151,7 @@ export function accountSheet(app: WaveApp, w: World, o: V & { list: unknown[]; b
     if (sh["held"] !== true) {
       if (w.settings.sendOn && !unpaidX && t["status"] === "valid") items.push(["sd", tr("Send to a friend"), "forward", () => set({ kind: "tSend", name: "", email: "", err: {} })]);
       if (paid) items.push(["rf", tr("Ask for a refund"), "undo-2", () => set({ kind: "tRefund" })]);
-      else if (os === "door") items.push(["cx", tr("Cancel this ticket"), "circle-x", () => set({ kind: "tCancel" })]);
+      else if (os === "door" && untouchedAtDoor(app, show, t)) items.push(["cx", tr("Cancel this ticket"), "circle-x", () => set({ kind: "tCancel" })]);
     }
     if (!unpaidX && code !== "")
       items.push(["pdf", tr("Download as PDF"), "file-down", () => {
@@ -1223,9 +1238,9 @@ export function accountSheet(app: WaveApp, w: World, o: V & { list: unknown[]; b
       tone: "danger",
       title: tr("Cancel this ticket?"),
       sub: `${holderName} · ${show.name}, ${fD(show.start)}`,
-      body: show.waitlistOn && w.settings.waitlistOn ? tr("You haven't paid for it, so there's nothing to pay back. Your place goes to the waitlist.") : tr("You haven't paid for it, so there's nothing to pay back. Your ticket goes back on sale."),
+      body: show.waitlistOn ? tr("You haven't paid for it, so there's nothing to pay back. Your place goes to the waitlist.") : tr("You haven't paid for it, so there's nothing to pay back. Your ticket goes back on sale."),
       btns: [
-        P(tr("Cancel this ticket"), () => void b.act(() => port.cancelTicket(t.id), tr("Ticket cancelled"), "circle-x").then((ok) => ok && app.closeSheet()), "d"),
+        P(tr("Cancel this ticket"), () => void b.act(() => port.cancelTicket(t.id, show.waitlistOn), tr("Ticket cancelled"), "circle-x").then((ok) => ok && app.closeSheet()), "d"),
         P(tr("Keep it"), () => app.closeSheet(), "g"),
       ],
     });
