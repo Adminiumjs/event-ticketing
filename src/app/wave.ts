@@ -586,7 +586,8 @@ export class WaveApp {
       this.patchSheet({ busy: false, done: true });
     } catch (error) {
       const c = WaveApp.code(error);
-      if (c === "UNIQUE_VIOLATION" || c === "PUBLIC_DUPLICATE") return this.patchSheet({ busy: false, done: true });
+      // Already on it: Adminium does not say so to the public (no address is confirmed to anyone), and nor does the page.
+      if (c === "PUBLIC_WRITE_REFUSED" && Object.keys(WaveApp.params(error)).length === 0) return this.patchSheet({ busy: false, done: true });
       if (c === null) {
         this.patchSheet({ busy: false, err: { email: tr("We couldn't send that just now. Try again.") } });
         return;
@@ -640,5 +641,8 @@ export class WaveApp {
   /** A refusal's code, or null for anything else (a network failure is thrown on). */
   static code(error: unknown): string | null {
     return isApiError(error) ? error.code : null;
+  }
+  static params(error: unknown): Readonly<Record<string, unknown>> {
+    return isApiError(error) ? error.params : {};
   }
 }

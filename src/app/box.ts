@@ -913,14 +913,16 @@ export function refusalOf(error: unknown): string {
       return tr("There aren't enough places left for that.");
     case "UNIQUE_VIOLATION":
       return tr("That's already there.");
-    case "FOREIGN_KEY_VIOLATION":
+    case "FK_VIOLATION":
+    case "CONFLICT":
       return tr("Other records still use this, so it stays.");
     case "STATE_MOVE_REFUSED":
       return p["requires"] === "time" ? tr("It's too late for that now.") : tr("Adminium didn't allow that move just now.");
+    case "TABLE_FORBIDDEN":
     case "FORBIDDEN":
     case "COLUMN_FORBIDDEN":
       return tr("Your role can't do that.");
-    case "VALIDATION":
+    case "VALIDATION_FAILED":
       return tr("Adminium didn't take that — check the values.");
     default:
       return tr("Adminium didn't take that.");

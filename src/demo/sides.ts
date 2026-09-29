@@ -10,7 +10,7 @@
  */
 import type { AudiencePort, BoxOfficePort, DoorPort, EventChildren, OrderWithTickets, Person, StaffPerson, Venue } from "../data/ports.ts";
 import { ApiError, type ClaimReply, type Config, type HistoryEntry, type Id, type ListQuery, type ListReply, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type TypeLeft, type Where } from "../data/wire.ts";
-import { venueDay, wallTime, toMs } from "../lib/venueTime.ts";
+import { toMs } from "../lib/venueTime.ts";
 import { normalizeCode } from "./codes.ts";
 import { holds, type Engine, type Writer } from "./engine.ts";
 import type { Table } from "./world.ts";
@@ -61,6 +61,16 @@ function identity(engine: Engine, email: string, name: string | null): Id {
   const found = engine.world.all("customers").find((c) => c["email"] === email.trim().toLowerCase());
   if (found !== undefined) return found.id;
   return engine.world.insert("customers", { email: email.trim().toLowerCase(), name, opt_in: false, forgotten_at: null, created_at: new Date(engine.now).toISOString() }).id;
+}
+
+/** A public write's unique refusal, as the public door answers it: a bare refusal (nobody learns an address is on a list). */
+function masked<T>(run: () => T): T {
+  try {
+    return run();
+  } catch (error) {
+    if (error instanceof ApiError && error.code === "UNIQUE_VIOLATION") throw new ApiError(400, "PUBLIC_WRITE_REFUSED");
+    throw error;
+  }
 }
 
 export class DemoAudience implements AudiencePort {
@@ -180,7 +190,7 @@ export class DemoAudience implements AudiencePort {
 
   private opened(): Row {
     const order = this.openedOrder === null ? undefined : this.engine.world.get("orders", this.openedOrder);
-    if (order === undefined) throw new ApiError(401, "PUBLIC_CLAIM_REQUIRED");
+    if (order === undefined) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
     return order;
   }
 
@@ -298,10 +308,10 @@ export class DemoAudience implements AudiencePort {
 
   async joinWaitlist(eventId: Id, email: string, qty: number): Promise<Row> {
     const engine = this.engine;
-    return engine.transaction(() => {
+    return masked(() => engine.transaction(() => {
       const customer = identity(engine, email, null);
       return engine.create("waitlist", { event_id: eventId, email: email.trim().toLowerCase(), qty, customer_id: customer }, this.writer).row;
-    });
+    }));
   }
 
   async nameTicket(ticketId: Id, name: string, answers?: Record<string, string> | null): Promise<Row> {
@@ -341,7 +351,7 @@ export class DemoAudience implements AudiencePort {
     const fault = this.failNext;
     if (fault === "mail-down" || fault === "too-many") {
       this.failNext = null;
-      throw fault === "mail-down" ? new ApiError(503, "MAIL_UNAVAILABLE") : new ApiError(429, "PUBLIC_RATE_LIMITED", { reason: "per-value" });
+      throw fault === "mail-down" ? new ApiError(503, "PUBLIC_CODE_UNAVAILABLE") : new ApiError(429, "PUBLIC_RATE_LIMITED", { reason: "per-value" });
     }
     const address = email.trim().toLowerCase();
     // A new link and code each time (the demo's own: 6 digits from the address and the clock).
@@ -360,10 +370,10 @@ export class DemoAudience implements AudiencePort {
     const address = email.trim().toLowerCase();
     const sent = this.mail.get(address);
     if (sent === undefined || this.engine.now >= sent.until) throw new ApiError(410, "PUBLIC_CODE_EXPIRED");
-    if (sent.tries <= 0) throw new ApiError(429, "PUBLIC_CODE_LOCKED", { tries: 0 });
+    if (sent.tries <= 0) throw new ApiError(403, "PUBLIC_CLAIM_LOCKED", { tries: 0 });
     if (code !== sent.code) {
       sent.tries -= 1;
-      throw new ApiError(401, "PUBLIC_CODE_WRONG", { tries: sent.tries });
+      throw new ApiError(403, "PUBLIC_CODE_WRONG", { tries: sent.tries });
     }
     this.mail.delete(address);
     return this.signInAs(address);
@@ -397,7 +407,7 @@ export class DemoAudience implements AudiencePort {
   }
 
   async forget(): Promise<void> {
-    if (this.signed === null) throw new ApiError(401, "PUBLIC_CLAIM_REQUIRED");
+    if (this.signed === null) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
     // Deleting details asks for a fresh sign-in: within the last ten minutes.
     if (this.engine.now - this.signed.at > 10 * 60_000) throw new ApiError(403, "PUBLIC_CODE_STEP_UP");
     const id = this.signed.customer;
@@ -407,7 +417,7 @@ export class DemoAudience implements AudiencePort {
   }
 
   private signedIn(): Id {
-    if (this.signed === null) throw new ApiError(401, "PUBLIC_CLAIM_REQUIRED");
+    if (this.signed === null) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
     return this.signed.customer;
   }
 
@@ -442,14 +452,14 @@ export class DemoAudience implements AudiencePort {
 
   async remindMe(eventId: Id, email: string, ticketTypeId: Id | null): Promise<Row> {
     const engine = this.engine;
-    return engine.transaction(() => {
+    return masked(() => engine.transaction(() => {
       const customer = identity(engine, email, null);
       return engine.create(
         "reminders",
         { event_id: eventId, email: email.trim().toLowerCase(), ticket_type_id: ticketTypeId, target: ticketTypeId === null ? "sale" : String(ticketTypeId), customer_id: customer },
         this.writer,
       ).row;
-    });
+    }));
   }
 }
 
@@ -546,7 +556,7 @@ export class DemoBoxOffice implements BoxOfficePort {
       devices: [["check_ins", "device_id"]],
     };
     for (const [t, column] of pointed[table] ?? []) {
-      if (engine.world.all(t).some((r) => r[column] === id)) throw new ApiError(409, "FOREIGN_KEY_VIOLATION", { table, referencedBy: t });
+      if (engine.world.all(t).some((r) => r[column] === id)) throw new ApiError(409, "FK_VIOLATION", { table, referencedBy: t });
     }
     engine.remove(table as Table, id, this.writer);
   }
@@ -724,25 +734,6 @@ export class DemoDoor implements DoorPort {
 
   async config(): Promise<Config> {
     return { timezone: this.engine.world.zone, currency: this.engine.world.currency, now: new Date(this.engine.now).toISOString() };
-  }
-
-  /** The venue's day: from its "day starts at" time to the same time the next morning. */
-  private venueDayStart(): number {
-    const w = this.engine.world;
-    const starts = String(this.engine.setting("day_starts_at") ?? "06:00");
-    const today = wallTime(venueDay(this.engine.now, w.zone), starts, w.zone);
-    return this.engine.now >= today ? today : wallTime(venueDay(this.engine.now, w.zone, -1), starts, w.zone);
-  }
-
-  async tonight(): Promise<{ events: Row[]; days: Row[] }> {
-    const from = this.venueDayStart();
-    const to = from + 24 * 3_600_000;
-    const days = this.engine.world.where("event_days", (d) => {
-      const doors = toMs(d["doors_at"]) ?? 0;
-      return doors >= from && doors < to;
-    });
-    const ids = new Set(days.map((d) => d["event_id"] as Id));
-    return { events: this.engine.world.where("events", (e) => ids.has(e.id) && e["status"] === "published").map(copy), days: days.map(copy) };
   }
 
   async find(code: string, eventDayId: Id): Promise<{ ticket: Row; order: Row; checkIn: Row | null } | null> {

@@ -193,7 +193,7 @@ export class Engine {
   /** The instant a write is judged at: now, or the scan's own time when an offline scan is replayed. */
   private judgedAt(writer: Writer): number {
     if (writer.origin === "staff" && writer.occurredAt !== undefined) {
-      if (writer.occurredAt < this.now - 6 * 3_600_000 || writer.occurredAt > this.now) throw new ApiError(400, "OCCURRED_AT_OUT_OF_RANGE");
+      if (writer.occurredAt < this.now - 6 * 3_600_000 || writer.occurredAt > this.now) throw new ApiError(422, "VALIDATION_FAILED", { fields: { occurredAt: "out of range" } });
       return writer.occurredAt;
     }
     return this.now;
@@ -243,7 +243,7 @@ export class Engine {
     const record: Record<string, unknown> = {};
     for (const [column, fill] of Object.entries(shape)) {
       if (values[column] !== undefined) record[column] = values[column];
-      else if (fill === REQUIRED) throw new ApiError(400, "VALIDATION", { column, reason: "required" });
+      else if (fill === REQUIRED) throw new ApiError(422, "VALIDATION_FAILED", { column, reason: "required" });
       else record[column] = fill === NOW ? iso(this.now) : fill;
     }
     // Copies through the row's links.
@@ -289,7 +289,7 @@ export class Engine {
       if (code["room_id"] !== null && code["room_id"] !== record["room_id"]) return false;
       return true;
     });
-    if (found === undefined) throw new ApiError(400, writer.origin === "public" ? "PUBLIC_WRITE_REFUSED" : "VALIDATION", { column: "code_text", reason: "unknown" });
+    if (found === undefined) throw new ApiError(400, writer.origin === "public" ? "PUBLIC_WRITE_REFUSED" : "VALIDATION_FAILED", { column: "code_text", reason: "unknown" });
     record["code_id"] = found.id;
   }
 
@@ -363,7 +363,7 @@ export class Engine {
     if (writer.origin !== "staff" || writer.roles.length === 0) return;
     const roles = RULE_SET.roles.filter((r) => writer.roles.includes(r.key));
     if (roles.length === 0) return;
-    if (!roles.some((r) => (r.grants[table] ?? []).includes("update"))) throw new ApiError(403, "FORBIDDEN", { table, action: "update" });
+    if (!roles.some((r) => (r.grants[table] ?? []).includes("update"))) throw new ApiError(403, "TABLE_FORBIDDEN", { table, action: "update" });
     const limit = roles.map((r) => r.limits?.[table]).find((l) => l !== undefined);
     if (limit === undefined) return;
     for (const [column, value] of Object.entries(values)) {
@@ -522,7 +522,7 @@ export class Engine {
       }
       const same = this.world.where("tickets", (x) => x["order_id"] === t["order_id"] && x["ticket_type_id"] === t["ticket_type_id"]).length;
       if (same > Number(type["max_per_order"] ?? 99)) {
-        throw new ApiError(400, forPublic ? "PUBLIC_WRITE_REFUSED" : "VALIDATION", { child: "tickets", index, column: "ticket_type_id", reason: "too-many" });
+        throw new ApiError(400, forPublic ? "PUBLIC_WRITE_REFUSED" : "VALIDATION_FAILED", { child: "tickets", index, column: "ticket_type_id", reason: "too-many" });
       }
     });
     for (const eventId of touchedEvents) {
@@ -549,7 +549,7 @@ export class Engine {
       const max = code["max_uses"];
       if (max === null || max === undefined) continue;
       const used = this.world.where("orders", (x) => x["code_id"] === code.id && (COUNTED.includes(String(x["status"])) || this.holding(x))).length;
-      if (used > Number(max)) throw new ApiError(400, forPublic ? "PUBLIC_WRITE_REFUSED" : "VALIDATION", { column: "code_text", reason: "used-up" });
+      if (used > Number(max)) throw new ApiError(400, forPublic ? "PUBLIC_WRITE_REFUSED" : "VALIDATION_FAILED", { column: "code_text", reason: "used-up" });
     }
     for (const w of written) {
       // A ticket's door money is taken once.

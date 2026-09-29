@@ -886,7 +886,7 @@ export class Door {
 
   /** A replayed check-in refused: no line when it was this phone's own check-in already there, else the clash's words. */
   private async clashOf(q: Queued, code: string, params: Readonly<Record<string, unknown>>): Promise<{ line: string | null; id: Id | null }> {
-    if (code === "OCCURRED_AT_OUT_OF_RANGE") return { line: tr("{code} couldn't sync — scanned more than 6 hours ago", { code: q.code }), id: null };
+    if (tooOld(code, params)) return { line: tr("{code} couldn't sync — scanned more than 6 hours ago", { code: q.code }), id: null };
     if (code === "UNIQUE_VIOLATION") {
       const hit = await this.port.find(q.code, q.dayId).catch(() => null);
       const row = hit?.checkIn ?? null;
@@ -921,7 +921,7 @@ export class Door {
         id: null,
       };
     }
-    if (code === "OCCURRED_AT_OUT_OF_RANGE") return { line: tr("{code}: the {amount} taken here couldn't sync — taken more than 6 hours ago", { code: q.code, amount }), id: null };
+    if (tooOld(code, params)) return { line: tr("{code}: the {amount} taken here couldn't sync — taken more than 6 hours ago", { code: q.code, amount }), id: null };
     return { line: tr("{code}: the {amount} taken here couldn't sync — {reason}", { code: q.code, amount, reason: refusalOf(new ApiError(409, code, { ...params })) }), id: null };
   }
 
@@ -942,6 +942,9 @@ export class Door {
 
 /** The name on a ticket, or its order's buyer when nobody named it yet. */
 const holder = (ticket: Row): string => String(ticket["holder_name"] ?? "") || String(ticket["sender_name"] ?? "") || tr("No name");
+/** Adminium's refusal of a replay's time: more than 6 hours ago. */
+const tooOld = (code: string, params: Readonly<Record<string, unknown>>): boolean =>
+  code === "VALIDATION_FAILED" && typeof params["fields"] === "object" && params["fields"] !== null && "occurredAt" in (params["fields"] as object);
 const sameQueued = (a: Queued, b: Queued): boolean => a.key === b.key && a.kind === b.kind && a.at === b.at;
 const gone = (recent: Scan[], r: Scan): Scan[] => (r.paid !== null ? recent.map((x) => (x === r ? { ...x, undone: true } : x)) : recent.filter((x) => x !== r));
 

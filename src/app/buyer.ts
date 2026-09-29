@@ -250,7 +250,7 @@ export class Buyer {
       this.setCo({ busy: false, holdQ: { kind: "code", code, total: plain === null ? null : Number(plain.data["total"] ?? 0) } });
       return;
     }
-    if (error.code === "PUBLIC_RATE_LIMITED" && p["reason"] === "per-value") {
+    if (error.code === "PUBLIC_LIMIT_REACHED") {
       this.setCo({ busy: false, errs: { hold: tr("That's as many checkouts as one email can start today — use the order you already have, or write to {email}.", { email: this.app.world()?.settings.contactEmail ?? "" }) } });
       return;
     }
@@ -531,7 +531,7 @@ export class Buyer {
     } catch (error) {
       const c = isApiError(error) ? error.code : null;
       const tries = isApiError(error) && typeof error.params["tries"] === "number" ? error.params["tries"] : null;
-      const err: Si["err"] = c === "PUBLIC_CODE_EXPIRED" ? "expired" : c === "PUBLIC_CODE_LOCKED" ? (tries === 0 ? "many" : "locked") : tries === 0 ? "many" : "wrong";
+      const err: Si["err"] = c === "PUBLIC_CODE_EXPIRED" ? "expired" : c === "PUBLIC_CLAIM_LOCKED" ? "many" : c === "PUBLIC_CODE_LOCKED" ? (tries === 0 ? "many" : "locked") : tries === 0 ? "many" : "wrong";
       this.setSi({ busy: false, err, tries });
       focusLater("si-d0", 30);
     }
@@ -599,7 +599,7 @@ export class Buyer {
     const got = this.app.get("aud:me:orders", () => this.port.myOrders());
     // Signed out elsewhere ("sign out everywhere" from another phone): back to sign in, saying why.
     const err = this.app.errorOf("aud:me:orders");
-    if (isApiError(err) && err.code === "PUBLIC_CLAIM_REQUIRED" && this.person !== null) setTimeout(() => this.sessionEnded(), 0);
+    if (isApiError(err) && err.code === "PUBLIC_REF_NOT_FOUND" && this.person !== null) setTimeout(() => this.sessionEnded(), 0);
     return got;
   }
 
