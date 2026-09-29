@@ -14,7 +14,7 @@
  * whole token by whole token, with what it means.
  */
 
-export const SUBSTRING_BANNED = ["pricing", "plan", "tier", "billing", "upgrade", "free", "premium", "/mo", "demo"] as const;
+export const SUBSTRING_BANNED = ["pricing", "plan", "tier", "billing", "upgrade", "free", "premium", "/mo", "per month", "a month", "monthly", "demo"] as const;
 
 export const OTHER_LANGUAGES = ["de-DE", "fr-FR", "da-DK", "cs-CZ", "ar-EG", "zh-CN", "zh-TW"] as const;
 export type OtherLanguage = (typeof OTHER_LANGUAGES)[number];
@@ -29,7 +29,9 @@ export const IDEA_IN_LANGUAGE: Record<OtherLanguage, Record<string, RegExp[]>> =
     tier: [/preisstufe/i, /stufenpreis/i],
     billing: [/abrechnung/i, /rechnungsstellung/i],
     upgrade: [/höherstufen/i, /hochstufen/i, /aufwerten/i],
-    free: [/kostenlos/i, /\bgratis/i, /umsonst/i],
+    // "frei" alone is the venue's own word ("Plätze frei", "freie Platzwahl", "freigeben"): only its no-charge phrases.
+    free: [/kostenlos/i, /\bgratis/i, /umsonst/i, /kostenfrei/i, /eintritt (ist )?frei/i, /freie[nr]? eintritt/i],
+    "per month": [/pro monat/i, /im monat/i, /monatlich/i, /\/\s?monat/i],
     premium: [/premium/i, /\bprofi/i],
     demo: [/vorführ/i],
   },
@@ -39,7 +41,9 @@ export const IDEA_IN_LANGUAGE: Record<OtherLanguage, Record<string, RegExp[]>> =
     tier: [/palier tarifaire/i, /niveau tarifaire/i],
     billing: [/facturation/i],
     upgrade: [/mise à niveau/i, /surclassement/i, /surclasser/i],
-    free: [/gratuit/i],
+    // "offert à" is offered to someone (a waitlist place); "offert" alone is on the house. "Placement libre" is general admission.
+    free: [/gratuit/i, /\boffert(e|s|es)?\b(?!\s+à)/i, /entrée libre/i],
+    "per month": [/par mois/i, /mensuel/i, /\/\s?mois/i],
     premium: [/premium/i],
     demo: [/démo/i, /démonstration/i],
   },
@@ -49,7 +53,8 @@ export const IDEA_IN_LANGUAGE: Record<OtherLanguage, Record<string, RegExp[]>> =
     tier: [/prisniveau/i, /pristrin/i],
     billing: [/fakturering/i],
     upgrade: [/opgrader/i],
-    free: [/\bgratis/i, /vederlagsfri/i],
+    free: [/\bgratis/i, /vederlagsfri/i, /\bfri entré/i],
+    "per month": [/om måneden/i, /pr\.? måned/i, /månedlig/i, /\/\s?md\b/i],
     premium: [/premium/i],
     demo: [/demonstration/i],
   },
@@ -59,7 +64,8 @@ export const IDEA_IN_LANGUAGE: Record<OtherLanguage, Record<string, RegExp[]>> =
     tier: [/cenová hladina/i],
     billing: [/fakturace/i, /vyúčtování/i],
     upgrade: [/povýšit/i, /vyšší tarif/i],
-    free: [/zdarma/i, /zadarmo/i, /bezplatn/i],
+    free: [/zdarma/i, /zadarmo/i, /bezplatn/i, /\bgratis/i, /vstup volný/i],
+    "per month": [/měsíčně/i, /za měsíc/i, /\/\s?měs/i],
     premium: [/prémiov/i],
     demo: [/ukázk/i],
   },
@@ -69,7 +75,8 @@ export const IDEA_IN_LANGUAGE: Record<OtherLanguage, Record<string, RegExp[]>> =
     tier: [/فئة سعرية/, /مستوى سعري/],
     billing: [/فوترة/],
     upgrade: [/ترقية/],
-    free: [/مجان/],
+    free: [/مجان/, /بلا مقابل/, /بدون مقابل/, /ببلاش/],
+    "per month": [/شهري/, /في الشهر/, /كل شهر/, /\/\s?شهر/],
     premium: [/احترافي/, /مميز/],
     demo: [/تجريبي/],
   },
@@ -79,7 +86,8 @@ export const IDEA_IN_LANGUAGE: Record<OtherLanguage, Record<string, RegExp[]>> =
     tier: [/价格档/, /套餐档/],
     billing: [/账单/, /计费/],
     upgrade: [/升级/],
-    free: [/免费/],
+    free: [/免费/, /免單/, /免单/],
+    "per month": [/每月/, /月费/, /包月/, /\/\s?月/],
     premium: [/高级版/, /专业版/],
     demo: [/演示/],
   },
@@ -89,7 +97,8 @@ export const IDEA_IN_LANGUAGE: Record<OtherLanguage, Record<string, RegExp[]>> =
     tier: [/價格級/, /方案級/],
     billing: [/帳單/, /計費/],
     upgrade: [/升級/],
-    free: [/免費/],
+    free: [/免費/, /免單/],
+    "per month": [/每月/, /月費/, /包月/, /\/\s?月/],
     premium: [/高級版/, /專業版/],
     demo: [/示範/, /演示/],
   },
