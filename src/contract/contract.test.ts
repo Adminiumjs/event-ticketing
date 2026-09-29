@@ -311,8 +311,15 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
           values: { event_id: neon.id, room_id: neon["room_id"], channel: "box_office", buyer_name: "Mixed Up" },
           children: { [rel]: [{ values: { ticket_type_id: standard, show_id: cinderId } }] },
         });
-        expect([sentWrong.status, sentWrong.code, sentWrong.details["requires"]]).toEqual([409, "STATE_MOVE_REFUSED", "right_show"]);
+        const said = (r: { status: number; code?: string; details: Record<string, unknown> }) => `${String(r.status)} ${String(r.code)} ${JSON.stringify(r.details)}`;
+        // (A tree is refused first by the checkout's own agreement, show_id to the order's show.)
+        expect(said(sentWrong)).toMatch(/^(409 STATE_MOVE_REFUSED .*"requires":"right_show"|422 VALIDATION_FAILED .*show_id)/);
         expect((await rows("orders")).length).toBe(ordersBefore);
+        // One ticket added to Lee Tan's own Neon order, of Neon's type, sent with Cinder: refused by the ticket's own rule.
+        const ticketsBefore = (await rows("tickets")).length;
+        const added = await staff.post(data("tickets"), { values: { order_id: made.data.id, ticket_type_id: standard, show_id: cinderId } });
+        expect(said(added)).toMatch(/^409 STATE_MOVE_REFUSED .*"requires":"right_show"/);
+        expect((await rows("tickets")).length).toBe(ticketsBefore);
       }, 120_000);
 
       // ── the evening, through the app's own doors (the ports the screens use) ──────────────
@@ -1584,7 +1591,7 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
           needsWrites(() => ctx.skip());
           const { box, door, show, day, walkUp } = await night();
           // The sample's settings row went with the sample: a venue without one gets its own.
-          const settings = (await box.rows("settings"))[0] ?? (await box.create("settings", { door_on: true }));
+          const settings = (await box.rows("settings"))[0] ?? (await box.create("settings", { venue_name: "Door fixes", address: "1 Door Street", contact_email: "door@example.com", door_on: true }));
           await box.update("settings", settings.id, { door_on: false });
           try {
             const sale = await door.newOrder({ values: { event_id: show.id, buyer_name: "Door sale", channel: "door", email: null }, tickets: [{ ticket_type_id: walkUp.id }, { ticket_type_id: walkUp.id }] }, key("door-off"));
