@@ -443,8 +443,6 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         });
         return { status: res.status, ended: res.headers.get("x-adminium-session-ended"), body: (await res.json().catch(() => ({}))) as { data?: Row[] | Row } };
       };
-      /** A buyer's own account row, read with their session: Adminium 0.3.5 answers it 503 (a masked column it cannot read yet). */
-      const ACCOUNT_ROW_ANSWERS_503 = false;
       /** Two buyers on an address the outbox sends to (a reserved one is skipped), each with an order and its own link. */
       const pair = { a: { email: `rui.${engine}@waveform.dev`, id: 0, token: "", sent: new Map<string, string>() }, b: { email: `lena.${engine}@waveform.dev`, id: 0, token: "", sent: new Map<string, string>() } };
       let signedA: AdminiumAudience | null = null;
@@ -567,14 +565,10 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
           expect(data.filter((row) => theirs(ref, row)), ref).toEqual([]);
           if (ref === refs.myWaitlist || ref === refs.myReminders) expect(data.length, ref).toBeGreaterThan(0);
         }
-        // The person's own account row: theirs alone once Adminium reads it; until then the switch above says why not.
+        // The person's own account row: theirs alone.
         const account = await publicCall("customer", aSession, `/api/v1/public/records/${refs.account}?limit=200`);
-        if (ACCOUNT_ROW_ANSWERS_503) {
-          expect(account.status, "the account row answers now: set ACCOUNT_ROW_ANSWERS_503 to false").toBe(503);
-        } else {
-          expect(account.status).toBe(200);
-          expect(((account.body.data ?? []) as Row[]).map((row) => row["email"])).toEqual([pair.a.email]);
-        }
+        expect(account.status).toBe(200);
+        expect(((account.body.data ?? []) as Row[]).map((row) => row["email"])).toEqual([pair.a.email]);
         // B's own link opens B's order, and never A's: read, changed and listed through the link's door itself.
         const b = await audience(pair.b.sent);
         await b.openOrder(pair.b.token);
