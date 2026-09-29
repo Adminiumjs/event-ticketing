@@ -298,15 +298,20 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         const neonNow = (await rows("events")).find((e) => e.id === neon.id)!;
         const expected = [neon.id, neon.id, Date.parse(String(neonNow["doors_at"])), Boolean(neonNow["waitlist_on"]), Boolean(neonNow["eve_email"])];
         expect(tickets.map(shown)).toEqual([expected, expected]);
-        // Nor is one made by the box office: a Neon Circuit order with one of Cinder's types, however it is sent.
+        // Nor is one made by the box office: a Neon Circuit order with one of Cinder's types is refused…
         const cinderStandard = types.find((t) => t["event_id"] === cinderId && t["name"] === "Standard")!.id;
         const box = await staffPort(ADMIN);
         const ordersBefore = (await rows("orders")).length;
-        expect(await refusal(() => box.newOrder({ values: { event_id: neon.id, buyer_name: "Mixed Up" }, tickets: [{ ticket_type_id: cinderStandard }] }, key("mixed")))).toMatchObject({
-          status: 409,
-          code: "STATE_MOVE_REFUSED",
-          params: { requires: "right_show" },
+        const mixed = await refusal(() => box.newOrder({ values: { event_id: neon.id, buyer_name: "Mixed Up" }, tickets: [{ ticket_type_id: cinderStandard }] }, key("mixed")));
+        expect([409, 422]).toContain(mixed?.status);
+        // …and so is a ticket of Neon's own type sent with Cinder as its show, whoever writes it.
+        const rel = String(mixed?.params["relation"] ?? "");
+        expect(rel).toContain("order_id");
+        const sentWrong = await staff.post(data("orders"), {
+          values: { event_id: neon.id, room_id: neon["room_id"], channel: "box_office", buyer_name: "Mixed Up" },
+          children: { [rel]: [{ values: { ticket_type_id: standard, show_id: cinderId } }] },
         });
+        expect([sentWrong.status, sentWrong.code, sentWrong.details["requires"]]).toEqual([409, "STATE_MOVE_REFUSED", "right_show"]);
         expect((await rows("orders")).length).toBe(ordersBefore);
       }, 120_000);
 
@@ -1579,7 +1584,7 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
           needsWrites(() => ctx.skip());
           const { box, door, show, day, walkUp } = await night();
           // The sample's settings row went with the sample: a venue without one gets its own.
-          const settings = (await box.rows("settings"))[0] ?? (await box.create("settings", {}));
+          const settings = (await box.rows("settings"))[0] ?? (await box.create("settings", { door_on: true }));
           await box.update("settings", settings.id, { door_on: false });
           try {
             const sale = await door.newOrder({ values: { event_id: show.id, buyer_name: "Door sale", channel: "door", email: null }, tickets: [{ ticket_type_id: walkUp.id }, { ticket_type_id: walkUp.id }] }, key("door-off"));
