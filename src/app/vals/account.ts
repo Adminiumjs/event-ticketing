@@ -16,7 +16,7 @@ import { codeFace, dur, fD, fT, money, ms, places, sameDay, strip, tickets as ti
 import type { WaveApp } from "../wave.ts";
 import type { Show, World } from "../world.ts";
 import { ageWords, stStyle, type Status } from "./audience.ts";
-import { latin, savePdf, ticketPdf, type PdfLine } from "../pdf.ts";
+import { readable, savePdf, ticketPdf, type PdfLine } from "../pdf.ts";
 import { S, type V } from "./base.ts";
 import { isWorkshop, refundSentence } from "./event.ts";
 import type { SheetKit } from "./sheets.ts";
@@ -63,20 +63,30 @@ function releaseAt(app: WaveApp, order: Row): number {
   return (ms(order["pay_by"]) ?? app.now) + hours * 3_600_000;
 }
 
+/**
+ * A ticket's page lines: the show, its day, doors and stage times, the room's
+ * age rule, the holder, the type and order, the status, and the foot — in the
+ * reader's words where the PDF's fonts can draw them, else the same line in
+ * English (`readable`). `status` is asked in each language.
+ */
+export function ticketLines(show: Show, number: string, t: Row, status: () => string): { lines: PdfLine[]; foot: string } {
+  const all = readable(() => [
+    [show.name, 24, "F2"],
+    [`${strip(fD(show.start))}  |  ${tr("Doors {time}", { time: strip(fT(show.doors)) })}  |  ${tr("On stage {time}", { time: strip(fT(show.start)) })}`, 11, "F1", "0.3 0.3 0.36"],
+    [`${show.room?.name ?? ""}  |  ${ageWords(show.age, true)}`, 11, "F1", "0.3 0.3 0.36"],
+    [tr("Holder: {name}", { name: String(t["holder_name"] ?? "") }), 13, "F2"],
+    [`${tr("Ticket type: {type}", { type: String(t["name"] ?? "") })}${number === "" ? "" : `  |  ${tr("Order {number}", { number })}`}`, 11, "F1", "0.3 0.3 0.36"],
+    [strip(status()), 11, "F2", "0.11 0.35 0.88"],
+    [tr("Show this at the door. Works without signal."), 8.5, "F1"],
+  ]);
+  return { lines: all.slice(0, -1), foot: all[all.length - 1]![0] };
+}
+
 /** A ticket's one-page PDF, saved in the browser, with a toast naming the file. */
-export function downloadTicket(app: WaveApp, w: World, show: Show, number: string, t: Row, statusTxt: string): void {
+export function downloadTicket(app: WaveApp, w: World, show: Show, number: string, t: Row, status: () => string): void {
   const code = codeFace(String(t["code"] ?? ""));
   if (code === "") return;
-  const line = (words: string, english: string) => (latin(words) ? words : english);
-  const lines: PdfLine[] = [
-    [line(show.name, show.name), 24, "F2"],
-    [line(`${strip(fD(show.start))}  |  ${tr("Doors {time}", { time: strip(fT(show.doors)) })}  |  ${tr("On stage {time}", { time: strip(fT(show.start)) })}`, `Doors ${strip(fT(show.doors))}`), 11, "F1", "0.3 0.3 0.36"],
-    [line(`${show.room?.name ?? ""}  |  ${ageWords(show.age, true)}`, show.room?.name ?? ""), 11, "F1", "0.3 0.3 0.36"],
-    [line(tr("Holder: {name}", { name: String(t["holder_name"] ?? "") }), `Holder: ${String(t["holder_name"] ?? "")}`), 13, "F2"],
-    [line(`${tr("Ticket type: {type}", { type: String(t["name"] ?? "") })}${number === "" ? "" : `  |  ${tr("Order {number}", { number })}`}`, `Ticket type: ${String(t["name"] ?? "")}`), 11, "F1", "0.3 0.3 0.36"],
-    [line(statusTxt, ""), 11, "F2", "0.11 0.35 0.88"],
-  ];
-  const foot = line(tr("Show this at the door. Works without signal."), "Show this at the door. Works without signal.");
+  const { lines, foot } = ticketLines(show, number, t, status);
   const name = `${number === "" ? "ticket" : number}-${code}.pdf`;
   if (savePdf(ticketPdf({ venue: w.settings.venueName, address: w.settings.address }, lines, code, foot), name)) app.toast(tr("Downloaded {file}", { file: name }), "file-down");
 }
@@ -913,7 +923,7 @@ function friendVals(app: WaveApp, w: World): V {
     qrAlt: tr("QR code for ticket {code}", { code }),
     payOn: st === "done" && owed > 0.004,
     payTxt: tr("Pay {amount} at the door", { amount: money(owed) }),
-    pdf: () => downloadTicket(app, w, show, "", t, owed > 0.004 ? tr("Pay {amount} at the door", { amount: money(owed) }) : tr("Valid")),
+    pdf: () => downloadTicket(app, w, show, "", t, () => (owed > 0.004 ? tr("Pay {amount} at the door", { amount: money(owed) }) : tr("Valid"))),
     seeWhatsOn: () => app.go("home"),
   };
 }
@@ -1141,7 +1151,7 @@ export function accountSheet(app: WaveApp, w: World, o: V & { list: unknown[]; b
     if (!unpaidX && code !== "")
       items.push(["pdf", tr("Download as PDF"), "file-down", () => {
         app.closeSheet();
-        downloadTicket(app, w, show, String(order?.["number"] ?? ""), t, order === null ? tr("Valid") : ticketStatus(app, show, order, t).txt);
+        downloadTicket(app, w, show, String(order?.["number"] ?? ""), t, () => (order === null ? tr("Valid") : ticketStatus(app, show, order, t).txt));
       }]);
     items.push(
       ["cal", tr("Add to calendar"), "calendar-plus", () => {
