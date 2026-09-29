@@ -121,8 +121,6 @@ export class AdminiumAudience implements AudiencePort {
   private orderOfTicket = new Map<Id, Id>();
   /** The codes a show's page unlocked types with: sent when asking what is left. */
   private codes = new Map<Id, string>();
-  /** The address the person signed in with, when Adminium cannot read their own row yet. */
-  private signedAs: Person | null = null;
   private endedListeners: ((reason: string) => void)[] = [];
   /** Each key's browser key, for a download the page makes itself. */
   private readonly keys: Partial<Record<Key, string>> = {};
@@ -151,7 +149,6 @@ export class AdminiumAudience implements AudiencePort {
         ...(kept === undefined ? {} : { session: kept }),
         onSessionChange: (session) => keepSession(storage, key, session),
         onSessionEnded: (reason) => {
-          if (key === "customer") this.signedAs = null;
           for (const listener of this.endedListeners) listener(String(reason));
         },
         // The customer key's writes ask a person check: solved before sending rather than after a refusal.
@@ -456,8 +453,10 @@ export class AdminiumAudience implements AudiencePort {
     return answer(async () => {
       const got = await this.customer.verifyLinkCode({ email: email.trim(), code: code.replace(/\s/g, "") });
       if (!got.ok) throw new ApiError(403, "PUBLIC_CODE_WRONG", { tries: (got as { triesLeft?: number }).triesLeft ?? null });
-      this.signedAs = { email: got.email ?? email.trim().toLowerCase(), name: null };
-      return (await this.me()) ?? this.signedAs;
+      // Who the code signed in: their own account row, as Adminium reads it.
+      const me = await this.me();
+      if (me === null) throw new ApiError(410, "PUBLIC_CODE_EXPIRED");
+      return me;
     });
   }
 
@@ -476,13 +475,11 @@ export class AdminiumAudience implements AudiencePort {
       if (!this.customer.isClaimed()) return null;
       try {
         const row = (await all(this.customer, this.refs.account))[0];
-        if (row === undefined || row["email"] === null || row["email"] === undefined || row["email"] === "") return this.signedAs;
-        this.signedAs = { email: String(row["email"]), name: (row["name"] as string | null) ?? null };
-        return this.signedAs;
+        if (row === undefined || row["email"] === null || row["email"] === undefined || row["email"] === "") return null;
+        return { email: String(row["email"]), name: (row["name"] as string | null) ?? null };
       } catch (error) {
-        // A session that has ended reads as signed out; one Adminium cannot read the row of yet keeps the typed address.
+        // A session that has ended reads as signed out.
         if (error instanceof PublicApiError && (error.code === "PUBLIC_REF_NOT_FOUND" || error.status === 404)) return null;
-        if (error instanceof PublicApiError && error.status >= 500 && this.signedAs !== null) return this.signedAs;
         throw error;
       }
     });
@@ -491,7 +488,6 @@ export class AdminiumAudience implements AudiencePort {
   signOut(): Promise<void> {
     return answer(async () => {
       for (const client of Object.values(this.clients)) if (client.isClaimed()) await client.signOut().catch(() => undefined);
-      this.signedAs = null;
       this.openedId = null;
     });
   }
@@ -510,8 +506,7 @@ export class AdminiumAudience implements AudiencePort {
         throw error;
       } finally {
         for (const [key, client] of Object.entries(this.clients)) if (key !== "customer" && client.isClaimed()) await client.signOut().catch(() => undefined);
-        this.signedAs = null;
-        this.openedId = null;
+          this.openedId = null;
       }
     });
   }
@@ -520,7 +515,6 @@ export class AdminiumAudience implements AudiencePort {
     return answer(async () => {
       await this.customer.forgetMe();
       for (const [key, client] of Object.entries(this.clients)) if (key !== "customer" && client.isClaimed()) await client.signOut().catch(() => undefined);
-      this.signedAs = null;
       this.openedId = null;
     });
   }

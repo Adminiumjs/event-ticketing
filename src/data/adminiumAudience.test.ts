@@ -39,3 +39,37 @@ describe("signing out on every device when Adminium does not take it", () => {
     expect(await door.me()).toBeNull();
   });
 });
+
+/** A fake Adminium answering by method and path; every request kept. */
+function fakeServer(answer: (method: string, path: string) => { status: number; body: unknown }) {
+  const asked: { method: string; path: string; auth: string | null; session: string | null }[] = [];
+  const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input));
+    const headers = new Headers(init?.headers);
+    const method = init?.method ?? "GET";
+    asked.push({ method, path: url.pathname, auth: headers.get("authorization"), session: headers.get("x-adminium-public-session") });
+    const got = answer(method, url.pathname);
+    return new Response(JSON.stringify(got.body), { status: got.status, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+  return { asked, fetchImpl };
+}
+const refusalOf = (error: unknown) => (error instanceof ApiError ? [error.status, error.code] : error);
+
+describe("the signed-in person's own account row", () => {
+  it("is who is signed in; a fault reading it is a fault, never a stand-in", async () => {
+    const { storage, store } = tab();
+    store.set("wv.session.customer", JSON.stringify({ token: "held-session", expiresAt: Date.now() + 3_600_000 }));
+    let down = false;
+    const server = fakeServer((method, path) =>
+      down
+        ? { status: 503, body: { error: { code: "INTERNAL", message: "down" } } }
+        : method === "GET" && path === "/api/v1/public/records/events_customers_claimed"
+          ? { status: 200, body: { data: [{ email: "mia.okada@example.com", name: "Mia Okada", opt_in: false }] } }
+          : { status: 404, body: { error: { code: "PUBLIC_REF_NOT_FOUND", message: "no" } } },
+    );
+    const door = new AdminiumAudience({ baseUrl: "http://venue.test", publishableKey: "pk_customer" }, { fetch: server.fetchImpl, storage });
+    expect(await door.me()).toEqual({ email: "mia.okada@example.com", name: "Mia Okada" });
+    down = true;
+    expect((await door.me().then(() => null, refusalOf) as unknown[])[0]).toBe(503);
+  });
+});
