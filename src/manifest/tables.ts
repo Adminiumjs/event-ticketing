@@ -245,6 +245,7 @@ export const EMAIL_KINDS: Record<string, string> = {
   tickets: "Your tickets",
   "tickets-paid": "Your tickets (paid at the box office)",
   "transfer-confirm": "Confirm your order",
+  "transfer-confirm-offer": "Confirm your waitlist tickets",
   "transfer-waiting": "Waiting for your transfer",
   "transfer-reminder": "Reminder: your transfer",
   "transfer-released": "Your tickets went back on sale",
@@ -255,6 +256,7 @@ export const EMAIL_KINDS: Record<string, string> = {
   "holder-set": "A ticket in your name",
   "waitlist-offer": "Tickets are back",
   "on-sale": "On sale soon",
+  "on-sale-presale": "Presale soon",
   moved: "Your show has moved",
   "cancelled-paid": "Your show is cancelled (paid)",
   "cancelled-unpaid": "Your show is cancelled (nothing paid)",
@@ -268,6 +270,7 @@ export const EMAIL_KINDS: Record<string, string> = {
   "tickets-cancelled": "Tickets cancelled",
   "refund-declined": "Refund request declined",
   broadcast: "A message about your show",
+  "broadcast-holder": "A message about your show (a friend's ticket)",
 };
 
 // ── the rules the tables keep ───────────────────────────────────────────────
@@ -289,12 +292,24 @@ const ORDER_TIMED = [
 
 /** Paid: only when nothing is owed. */
 const PAID = { to: "paid", requires: { where: [{ column: "balance", lte: 0 }] } };
-const DOOR = { to: "door", requires: { setting: [{ table: "settings", column: "door_on", eq: true }] } };
-const CONFIRMING = { to: "confirming", requires: { setting: [{ table: "settings", column: "transfer_on", eq: true }] } };
+/** Pay at the door: switched on in Settings, and no ticket of the order is one its type keeps from the door. */
+const DOOR = {
+  to: "door",
+  requires: { setting: [{ table: "settings", column: "door_on", eq: true }], where: [{ column: "no_door", lte: 0 }] },
+};
+/**
+ * A bank transfer: switched on in Settings, no ticket of the order kept from it by its type, and not in the last
+ * days before the show (Settings' "No transfers in the last days before a show", counted back from the doors).
+ */
+const TRANSFER_OPEN = {
+  setting: [{ table: "settings", column: "transfer_on", eq: true }],
+  time: { before: { column: "doors_at", minus: { days: setting("transfer_cutoff_days") } } },
+};
+const CONFIRMING = { to: "confirming", requires: { ...TRANSFER_OPEN, where: [{ column: "no_transfer", lte: 0 }] } };
 /** The box office takes a phone order by transfer straight to waiting, with the buyer's email. */
 const AWAITING_BY_STAFF = {
   to: "awaiting_transfer",
-  requires: { setting: [{ table: "settings", column: "transfer_on", eq: true }], where: [{ column: "email", isNull: false }] },
+  requires: { ...TRANSFER_OPEN, where: [{ column: "email", isNull: false }, { column: "no_transfer", lte: 0 }] },
 };
 const CANCELLED = { to: "cancelled", requires: { where: [{ column: "cancel_cause", isNull: false }] } };
 /**
@@ -322,6 +337,14 @@ const ORDER_STATES = {
     not_collected: [PAID],
   },
   timed: ORDER_TIMED,
+  // A new order only for a show on sale whose last night has not ended: a cancelled, un-announced or past show sells
+  // nothing, whoever writes, however long a page was left open.
+  create: {
+    requires: {
+      linked: [{ via: "event_id", where: [{ column: "status", eq: "published" }] }],
+      time: { before: { column: "ends_at", via: "event_id", or: [{ column: "curfew_at", via: "event_id" }] } },
+    },
+  },
   // A waitlist entry follows its offer: claimed when the offer is taken, missed when it runs out.
   effects: [
     { on: { to: "door" }, via: "waitlist_id", set: { status: "claimed" } },
@@ -378,8 +401,13 @@ const TICKET_STATES = {
     // A place still back for the waitlist at doors goes on sale at the door.
     { from: "returned", to: "released", at: { column: "doors_at" } },
   ],
-  // "Stop selling": a type the box office stopped takes no new ticket, from anyone.
-  create: { requires: { linked: [{ via: "ticket_type_id", where: [{ column: "selling", eq: true }] }] } },
+  // "Stop selling": a type the box office stopped takes no new ticket, from anyone; nor does a type of a show that
+  // is not on sale (cancelled, or taken back to a draft).
+  create: {
+    requires: {
+      linked: [{ via: "ticket_type_id", where: [{ column: "selling", eq: true }, { column: "event_status", eq: "published" }] }],
+    },
+  },
 };
 
 /**
@@ -420,11 +448,11 @@ const KIND_MATCH = {
   ],
 };
 
-/** What a ticket's code takes off: a share of its price, or an amount no larger than the price. */
+/** What a ticket's code takes off: a share of its price, or an amount — never more than the price. */
 const DISCOUNT = {
   if: [
     { and: [eq("code_kind", "percent"), eq("kind_match", 1)] },
-    { round: { div: [{ mul: ["price", { coalesce: ["code_value", 0] }] }, 100] } },
+    { min: ["price", { round: { div: [{ mul: ["price", { coalesce: ["code_value", 0] }] }, 100] } }] },
     { if: [{ and: [eq("code_kind", "amount"), eq("kind_match", 1)] }, { min: ["price", { coalesce: ["code_value", 0] }] }, 0] },
   ],
 };
@@ -762,7 +790,11 @@ export const TABLES: Table[] = [
             from: "code_text",
             table: "codes",
             column: "code",
-            where: [{ column: "active", eq: true }],
+            // Switched on and in date: a code past its last day is no code, to anyone.
+            where: [
+              { column: "active", eq: true },
+              { column: "valid_until", notBefore: "now", orEmpty: true },
+            ],
             scope: [
               { column: "event_id", equals: "event_id", orEmpty: true },
               { column: "room_id", equals: "room_id", orEmpty: true },
@@ -832,6 +864,8 @@ export const TABLES: Table[] = [
       at("ends_at", "Show ends", { ...opt, rules: copyOf("event_id", "ends_at", true) }),
       at("created_at", "Placed", { ...opt, rules: stamp("now", onCreate) }),
       at("confirmed_at", "Confirmed", { ...opt, rules: stamp("now", onStatus("door", "no_charge", "awaiting_transfer", "paid")) }),
+      // When it was first set to pay at the door: its tickets went out then, so being paid later sends them again to nobody.
+      at("door_at", "Set to pay at the door", { ...opt, rules: stamp("now", onStatus("door")) }),
       at("paid_at", "Paid on", { ...opt, rules: stamp("now", onStatus("paid")) }),
       at("released_at", "Released", { ...opt, rules: stamp("now", onStatus("released")) }),
       at("cancelled_at", "Cancelled", { ...opt, rules: stamp("now", onStatus("cancelled")) }),
@@ -848,6 +882,24 @@ export const TABLES: Table[] = [
         },
       }),
       choice("paid_method", "Paid by", { bank_transfer: "Bank transfer", card: "Card", cash: "Cash" }, opt),
+      // The email a move to paid sends, by what the buyer has not had yet: 1 the tickets (paid by card or cash),
+      // 2 the tickets with "payment received" (paid by transfer), 0 none — their tickets went out when they chose
+      // the door, or it was sold at the door itself.
+      worked("paid_email", "Email when paid", {
+        formula: {
+          if: [
+            { isNull: "door_at" },
+            {
+              if: [
+                eq("channel", "door"),
+                0,
+                { if: [eq("paid_method", "bank_transfer"), 2, { if: [{ or: [eq("paid_method", "card"), eq("paid_method", "cash")] }, 1, 0] }] },
+              ],
+            },
+            0,
+          ],
+        },
+      }),
       fk("waitlist_id", "waitlist", "Waitlist place", opt),
       json("answers", "Answers"),
       text("access_note", 500, "Access needs", opt),

@@ -10,7 +10,8 @@
  *      more than its room less its guest places, a checkout and an offer hold
  *      their places until their time runs out, a place the waitlist is owed
  *      counts for the public and not for the box office, a type sells only
- *      inside its window and no more than its most a order; a guest list keeps
+ *      inside its window, no more than its most and no fewer than its least in
+ *      an order (a type with no size of its own is held by the show's alone); a guest list keeps
  *      no more people than its places; a ticket's door money is taken once; a
  *      code is used no more times than it allows;
  *   3. the states: one listed move at a time, each with what it waits for
@@ -211,6 +212,7 @@ export class Engine {
         this.judgeCreate(t, this.world.get(t, r.id)!, writer);
       }
       this.judgeLimits([{ table, row }, ...made.map((r) => ({ table: children!.table, row: r }))], writer, true, usage);
+      if (children?.table === "tickets") this.judgeLeast(made.map((r) => this.world.get("tickets", r.id)!), writer);
       this.judgeUniques(table);
       if (children !== null) this.judgeUniques(children.table);
       this.produce(table, null, this.world.get(table, row.id)!);
@@ -438,6 +440,17 @@ export class Engine {
 
   /** A show's pools as the box office's counts read them: each type's, and the show's own. */
   counts(eventId: Id, forPublic = false): PoolCount[] {
+    // As the server's counts read a pool with no size (as 0): the box office's figures are the real side's.
+    return this.pools(eventId, forPublic).map(({ bounded, ...pool }) =>
+      bounded ? pool : { ...pool, left: pool.size - pool.taken - pool.held - (forPublic ? pool.reserved : 0) },
+    );
+  }
+
+  /**
+   * Each pool, and whether it binds: a type with no size of its own ("How many" left empty) is no limit at all —
+   * the show's own pool holds it — so its left is endless and nothing is refused by it.
+   */
+  private pools(eventId: Id, forPublic = false): (PoolCount & { bounded: boolean })[] {
     const event = this.world.get("events", eventId);
     if (event === undefined) return [];
     const tickets = this.world.where("tickets", (t) => t["event_id"] === eventId);
@@ -454,21 +467,22 @@ export class Engine {
       }
       return { taken, held, reserved };
     };
-    const out: PoolCount[] = [];
+    const out: (PoolCount & { bounded: boolean })[] = [];
     for (const type of this.world.where("ticket_types", (t) => t["event_id"] === eventId)) {
       const c = count(tickets.filter((t) => t["ticket_type_id"] === type.id));
+      const bounded = type["capacity"] !== null && type["capacity"] !== undefined;
       const size = Number(type["capacity"] ?? 0);
-      out.push({ event_id: eventId, ticket_type_id: type.id, size, ...c, left: size - c.taken - c.held - (forPublic ? c.reserved : 0) });
+      out.push({ event_id: eventId, ticket_type_id: type.id, size, ...c, left: bounded ? size - c.taken - c.held - (forPublic ? c.reserved : 0) : Number.POSITIVE_INFINITY, bounded });
     }
     const all = count(tickets);
     const size = Number(event["sell_limit"] ?? 0);
-    out.push({ event_id: eventId, ticket_type_id: null, size, ...all, left: size - all.taken - all.held - (forPublic ? all.reserved : 0) });
+    out.push({ event_id: eventId, ticket_type_id: null, size, ...all, left: size - all.taken - all.held - (forPublic ? all.reserved : 0), bounded: true });
     return out;
   }
 
   /** What is left of each type of a show for the public: the smaller of the type's and the show's, said only when little is. */
   typeLeft(eventId: Id): TypeLeft[] {
-    const pools = this.counts(eventId, true);
+    const pools = this.pools(eventId, true);
     const show = pools.find((p) => p.ticket_type_id === null)!;
     return this.world
       .where("ticket_types", (t) => t["event_id"] === eventId && t["visibility"] === "public")
@@ -481,8 +495,8 @@ export class Engine {
         }
         const left = Math.min(own.left, show.left);
         if (left <= 0) return { ticket_type_id: type.id, state: "sold_out" as const };
-        // Said only below 15 % of the type's size.
-        return own.size > 0 && left * 100 < own.size * 15 ? { ticket_type_id: type.id, state: "open" as const, left } : { ticket_type_id: type.id, state: "open" as const };
+        // Said only below 15 % of the type's size (a type with no size of its own is not said).
+        return own.bounded && own.size > 0 && left * 100 < own.size * 15 ? { ticket_type_id: type.id, state: "open" as const, left } : { ticket_type_id: type.id, state: "open" as const };
       });
   }
 
@@ -492,7 +506,7 @@ export class Engine {
     const out = new Map<string, number>();
     for (const eventId of events) {
       if (eventId === undefined || eventId === null) continue;
-      for (const pool of this.counts(eventId, writer.origin === "public")) out.set(`${String(eventId)}:${String(pool.ticket_type_id)}`, pool.size - pool.left);
+      for (const pool of this.pools(eventId, writer.origin === "public")) if (pool.bounded) out.set(`${String(eventId)}:${String(pool.ticket_type_id)}`, pool.size - pool.left);
     }
     return out;
   }
@@ -526,8 +540,8 @@ export class Engine {
       }
     });
     for (const eventId of touchedEvents) {
-      for (const pool of this.counts(eventId, forPublic)) {
-        if (pool.left >= 0) continue;
+      for (const pool of this.pools(eventId, forPublic)) {
+        if (!pool.bounded || pool.left >= 0) continue;
         // Over already, and this write adds nothing to it: an offer claimed, an order moved on.
         const was = before.get(`${String(eventId)}:${String(pool.ticket_type_id)}`);
         if (!leaving && was !== undefined && pool.size - pool.left <= was) continue;
@@ -563,6 +577,21 @@ export class Engine {
         const people = this.world.where("guest_list", (g) => g["event_id"] === event.id).reduce((n, g) => n + Number(g["people"] ?? 1), 0);
         if (people > Number(event["guest_places"] ?? 0)) throw new ApiError(409, "CAPACITY_FULL", { column: "event_id" });
       }
+    }
+  }
+
+  /**
+   * An order's tickets of each type at least that type's least (`min_per_order`), judged on the tickets an
+   * order is made with — as Adminium judges the tree's counts: the page's and the box office's alike.
+   */
+  private judgeLeast(tickets: Row[], writer: Writer): void {
+    const byType = new Map<Id, number>();
+    for (const t of tickets) byType.set(t["ticket_type_id"] as Id, (byType.get(t["ticket_type_id"] as Id) ?? 0) + 1);
+    for (const [typeId, n] of [...byType].sort(([a], [b]) => Number(a) - Number(b))) {
+      const least = this.world.get("ticket_types", typeId)?.["min_per_order"];
+      if (least === null || least === undefined || n >= Number(least)) continue;
+      if (writer.origin === "public") throw new ApiError(400, "PUBLIC_WRITE_REFUSED", { reason: "too-few", group: typeId });
+      throw new ApiError(422, "VALIDATION_FAILED", { reason: "too-few", group: typeId });
     }
   }
 

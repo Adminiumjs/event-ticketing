@@ -550,6 +550,9 @@ export class Box {
   /**
    * Who a message to a show's buyers reaches: one email an order (to its buyer's address), and one to each
    * friend holding a ticket of it. Everyone with a live order; one ticket type's; or those not in yet.
+   *
+   * A friend's copy is about their ticket and is theirs: it names the ticket and the friend as its customer, so
+   * Adminium sends it to the friend's own address on file with their ticket's link — never the buyer's order.
    */
   audience(show: BoxShow, to: "everyone" | "type" | "not_in", typeId: Id | null): { rows: Record<string, unknown>[]; people: number; orders: number; holders: number } | undefined {
     const cancelled = show.status === "cancelled";
@@ -568,7 +571,7 @@ export class Box {
     const holders = tickets.rows.filter((t) => keep.some((o) => o.id === t["order_id"]) && live(t) && t["holder_customer_id"] !== null && t["holder_customer_id"] !== undefined && typeof t["holder_email"] === "string" && t["holder_email"] !== keep.find((o) => o.id === t["order_id"])?.["email"]);
     const rows = [
       ...keep.map((o) => ({ order_id: o.id, to_address: o["email"] })),
-      ...holders.map((t) => ({ order_id: t["order_id"], ticket_id: t.id, to_address: t["holder_email"] })),
+      ...holders.map((t) => ({ ticket_id: t.id, customer_id: t["holder_customer_id"] })),
     ];
     return { rows, people: new Set(keep.map((o) => String(o["email"]).toLowerCase())).size, orders: keep.length, holders: holders.length };
   }

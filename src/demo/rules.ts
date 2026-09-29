@@ -135,6 +135,15 @@ export const MANIFEST_RULES = {
           ]
         }
       },
+      "door_at": {
+        "set": "now",
+        "on": {
+          "column": "status",
+          "values": [
+            "door"
+          ]
+        }
+      },
       "paid_at": {
         "set": "now",
         "on": {
@@ -737,6 +746,7 @@ export const MANIFEST_RULES = {
         "tickets",
         "tickets-paid",
         "transfer-confirm",
+        "transfer-confirm-offer",
         "transfer-waiting",
         "transfer-reminder",
         "transfer-released",
@@ -747,6 +757,7 @@ export const MANIFEST_RULES = {
         "holder-set",
         "waitlist-offer",
         "on-sale",
+        "on-sale-presale",
         "moved",
         "cancelled-paid",
         "cancelled-unpaid",
@@ -759,7 +770,8 @@ export const MANIFEST_RULES = {
         "refund-recorded",
         "tickets-cancelled",
         "refund-declined",
-        "broadcast"
+        "broadcast",
+        "broadcast-holder"
       ],
       "status": [
         "queued",
@@ -981,6 +993,12 @@ export const MANIFEST_RULES = {
                   "column": "door_on",
                   "eq": true
                 }
+              ],
+              "where": [
+                {
+                  "column": "no_door",
+                  "lte": 0
+                }
               ]
             }
           },
@@ -992,6 +1010,23 @@ export const MANIFEST_RULES = {
                   "table": "settings",
                   "column": "transfer_on",
                   "eq": true
+                }
+              ],
+              "time": {
+                "before": {
+                  "column": "doors_at",
+                  "minus": {
+                    "days": {
+                      "table": "settings",
+                      "column": "transfer_cutoff_days"
+                    }
+                  }
+                }
+              },
+              "where": [
+                {
+                  "column": "no_transfer",
+                  "lte": 0
                 }
               ]
             }
@@ -1017,10 +1052,25 @@ export const MANIFEST_RULES = {
                   "eq": true
                 }
               ],
+              "time": {
+                "before": {
+                  "column": "doors_at",
+                  "minus": {
+                    "days": {
+                      "table": "settings",
+                      "column": "transfer_cutoff_days"
+                    }
+                  }
+                }
+              },
               "where": [
                 {
                   "column": "email",
                   "isNull": false
+                },
+                {
+                  "column": "no_transfer",
+                  "lte": 0
                 }
               ]
             }
@@ -1062,6 +1112,12 @@ export const MANIFEST_RULES = {
                   "column": "door_on",
                   "eq": true
                 }
+              ],
+              "where": [
+                {
+                  "column": "no_door",
+                  "lte": 0
+                }
               ]
             }
           },
@@ -1100,6 +1156,12 @@ export const MANIFEST_RULES = {
                   "column": "door_on",
                   "eq": true
                 }
+              ],
+              "where": [
+                {
+                  "column": "no_door",
+                  "lte": 0
+                }
               ]
             }
           },
@@ -1111,6 +1173,23 @@ export const MANIFEST_RULES = {
                   "table": "settings",
                   "column": "transfer_on",
                   "eq": true
+                }
+              ],
+              "time": {
+                "before": {
+                  "column": "doors_at",
+                  "minus": {
+                    "days": {
+                      "table": "settings",
+                      "column": "transfer_cutoff_days"
+                    }
+                  }
+                }
+              },
+              "where": [
+                {
+                  "column": "no_transfer",
+                  "lte": 0
                 }
               ]
             }
@@ -1332,6 +1411,33 @@ export const MANIFEST_RULES = {
           }
         }
       ],
+      "create": {
+        "requires": {
+          "linked": [
+            {
+              "via": "event_id",
+              "where": [
+                {
+                  "column": "status",
+                  "eq": "published"
+                }
+              ]
+            }
+          ],
+          "time": {
+            "before": {
+              "column": "ends_at",
+              "via": "event_id",
+              "or": [
+                {
+                  "column": "curfew_at",
+                  "via": "event_id"
+                }
+              ]
+            }
+          }
+        }
+      },
       "effects": [
         {
           "on": {
@@ -1470,6 +1576,10 @@ export const MANIFEST_RULES = {
                 {
                   "column": "selling",
                   "eq": true
+                },
+                {
+                  "column": "event_status",
+                  "eq": "published"
                 }
               ]
             }
@@ -2559,6 +2669,15 @@ export const MANIFEST_RULES = {
                 "parent": "event_id"
               }
             }
+          ],
+          "counts": [
+            {
+              "by": [
+                "ticket_type_id"
+              ],
+              "min": "min_per_order",
+              "max": "max_per_order"
+            }
           ]
         }
       },
@@ -3496,8 +3615,8 @@ export const MANIFEST_RULES = {
         "column": "status",
         "to": "paid",
         "where": {
-          "column": "channel",
-          "eq": "box_office"
+          "column": "paid_email",
+          "eq": 1
         }
       }
     },
@@ -3507,7 +3626,24 @@ export const MANIFEST_RULES = {
       "onChange": {
         "table": "orders",
         "column": "status",
-        "to": "confirming"
+        "to": "confirming",
+        "where": {
+          "column": "waitlist_id",
+          "isNull": true
+        }
+      }
+    },
+    {
+      "kind": "transfer-confirm-offer",
+      "link": "order_id",
+      "onChange": {
+        "table": "orders",
+        "column": "status",
+        "to": "confirming",
+        "where": {
+          "column": "waitlist_id",
+          "isNull": false
+        }
       }
     },
     {
@@ -3536,8 +3672,8 @@ export const MANIFEST_RULES = {
         "column": "status",
         "to": "paid",
         "where": {
-          "column": "paid_method",
-          "eq": "bank_transfer"
+          "column": "paid_email",
+          "eq": 2
         }
       }
     },
@@ -3621,6 +3757,11 @@ export const MANIFEST_RULES = {
             "not_collected"
           ],
           "reason": "no-longer-needed"
+        },
+        {
+          "column": "ticket_count",
+          "lte": 0,
+          "reason": "no-longer-needed"
         }
       ],
       "onChange": {
@@ -3661,6 +3802,11 @@ export const MANIFEST_RULES = {
             "expired",
             "not_collected"
           ],
+          "reason": "no-longer-needed"
+        },
+        {
+          "column": "ticket_count",
+          "lte": 0,
           "reason": "no-longer-needed"
         }
       ],
@@ -3705,6 +3851,17 @@ export const MANIFEST_RULES = {
             "released"
           ],
           "reason": "no-longer-needed"
+        },
+        {
+          "column": "order_status",
+          "in": [
+            "cancelled",
+            "released",
+            "let_go",
+            "expired",
+            "not_collected"
+          ],
+          "reason": "no-longer-needed"
         }
       ],
       "onChange": {
@@ -3738,6 +3895,17 @@ export const MANIFEST_RULES = {
             "cancelled",
             "returned",
             "released"
+          ],
+          "reason": "no-longer-needed"
+        },
+        {
+          "column": "order_status",
+          "in": [
+            "cancelled",
+            "released",
+            "let_go",
+            "expired",
+            "not_collected"
           ],
           "reason": "no-longer-needed"
         }
@@ -3819,10 +3987,9 @@ export const MANIFEST_RULES = {
     },
     {
       "kind": "refund-recorded",
-      "link": "order_id",
+      "link": "refund_id",
       "onCreate": {
         "table": "refunds",
-        "via": "order_id",
         "where": {
           "column": "voided",
           "eq": false
@@ -3852,7 +4019,7 @@ export const MANIFEST_RULES = {
       }
     },
     {
-      "kind": "on-sale",
+      "kind": "on-sale-presale",
       "link": "reminder_id",
       "before": {
         "table": "reminders",
@@ -3878,6 +4045,7 @@ export const MANIFEST_RULES = {
     "tickets": "events-tickets",
     "tickets-paid": "events-tickets-paid",
     "transfer-confirm": "events-transfer-confirm",
+    "transfer-confirm-offer": "events-transfer-confirm-offer",
     "transfer-waiting": "events-transfer-waiting",
     "transfer-reminder": "events-transfer-reminder",
     "transfer-released": "events-transfer-released",
@@ -3888,6 +4056,7 @@ export const MANIFEST_RULES = {
     "holder-set": "events-holder-set",
     "waitlist-offer": "events-waitlist-offer",
     "on-sale": "events-on-sale",
+    "on-sale-presale": "events-on-sale-presale",
     "moved": "events-moved",
     "moved-holder": "events-moved-holder",
     "cancelled-paid": "events-cancelled-paid",
@@ -3900,6 +4069,7 @@ export const MANIFEST_RULES = {
     "refund-recorded": "events-refund-recorded",
     "tickets-cancelled": "events-tickets-cancelled",
     "refund-declined": "events-refund-declined",
-    "broadcast": "events-broadcast"
+    "broadcast": "events-broadcast",
+    "broadcast-holder": "events-broadcast-holder"
   }
 } as const;

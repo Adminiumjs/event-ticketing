@@ -1158,6 +1158,164 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         expect((await box.list("messages", { where: [{ column: "broadcast_id", eq: sent.id }] })).total).toBe(buyers.length);
       }, 240_000);
 
+      // Runs on the sample's own shows and settings, at Wednesday 29 July 16:30 (the clock the steps above left):
+      // before the sample is removed. Every order here is its own.
+      describe("rules fixes", () => {
+        /** A show of this block's own, published, in the Main Hall: doors `doors` (venue time), one Standard at $20 with the pay choices given. */
+        const ownShow = async (slug: string, doors: string, pay: { pay_door: boolean; pay_transfer: boolean } = { pay_door: true, pay_transfer: true }) => {
+          const box = await staffPort(ADMIN);
+          const room = (await box.rows("rooms"))[0]!;
+          const at = (h: number) => new Date(venueAt(doors) + h * 3_600_000).toISOString();
+          const show = await box.create("events", { slug: `${slug}-${engine}`, name: `Rules ${slug}`, room_id: room.id, doors_at: at(0), starts_at: at(1), curfew_at: at(4), ends_at: at(4) });
+          await box.create("event_days", { event_id: show.id, day: 1, doors_at: at(0), curfew_at: at(4) });
+          const type = await box.create("ticket_types", { event_id: show.id, name: "Standard", price: 20, capacity: 50, ...pay });
+          await box.update("events", show.id, { status: "published" });
+          return { box, show, type };
+        };
+        const lines = (typeId: number, n = 1) => Array.from({ length: n }, () => ({ ticket_type_id: typeId }));
+        const kinds = async (orderId: number) => (await (await staffPort(ADMIN)).list("messages", { where: [{ column: "order_id", eq: orderId }], limit: 50 })).rows.map((m) => String(m["kind"]));
+        /** The kinds an order's emails are, once `kind` is among them. */
+        const once = async (orderId: number, kind: string) => until(async () => ((await kinds(orderId)).includes(kind) ? kinds(orderId) : undefined), `the ${kind} email of order ${String(orderId)}`, 150_000);
+
+        it("refuses an order for a cancelled show, from the box office and the public alike, and one for a show that is over", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const box = await staffPort(ADMIN);
+          const events = await box.rows("events");
+          const types = await box.rows("ticket_types");
+          const dust = events.find((e) => e["name"] === "Dust Parade")!;
+          const dustStd = types.find((t) => t["event_id"] === dust.id && t["name"] === "Standard")!;
+          const staffTry = await refusal(() => box.newOrder({ values: { event_id: dust.id, buyer_name: "Late caller", channel: "box_office" }, tickets: lines(dustStd.id) }, key("dust-box")));
+          expect(staffTry).toMatchObject({ status: 409, code: "STATE_MOVE_REFUSED", params: { requires: "linked", via: "event_id" } });
+          const buyer = await audience();
+          const body = { values: { event_id: dust.id, room_id: dust["room_id"], buyer_name: "Page left open", email: `open.${engine}@waveform.dev`, language: "en-US" }, tickets: lines(dustStd.id) };
+          expect(await refusal(() => buyer.buy(body, key("dust-public")))).toMatchObject({ status: 400, code: "PUBLIC_WRITE_REFUSED" });
+          // Neon Circuit's night ended last night.
+          const neon = events.find((e) => e["name"] === "Neon Circuit")!;
+          const neonStd = types.find((t) => t["event_id"] === neon.id && t["name"] === "Standard")!;
+          expect(await refusal(() => box.newOrder({ values: { event_id: neon.id, buyer_name: "Too late", channel: "box_office" }, tickets: lines(neonStd.id) }, key("neon-over")))).toMatchObject({
+            status: 409,
+            code: "STATE_MOVE_REFUSED",
+            params: { requires: "time", bound: "before" },
+          });
+        }, 240_000);
+
+        it("keeps a door-only type from a transfer and a transfer-only one from the door", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const doorOnly = await ownShow("door-only", "2026-08-20T19:30", { pay_door: true, pay_transfer: false });
+          const held = await doorOnly.box.newOrder({ values: { event_id: doorOnly.show.id, buyer_name: "Door only", email: `door.${engine}@waveform.dev`, channel: "box_office" }, tickets: lines(doorOnly.type.id) }, key("door-only"));
+          expect(await refusal(() => doorOnly.box.move(held.data.id, "confirming"))).toMatchObject({ status: 409, code: "STATE_MOVE_REFUSED", params: { requires: "no_transfer" } });
+          expect(await refusal(() => doorOnly.box.move(held.data.id, "awaiting_transfer"))).toMatchObject({ status: 409, code: "STATE_MOVE_REFUSED" });
+          // The buyer's own page is refused the same.
+          const buyer = await audience();
+          await buyer.buy({ values: { event_id: doorOnly.show.id, room_id: doorOnly.show["room_id"], buyer_name: "Door only", email: `door2.${engine}@waveform.dev`, language: "en-US" }, tickets: lines(doorOnly.type.id) }, key("door-only-public"));
+          expect(await refusal(() => buyer.choose("confirming"))).toMatchObject({ status: 400, code: "PUBLIC_WRITE_REFUSED" });
+          expect((await buyer.choose("door"))["status"]).toBe("door");
+          const transferOnly = await ownShow("transfer-only", "2026-08-21T19:30", { pay_door: false, pay_transfer: true });
+          const other = await audience();
+          await other.buy({ values: { event_id: transferOnly.show.id, room_id: transferOnly.show["room_id"], buyer_name: "Transfer only", email: `xfer.${engine}@waveform.dev`, language: "en-US" }, tickets: lines(transferOnly.type.id) }, key("transfer-only"));
+          expect(await refusal(() => other.choose("door"))).toMatchObject({ status: 400, code: "PUBLIC_WRITE_REFUSED" });
+          expect((await other.choose("confirming"))["status"]).toBe("confirming");
+        }, 240_000);
+
+        it("takes no transfer inside the cut-off: three days before the doors, from the buyer or the box office", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          // Doors Friday 20:00: transfers closed on Tuesday at 20:00.
+          const soon = await ownShow("soon", "2026-07-31T20:00");
+          const phone = await soon.box.newOrder({ values: { event_id: soon.show.id, buyer_name: "Phone", email: `phone.${engine}@waveform.dev`, channel: "box_office" }, tickets: lines(soon.type.id) }, key("soon-box"));
+          expect(await refusal(() => soon.box.move(phone.data.id, "awaiting_transfer"))).toMatchObject({ status: 409, code: "STATE_MOVE_REFUSED", params: { requires: "time", bound: "before" } });
+          const buyer = await audience();
+          await buyer.buy({ values: { event_id: soon.show.id, room_id: soon.show["room_id"], buyer_name: "Online", email: `soon.${engine}@waveform.dev`, language: "en-US" }, tickets: lines(soon.type.id) }, key("soon-public"));
+          expect(await refusal(() => buyer.choose("confirming"))).toMatchObject({ status: 409, code: "PUBLIC_TOO_LATE" });
+          expect((await buyer.choose("door"))["status"]).toBe("door");
+        }, 240_000);
+
+        it("sends a friend holding a ticket their own postponement email, to their own address, opening their ticket", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const later = await ownShow("moved", "2026-08-22T19:30");
+          const buyer = await audience();
+          await buyer.buy({ values: { event_id: later.show.id, room_id: later.show["room_id"], buyer_name: "Mo Ruiz", email: `mo.${engine}@waveform.dev`, language: "en-US" }, tickets: lines(later.type.id, 2) }, key("moved"));
+          await buyer.choose("door");
+          const second = (await buyer.order()).tickets[1]!;
+          const friendEmail = `nia.${engine}@waveform.dev`;
+          await buyer.sendTicket(second.id, friendEmail, "Nia Holm");
+          const token = String((await later.box.list("tickets", { where: [{ column: "id", eq: second.id }] })).rows[0]!["link_token"]);
+          await (await audience()).acceptTicket(token, "Nia Holm");
+          const ticket = (await later.box.list("tickets", { where: [{ column: "id", eq: second.id }] })).rows[0]!;
+          expect(ticket["holder_customer_id"]).not.toBeNull();
+          const before = await sinkCount();
+          const sent = await later.box.broadcast(
+            { event_id: later.show.id, audience: "everyone", template: "moved", subject: "Moved", body: "A new date.", people: 1, order_count: 1 },
+            [{ ticket_id: ticket.id, customer_id: ticket["holder_customer_id"] }],
+            true,
+          );
+          const row = await until(
+            async () => (await later.box.list("messages", { where: [{ column: "broadcast_id", eq: sent.id }] })).rows.find((m) => m["status"] !== "queued" && m["status"] !== "held"),
+            "the friend's copy of the postponement",
+            150_000,
+          );
+          expect([row["kind"], row["status"], row["error"] ?? null]).toEqual(["moved-holder", "sent", null]);
+          const mail = (await mailTo(friendEmail, before, /has moved to/)) as unknown as { text: string };
+          // The friend's own ticket link, never the buyer's order link.
+          expect(mail.text).toContain(String(ticket["link_token"]));
+        }, 240_000);
+
+        it("sends the tickets once when an order is paid, by what the buyer has not had yet", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const show = await ownShow("paid", "2026-08-23T19:30");
+          const phoneOrder = async (label: string) =>
+            (await show.box.newOrder({ values: { event_id: show.show.id, buyer_name: label, email: `${label}.${engine}@waveform.dev`, channel: "box_office" }, tickets: lines(show.type.id) }, key(label))).data.id;
+          // A phone order by transfer, paid by transfer: the payment's email, and no second one with the tickets.
+          const byTransfer = await phoneOrder("phone-xfer");
+          await show.box.move(byTransfer, "awaiting_transfer");
+          await show.box.recordPayment(byTransfer, 20, "bank_transfer");
+          await show.box.move(byTransfer, "paid", { paid_method: "bank_transfer" });
+          expect((await once(byTransfer, "payment-received")).filter((k) => k === "tickets-paid" || k === "payment-received")).toEqual(["payment-received"]);
+          // A phone order to pay at the door, paid later: its tickets went out when it chose the door, and nothing more goes.
+          const atDoor = await phoneOrder("phone-door");
+          await show.box.move(atDoor, "door");
+          await once(atDoor, "tickets");
+          await show.box.recordPayment(atDoor, 20, "cash");
+          await show.box.move(atDoor, "paid", { paid_method: "cash" });
+          const paidDoor = await show.box.list("orders", { where: [{ column: "id", eq: atDoor }] });
+          expect([paidDoor.rows[0]!["status"], Number(paidDoor.rows[0]!["paid_email"])]).toEqual(["paid", 0]);
+          expect((await kinds(atDoor)).filter((k) => k === "tickets-paid" || k === "payment-received")).toEqual([]);
+          // An online transfer settled by card at the box office: the tickets, whose codes were held back until now.
+          const buyer = await audience();
+          const online = (await buyer.buy({ values: { event_id: show.show.id, room_id: show.show["room_id"], buyer_name: "Web", email: `web.${engine}@waveform.dev`, language: "en-US" }, tickets: lines(show.type.id) }, key("web"))).data.id;
+          await buyer.choose("confirming");
+          const confirm = String((await show.box.list("orders", { where: [{ column: "id", eq: online }] })).rows[0]!["confirm_token"]);
+          await (await audience()).confirmTransfer(confirm);
+          await show.box.recordPayment(online, 20, "card");
+          await show.box.move(online, "paid", { paid_method: "card" });
+          expect((await once(online, "tickets-paid")).filter((k) => k === "tickets-paid" || k === "payment-received")).toEqual(["tickets-paid"]);
+        }, 240_000);
+
+        it("emails each refund, with its own amount", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const show = await ownShow("refunds", "2026-08-24T19:30");
+          const order = (await show.box.newOrder({ values: { event_id: show.show.id, buyer_name: "Two refunds", email: `refunds.${engine}@waveform.dev`, channel: "box_office" }, tickets: lines(show.type.id, 2) }, key("refunds"))).data.id;
+          await show.box.recordPayment(order, 40, "card");
+          await show.box.move(order, "paid", { paid_method: "card" });
+          const first = await show.box.recordRefund(order, 5, "card", "goodwill");
+          const second = await show.box.recordRefund(order, 7, "card", "goodwill");
+          const rowsOf = async () => (await show.box.list("messages", { where: [{ column: "order_id", eq: order }, { column: "kind", eq: "refund-recorded" }], limit: 10 })).rows;
+          const both = await until(async () => ((await rowsOf()).length >= 2 ? rowsOf() : undefined), "two refund emails", 150_000);
+          expect(both.map((m) => m["refund_id"]).sort()).toEqual([first.id, second.id].sort());
+        }, 240_000);
+
+        it("finds no code past its last day, at the box office either", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const box = await staffPort(ADMIN);
+          const studio = (await box.rows("events")).find((e) => e["name"] === "Home Studio Basics")!;
+          const place = (await box.rows("ticket_types")).find((t) => t["event_id"] === studio.id)!;
+          // STUDENT10 ran out on Tuesday at 23:59.
+          expect(await refusal(() => box.newOrder({ values: { event_id: studio.id, buyer_name: "Student", channel: "box_office", code_text: "STUDENT10" }, tickets: lines(place.id) }, key("expired-code")))).toMatchObject({
+            status: 422,
+            code: "VALIDATION_FAILED",
+          });
+        }, 120_000);
+      });
+
       it("removes the sample", async (ctx) => {
         needsWrites(() => ctx.skip());
         const plan = ok(await staff.post<{ tables: { count: number }[]; kept: { ref: string; label: string }[] }>("/api/v1/apps/events/sample-data/remove-plan"));
