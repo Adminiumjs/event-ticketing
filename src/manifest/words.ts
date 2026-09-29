@@ -280,6 +280,7 @@ export const WORDS: Record<string, Translation> = {
   "Sent to": {"de-DE": "Gesendet an", "fr-FR": "Envoyé à", "da-DK": "Sendt til", "cs-CZ": "Příjemce", "ar-EG": "أُرسلت إلى", "zh-CN": "发送至", "zh-TW": "收件人"},
   "Sent to a friend": {"de-DE": "Weitergegeben", "fr-FR": "Envoyé à un proche", "da-DK": "Sendt til en ven", "cs-CZ": "Posláno kamarádovi", "ar-EG": "أُرسلت إلى صديق", "zh-CN": "已送给朋友", "zh-TW": "已送給朋友"},
   "Sent to email": {"de-DE": "Gesendet an E-Mail", "fr-FR": "Envoyé à l'adresse", "da-DK": "Sendt til mail", "cs-CZ": "Odesláno na e-mail", "ar-EG": "أُرسلت إلى البريد", "zh-CN": "发送到的邮箱", "zh-TW": "寄送信箱"},
+  "Show's status": {"de-DE": "Status der Show", "fr-FR": "Statut du spectacle", "da-DK": "Arrangementets status", "cs-CZ": "Stav akce", "ar-EG": "حالة الحفل", "zh-CN": "演出状态", "zh-TW": "演出狀態"},
   "Set times are up": {"de-DE": "Spielzeiten stehen", "fr-FR": "Horaires de passage publiés", "da-DK": "Spilletiderne er lagt op", "cs-CZ": "Časy vystoupení jsou zveřejněné", "ar-EG": "مواعيد الفقرات منشورة", "zh-CN": "演出时间表已公布", "zh-TW": "演出時間表已公布"},
   "Settings": {"de-DE": "Einstellungen", "fr-FR": "Réglages", "da-DK": "Indstillinger", "cs-CZ": "Nastavení", "ar-EG": "الإعدادات", "zh-CN": "设置", "zh-TW": "設定"},
   "Short name": {"de-DE": "Kurzname", "fr-FR": "Nom court", "da-DK": "Kort navn", "cs-CZ": "Krátký název", "ar-EG": "الاسم المختصر", "zh-CN": "简称", "zh-TW": "簡稱"},

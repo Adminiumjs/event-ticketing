@@ -477,9 +477,26 @@ export const MANIFEST_RULES = {
         "cancelled"
       ]
     },
-    "event_days": {},
-    "acts": {},
+    "event_days": {
+      "event_status": [
+        "draft",
+        "published",
+        "cancelled"
+      ]
+    },
+    "acts": {
+      "event_status": [
+        "draft",
+        "published",
+        "cancelled"
+      ]
+    },
     "ticket_types": {
+      "event_status": [
+        "draft",
+        "published",
+        "cancelled"
+      ],
       "kind": [
         "standard",
         "early",
@@ -516,6 +533,11 @@ export const MANIFEST_RULES = {
     },
     "customers": {},
     "questions": {
+      "event_status": [
+        "draft",
+        "published",
+        "cancelled"
+      ],
       "kind": [
         "text",
         "choice",
@@ -1054,6 +1076,7 @@ export const MANIFEST_RULES = {
               ]
             }
           },
+          "let_go",
           "expired",
           {
             "to": "cancelled",
@@ -1879,6 +1902,82 @@ export const MANIFEST_RULES = {
       ],
       "writableValues": {
         "status": [
+          "returned"
+        ]
+      },
+      "writableWhen": {
+        "status": [
+          "valid"
+        ],
+        "order_status": [
+          "offered"
+        ]
+      },
+      "withhold": {
+        "columns": [
+          "code",
+          "holder_email"
+        ],
+        "unlessHolder": "holder_customer_id",
+        "when": {
+          "where": [
+            {
+              "column": "order_status",
+              "in": [
+                "held",
+                "confirming",
+                "offered",
+                "awaiting_transfer",
+                "overdue",
+                "released"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "table": "tickets",
+      "methods": [
+        "PATCH"
+      ],
+      "level": "verified",
+      "visibleWith": {
+        "table": "orders",
+        "via": "order_id"
+      },
+      "select": [
+        "id",
+        "order_id",
+        "ticket_type_id",
+        "event_id",
+        "status",
+        "name",
+        "price",
+        "discount",
+        "due",
+        "collected",
+        "position",
+        "admits_day1",
+        "admits_day2",
+        "admits_day3",
+        "code",
+        "holder_name",
+        "holder_email",
+        "pending_name",
+        "pending_email",
+        "offer_until",
+        "sent_at",
+        "accepted_at",
+        "refund_asked_at",
+        "times_in",
+        "answers"
+      ],
+      "writable": [
+        "status"
+      ],
+      "writableValues": {
+        "status": [
           "cancelled"
         ]
       },
@@ -2119,6 +2218,16 @@ export const MANIFEST_RULES = {
         "doors_at",
         "last_entry_at",
         "curfew_at"
+      ],
+      "filters": [
+        {
+          "column": "event_status",
+          "op": "in",
+          "value": [
+            "published",
+            "cancelled"
+          ]
+        }
       ]
     },
     {
@@ -2133,6 +2242,16 @@ export const MANIFEST_RULES = {
         "room_id",
         "day",
         "position"
+      ],
+      "filters": [
+        {
+          "column": "event_status",
+          "op": "in",
+          "value": [
+            "published",
+            "cancelled"
+          ]
+        }
       ]
     },
     {
@@ -2155,6 +2274,14 @@ export const MANIFEST_RULES = {
           "column": "sets_published",
           "op": "eq",
           "value": true
+        },
+        {
+          "column": "event_status",
+          "op": "in",
+          "value": [
+            "published",
+            "cancelled"
+          ]
         }
       ]
     },
@@ -2188,6 +2315,14 @@ export const MANIFEST_RULES = {
           "column": "visibility",
           "op": "eq",
           "value": "public"
+        },
+        {
+          "column": "event_status",
+          "op": "in",
+          "value": [
+            "published",
+            "cancelled"
+          ]
         }
       ]
     },
@@ -2221,6 +2356,14 @@ export const MANIFEST_RULES = {
           "column": "visibility",
           "op": "eq",
           "value": "code"
+        },
+        {
+          "column": "event_status",
+          "op": "in",
+          "value": [
+            "published",
+            "cancelled"
+          ]
         }
       ],
       "unlockBy": {
@@ -2249,6 +2392,16 @@ export const MANIFEST_RULES = {
         "per",
         "required",
         "position"
+      ],
+      "filters": [
+        {
+          "column": "event_status",
+          "op": "in",
+          "value": [
+            "published",
+            "cancelled"
+          ]
+        }
       ]
     },
     {
@@ -2427,8 +2580,7 @@ export const MANIFEST_RULES = {
       "requireSetting": [
         {
           "table": "settings",
-          "column": "waitlist_on",
-          "when": "anonymous"
+          "column": "waitlist_on"
         }
       ]
     },
@@ -2719,6 +2871,83 @@ export const MANIFEST_RULES = {
       "limits": {
         "plainText": [
           "holder_name"
+        ]
+      },
+      "withhold": {
+        "columns": [
+          "code",
+          "holder_email"
+        ],
+        "unlessHolder": "holder_customer_id",
+        "when": {
+          "where": [
+            {
+              "column": "order_status",
+              "in": [
+                "held",
+                "confirming",
+                "offered",
+                "awaiting_transfer",
+                "overdue",
+                "released"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "table": "tickets",
+      "key": "link",
+      "methods": [
+        "PATCH"
+      ],
+      "level": "verified",
+      "visibleWith": {
+        "table": "orders",
+        "via": "order_id"
+      },
+      "select": [
+        "id",
+        "order_id",
+        "ticket_type_id",
+        "event_id",
+        "status",
+        "name",
+        "price",
+        "discount",
+        "due",
+        "collected",
+        "position",
+        "admits_day1",
+        "admits_day2",
+        "admits_day3",
+        "code",
+        "holder_name",
+        "holder_email",
+        "pending_name",
+        "pending_email",
+        "offer_until",
+        "sent_at",
+        "accepted_at",
+        "refund_asked_at",
+        "times_in",
+        "answers"
+      ],
+      "writable": [
+        "status"
+      ],
+      "writableValues": {
+        "status": [
+          "returned"
+        ]
+      },
+      "writableWhen": {
+        "status": [
+          "valid"
+        ],
+        "order_status": [
+          "offered"
         ]
       },
       "withhold": {

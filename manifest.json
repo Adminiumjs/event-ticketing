@@ -2102,6 +2102,68 @@
             }
           },
           {
+            "ref": "event_status",
+            "type": "enum",
+            "enum": [
+              "draft",
+              "published",
+              "cancelled"
+            ],
+            "label": {
+              "en-US": "Show's status",
+              "de-DE": "Status der Show",
+              "fr-FR": "Statut du spectacle",
+              "da-DK": "Arrangementets status",
+              "cs-CZ": "Stav akce",
+              "ar-EG": "حالة الحفل",
+              "zh-CN": "演出状态",
+              "zh-TW": "演出狀態"
+            },
+            "nullable": true,
+            "rules": {
+              "copy": {
+                "via": "event_id",
+                "from": "status",
+                "mode": "always",
+                "follow": true
+              },
+              "enumLabels": {
+                "labels": {
+                  "draft": {
+                    "en-US": "Draft",
+                    "de-DE": "Entwurf",
+                    "fr-FR": "Brouillon",
+                    "da-DK": "Kladde",
+                    "cs-CZ": "Koncept",
+                    "ar-EG": "مسودة",
+                    "zh-CN": "草稿",
+                    "zh-TW": "草稿"
+                  },
+                  "published": {
+                    "en-US": "Published",
+                    "de-DE": "Veröffentlicht",
+                    "fr-FR": "Publié",
+                    "da-DK": "Offentliggjort",
+                    "cs-CZ": "Zveřejněno",
+                    "ar-EG": "منشور",
+                    "zh-CN": "已发布",
+                    "zh-TW": "已發布"
+                  },
+                  "cancelled": {
+                    "en-US": "Cancelled",
+                    "de-DE": "Storniert",
+                    "fr-FR": "Annulé",
+                    "da-DK": "Annulleret",
+                    "cs-CZ": "Zrušeno",
+                    "ar-EG": "ملغاة",
+                    "zh-CN": "已取消",
+                    "zh-TW": "已取消"
+                  }
+                }
+              }
+            }
+          },
+          {
             "ref": "day",
             "type": "int",
             "label": {
@@ -2209,6 +2271,68 @@
               "ar-EG": "الحفل",
               "zh-CN": "演出",
               "zh-TW": "演出"
+            }
+          },
+          {
+            "ref": "event_status",
+            "type": "enum",
+            "enum": [
+              "draft",
+              "published",
+              "cancelled"
+            ],
+            "label": {
+              "en-US": "Show's status",
+              "de-DE": "Status der Show",
+              "fr-FR": "Statut du spectacle",
+              "da-DK": "Arrangementets status",
+              "cs-CZ": "Stav akce",
+              "ar-EG": "حالة الحفل",
+              "zh-CN": "演出状态",
+              "zh-TW": "演出狀態"
+            },
+            "nullable": true,
+            "rules": {
+              "copy": {
+                "via": "event_id",
+                "from": "status",
+                "mode": "always",
+                "follow": true
+              },
+              "enumLabels": {
+                "labels": {
+                  "draft": {
+                    "en-US": "Draft",
+                    "de-DE": "Entwurf",
+                    "fr-FR": "Brouillon",
+                    "da-DK": "Kladde",
+                    "cs-CZ": "Koncept",
+                    "ar-EG": "مسودة",
+                    "zh-CN": "草稿",
+                    "zh-TW": "草稿"
+                  },
+                  "published": {
+                    "en-US": "Published",
+                    "de-DE": "Veröffentlicht",
+                    "fr-FR": "Publié",
+                    "da-DK": "Offentliggjort",
+                    "cs-CZ": "Zveřejněno",
+                    "ar-EG": "منشور",
+                    "zh-CN": "已发布",
+                    "zh-TW": "已發布"
+                  },
+                  "cancelled": {
+                    "en-US": "Cancelled",
+                    "de-DE": "Storniert",
+                    "fr-FR": "Annulé",
+                    "da-DK": "Annulleret",
+                    "cs-CZ": "Zrušeno",
+                    "ar-EG": "ملغاة",
+                    "zh-CN": "已取消",
+                    "zh-TW": "已取消"
+                  }
+                }
+              }
             }
           },
           {
@@ -2377,6 +2501,68 @@
               "zh-TW": "演出"
             },
             "index": true
+          },
+          {
+            "ref": "event_status",
+            "type": "enum",
+            "enum": [
+              "draft",
+              "published",
+              "cancelled"
+            ],
+            "label": {
+              "en-US": "Show's status",
+              "de-DE": "Status der Show",
+              "fr-FR": "Statut du spectacle",
+              "da-DK": "Arrangementets status",
+              "cs-CZ": "Stav akce",
+              "ar-EG": "حالة الحفل",
+              "zh-CN": "演出状态",
+              "zh-TW": "演出狀態"
+            },
+            "nullable": true,
+            "rules": {
+              "copy": {
+                "via": "event_id",
+                "from": "status",
+                "mode": "always",
+                "follow": true
+              },
+              "enumLabels": {
+                "labels": {
+                  "draft": {
+                    "en-US": "Draft",
+                    "de-DE": "Entwurf",
+                    "fr-FR": "Brouillon",
+                    "da-DK": "Kladde",
+                    "cs-CZ": "Koncept",
+                    "ar-EG": "مسودة",
+                    "zh-CN": "草稿",
+                    "zh-TW": "草稿"
+                  },
+                  "published": {
+                    "en-US": "Published",
+                    "de-DE": "Veröffentlicht",
+                    "fr-FR": "Publié",
+                    "da-DK": "Offentliggjort",
+                    "cs-CZ": "Zveřejněno",
+                    "ar-EG": "منشور",
+                    "zh-CN": "已发布",
+                    "zh-TW": "已發布"
+                  },
+                  "cancelled": {
+                    "en-US": "Cancelled",
+                    "de-DE": "Storniert",
+                    "fr-FR": "Annulé",
+                    "da-DK": "Annulleret",
+                    "cs-CZ": "Zrušeno",
+                    "ar-EG": "ملغاة",
+                    "zh-CN": "已取消",
+                    "zh-TW": "已取消"
+                  }
+                }
+              }
+            }
           },
           {
             "ref": "name",
@@ -3326,6 +3512,68 @@
             }
           },
           {
+            "ref": "event_status",
+            "type": "enum",
+            "enum": [
+              "draft",
+              "published",
+              "cancelled"
+            ],
+            "label": {
+              "en-US": "Show's status",
+              "de-DE": "Status der Show",
+              "fr-FR": "Statut du spectacle",
+              "da-DK": "Arrangementets status",
+              "cs-CZ": "Stav akce",
+              "ar-EG": "حالة الحفل",
+              "zh-CN": "演出状态",
+              "zh-TW": "演出狀態"
+            },
+            "nullable": true,
+            "rules": {
+              "copy": {
+                "via": "event_id",
+                "from": "status",
+                "mode": "always",
+                "follow": true
+              },
+              "enumLabels": {
+                "labels": {
+                  "draft": {
+                    "en-US": "Draft",
+                    "de-DE": "Entwurf",
+                    "fr-FR": "Brouillon",
+                    "da-DK": "Kladde",
+                    "cs-CZ": "Koncept",
+                    "ar-EG": "مسودة",
+                    "zh-CN": "草稿",
+                    "zh-TW": "草稿"
+                  },
+                  "published": {
+                    "en-US": "Published",
+                    "de-DE": "Veröffentlicht",
+                    "fr-FR": "Publié",
+                    "da-DK": "Offentliggjort",
+                    "cs-CZ": "Zveřejněno",
+                    "ar-EG": "منشور",
+                    "zh-CN": "已发布",
+                    "zh-TW": "已發布"
+                  },
+                  "cancelled": {
+                    "en-US": "Cancelled",
+                    "de-DE": "Storniert",
+                    "fr-FR": "Annulé",
+                    "da-DK": "Annulleret",
+                    "cs-CZ": "Zrušeno",
+                    "ar-EG": "ملغاة",
+                    "zh-CN": "已取消",
+                    "zh-TW": "已取消"
+                  }
+                }
+              }
+            }
+          },
+          {
             "ref": "text",
             "type": "text",
             "maxLength": 300,
@@ -3622,6 +3870,7 @@
                   ]
                 }
               },
+              "let_go",
               "expired",
               {
                 "to": "cancelled",
@@ -14388,6 +14637,82 @@
       ],
       "writableValues": {
         "status": [
+          "returned"
+        ]
+      },
+      "writableWhen": {
+        "status": [
+          "valid"
+        ],
+        "order_status": [
+          "offered"
+        ]
+      },
+      "withhold": {
+        "columns": [
+          "code",
+          "holder_email"
+        ],
+        "unlessHolder": "holder_customer_id",
+        "when": {
+          "where": [
+            {
+              "column": "order_status",
+              "in": [
+                "held",
+                "confirming",
+                "offered",
+                "awaiting_transfer",
+                "overdue",
+                "released"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "table": "tickets",
+      "methods": [
+        "PATCH"
+      ],
+      "level": "verified",
+      "visibleWith": {
+        "table": "orders",
+        "via": "order_id"
+      },
+      "select": [
+        "id",
+        "order_id",
+        "ticket_type_id",
+        "event_id",
+        "status",
+        "name",
+        "price",
+        "discount",
+        "due",
+        "collected",
+        "position",
+        "admits_day1",
+        "admits_day2",
+        "admits_day3",
+        "code",
+        "holder_name",
+        "holder_email",
+        "pending_name",
+        "pending_email",
+        "offer_until",
+        "sent_at",
+        "accepted_at",
+        "refund_asked_at",
+        "times_in",
+        "answers"
+      ],
+      "writable": [
+        "status"
+      ],
+      "writableValues": {
+        "status": [
           "cancelled"
         ]
       },
@@ -14628,6 +14953,16 @@
         "doors_at",
         "last_entry_at",
         "curfew_at"
+      ],
+      "filters": [
+        {
+          "column": "event_status",
+          "op": "in",
+          "value": [
+            "published",
+            "cancelled"
+          ]
+        }
       ]
     },
     {
@@ -14642,6 +14977,16 @@
         "room_id",
         "day",
         "position"
+      ],
+      "filters": [
+        {
+          "column": "event_status",
+          "op": "in",
+          "value": [
+            "published",
+            "cancelled"
+          ]
+        }
       ]
     },
     {
@@ -14664,6 +15009,14 @@
           "column": "sets_published",
           "op": "eq",
           "value": true
+        },
+        {
+          "column": "event_status",
+          "op": "in",
+          "value": [
+            "published",
+            "cancelled"
+          ]
         }
       ]
     },
@@ -14697,6 +15050,14 @@
           "column": "visibility",
           "op": "eq",
           "value": "public"
+        },
+        {
+          "column": "event_status",
+          "op": "in",
+          "value": [
+            "published",
+            "cancelled"
+          ]
         }
       ]
     },
@@ -14730,6 +15091,14 @@
           "column": "visibility",
           "op": "eq",
           "value": "code"
+        },
+        {
+          "column": "event_status",
+          "op": "in",
+          "value": [
+            "published",
+            "cancelled"
+          ]
         }
       ],
       "unlockBy": {
@@ -14758,6 +15127,16 @@
         "per",
         "required",
         "position"
+      ],
+      "filters": [
+        {
+          "column": "event_status",
+          "op": "in",
+          "value": [
+            "published",
+            "cancelled"
+          ]
+        }
       ]
     },
     {
@@ -14936,8 +15315,7 @@
       "requireSetting": [
         {
           "table": "settings",
-          "column": "waitlist_on",
-          "when": "anonymous"
+          "column": "waitlist_on"
         }
       ]
     },
@@ -15228,6 +15606,83 @@
       "limits": {
         "plainText": [
           "holder_name"
+        ]
+      },
+      "withhold": {
+        "columns": [
+          "code",
+          "holder_email"
+        ],
+        "unlessHolder": "holder_customer_id",
+        "when": {
+          "where": [
+            {
+              "column": "order_status",
+              "in": [
+                "held",
+                "confirming",
+                "offered",
+                "awaiting_transfer",
+                "overdue",
+                "released"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "table": "tickets",
+      "key": "link",
+      "methods": [
+        "PATCH"
+      ],
+      "level": "verified",
+      "visibleWith": {
+        "table": "orders",
+        "via": "order_id"
+      },
+      "select": [
+        "id",
+        "order_id",
+        "ticket_type_id",
+        "event_id",
+        "status",
+        "name",
+        "price",
+        "discount",
+        "due",
+        "collected",
+        "position",
+        "admits_day1",
+        "admits_day2",
+        "admits_day3",
+        "code",
+        "holder_name",
+        "holder_email",
+        "pending_name",
+        "pending_email",
+        "offer_until",
+        "sent_at",
+        "accepted_at",
+        "refund_asked_at",
+        "times_in",
+        "answers"
+      ],
+      "writable": [
+        "status"
+      ],
+      "writableValues": {
+        "status": [
+          "returned"
+        ]
+      },
+      "writableWhen": {
+        "status": [
+          "valid"
+        ],
+        "order_status": [
+          "offered"
         ]
       },
       "withhold": {

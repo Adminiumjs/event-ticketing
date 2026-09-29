@@ -309,7 +309,7 @@ const ORDER_STATES = {
   moves: {
     held: [DOOR, CONFIRMING, NO_CHARGE, AWAITING_BY_STAFF, PAID, "offered", "let_go", "expired", CANCELLED],
     // The only way on to waiting is the confirm link in the email: no key the page holds lists it.
-    confirming: ["awaiting_transfer", DOOR, NO_CHARGE, "expired", CANCELLED],
+    confirming: ["awaiting_transfer", DOOR, NO_CHARGE, "let_go", "expired", CANCELLED],
     offered: [DOOR, CONFIRMING, NO_CHARGE, "expired", CANCELLED],
     door: [PAID, { to: "not_collected", requires: { where: [{ column: "balance", gt: 0 }] } }, CANCELLED],
     awaiting_transfer: [PAID, "overdue", CANCELLED],
@@ -590,6 +590,8 @@ export const TABLES: Table[] = [
     columns: [
       id,
       fk("event_id", "events", "Show"),
+      // The show's own state, kept on the row: the public sees a show's parts only once the show is announced.
+      choice("event_status", "Show's status", { draft: "Draft", published: "Published", cancelled: "Cancelled" }, { ...opt, rules: copyOf("event_id", "status", true) }),
       int("day", "Day", { default: 1, rules: { validation: { min: 1, max: 3 } } }),
       at("doors_at", "Doors"),
       at("last_entry_at", "Last entry", opt),
@@ -604,6 +606,8 @@ export const TABLES: Table[] = [
     columns: [
       id,
       fk("event_id", "events", "Show"),
+      // The show's own state, kept on the row: the public sees a show's parts only once the show is announced.
+      choice("event_status", "Show's status", { draft: "Draft", published: "Published", cancelled: "Cancelled" }, { ...opt, rules: copyOf("event_id", "status", true) }),
       text("name", 120, "Name"),
       fk("room_id", "rooms", "Room", opt),
       int("day", "Day", { default: 1, rules: { validation: { min: 1, max: 3 } } }),
@@ -621,6 +625,8 @@ export const TABLES: Table[] = [
     columns: [
       id,
       fk("event_id", "events", "Show", { index: true }),
+      // The show's own state, kept on the row: the public sees a show's parts only once the show is announced.
+      choice("event_status", "Show's status", { draft: "Draft", published: "Published", cancelled: "Cancelled" }, { ...opt, rules: copyOf("event_id", "status", true) }),
       text("name", 80, "Name"),
       choice("kind", "Kind", TICKET_KINDS, { default: "standard" }),
       text("description", 300, "Description", opt),
@@ -682,6 +688,8 @@ export const TABLES: Table[] = [
     columns: [
       id,
       fk("event_id", "events", "Show"),
+      // The show's own state, kept on the row: the public sees a show's parts only once the show is announced.
+      choice("event_status", "Show's status", { draft: "Draft", published: "Published", cancelled: "Cancelled" }, { ...opt, rules: copyOf("event_id", "status", true) }),
       text("text", 300, "Question"),
       choice("kind", "Answer", { text: "Words", choice: "A choice", yes_no: "Yes or no" }, { default: "text" }),
       text("options", 1000, "Choices, one a line", opt),

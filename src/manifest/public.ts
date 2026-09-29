@@ -246,6 +246,18 @@ function ticketEntries(keyed: Record<string, unknown>) {
       limits: { plainText: ["holder_name"] },
       withhold: WITHHOLD,
     },
+    // A waitlist offer claimed in part: the places not wanted go back for the next in line, before the claim.
+    {
+      table: "tickets",
+      ...keyed,
+      methods: ["PATCH"],
+      ...WITH_ORDER,
+      select: TICKET_SELECT,
+      writable: ["status"],
+      writableValues: { status: ["returned"] },
+      writableWhen: { status: ["valid"], order_status: ["offered"] },
+      withhold: WITHHOLD,
+    },
     // Cancel a ticket nothing was paid for, until doors.
     {
       table: "tickets",
@@ -261,6 +273,9 @@ function ticketEntries(keyed: Record<string, unknown>) {
     },
   ];
 }
+
+/** A row of an announced (or cancelled) show. */
+const PUBLISHED = { column: "event_status", op: "in", value: ["published", "cancelled"] };
 
 export const PUBLIC_KEYS = { link: {}, confirm: {}, ticket: {} };
 
@@ -301,25 +316,26 @@ export const PUBLIC_ACCESS = [
     filters: [{ column: "status", op: "in", value: ["published", "cancelled"] }],
     pictures: ["image"],
   },
-  { table: "event_days", methods: ["GET"], select: ["id", "event_id", "day", "doors_at", "last_entry_at", "curfew_at"] },
+  // A show's days, acts, types and questions: only an announced show's (a draft's stay the box office's).
+  { table: "event_days", methods: ["GET"], select: ["id", "event_id", "day", "doors_at", "last_entry_at", "curfew_at"], filters: [PUBLISHED] },
   // The acts by name; their times only once the show's set times are up.
-  { table: "acts", methods: ["GET"], select: ["id", "event_id", "name", "room_id", "day", "position"] },
+  { table: "acts", methods: ["GET"], select: ["id", "event_id", "name", "room_id", "day", "position"], filters: [PUBLISHED] },
   {
     table: "acts",
     methods: ["GET"],
     select: ["id", "event_id", "name", "room_id", "day", "starts_at", "ends_at", "position"],
-    filters: [{ column: "sets_published", op: "eq", value: true }],
+    filters: [{ column: "sets_published", op: "eq", value: true }, PUBLISHED],
   },
-  { table: "ticket_types", methods: ["GET"], select: TYPE_SELECT, filters: [{ column: "visibility", op: "eq", value: "public" }] },
+  { table: "ticket_types", methods: ["GET"], select: TYPE_SELECT, filters: [{ column: "visibility", op: "eq", value: "public" }, PUBLISHED] },
   // A type behind a code, shown to the person who typed it.
   {
     table: "ticket_types",
     methods: ["GET"],
     select: TYPE_SELECT,
-    filters: [{ column: "visibility", op: "eq", value: "code" }],
+    filters: [{ column: "visibility", op: "eq", value: "code" }, PUBLISHED],
     unlockBy: { table: "codes", column: "code", link: "unlocks_type_id", where: [{ column: "active", eq: true }] },
   },
-  { table: "questions", methods: ["GET"], select: ["id", "event_id", "text", "kind", "options", "per", "required", "position"] },
+  { table: "questions", methods: ["GET"], select: ["id", "event_id", "text", "kind", "options", "per", "required", "position"], filters: [PUBLISHED] },
   // What is left of each type of a show: said only when little is.
   { table: "tickets", kind: "availability", methods: ["GET"], under: "event_id", showLeft: { belowShare: 15 } },
 
@@ -363,7 +379,7 @@ export const PUBLIC_ACCESS = [
     claimedBy: { table: "customers", column: "customer_id", optional: true },
     identity: { table: "customers", email: "email", link: "customer_id" },
     anonymous: { perValue: { columns: ["email"], n: 5 } },
-    requireSetting: [{ ...setting("waitlist_on"), when: "anonymous" }],
+    requireSetting: [setting("waitlist_on")],
   },
   {
     table: "reminders",
