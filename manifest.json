@@ -280,7 +280,7 @@
               "fr-FR": "La journée de la salle commence à",
               "da-DK": "Spillestedets dag starter kl.",
               "cs-CZ": "Provozní den klubu začíná v",
-              "ar-EG": "يبدأ يوم المكان في",
+              "ar-EG": "يبدأ يوم العمل في المكان الساعة",
               "zh-CN": "场馆营业日开始于",
               "zh-TW": "場館營業日起算時間"
             }
@@ -420,7 +420,7 @@
             "label": {
               "en-US": "Transfers due by",
               "de-DE": "Überweisungen fällig bis",
-              "fr-FR": "Virements attendus avant le",
+              "fr-FR": "Heure limite des virements",
               "da-DK": "Overførsler forfalder senest",
               "cs-CZ": "Převody splatné do",
               "ar-EG": "آخر موعد للتحويلات",
@@ -577,7 +577,7 @@
               "en-US": "Check-in opens this many minutes before doors",
               "de-DE": "Check-in öffnet so viele Minuten vor Einlass",
               "fr-FR": "Début du contrôle, en minutes avant l'ouverture des portes",
-              "da-DK": "Check-in åbner så mange minutter før dørene",
+              "da-DK": "Check-in åbner så mange minutter før dørene åbner",
               "cs-CZ": "Odbavení začíná tolik minut před otevřením",
               "ar-EG": "يبدأ تسجيل الحضور قبل فتح الأبواب بهذه المدة بالدقائق",
               "zh-CN": "开门前多少分钟开始检票",
@@ -1128,8 +1128,8 @@
               "da-DK": "Med",
               "cs-CZ": "Spolu s",
               "ar-EG": "مع",
-              "zh-CN": "附带",
-              "zh-TW": "搭配"
+              "zh-CN": "暖场",
+              "zh-TW": "暖場演出者"
             },
             "nullable": true
           },
@@ -1456,7 +1456,7 @@
             "type": "int",
             "label": {
               "en-US": "Poster colour",
-              "de-DE": "Posterfarbe",
+              "de-DE": "Plakatfarbe",
               "fr-FR": "Couleur de l'affiche",
               "da-DK": "Plakatfarve",
               "cs-CZ": "Barva plakátu",
@@ -1542,7 +1542,7 @@
               "en-US": "Re-entry",
               "de-DE": "Wiedereinlass",
               "fr-FR": "Sortie et retour",
-              "da-DK": "Genindgang",
+              "da-DK": "Genadgang",
               "cs-CZ": "Opakovaný vstup",
               "ar-EG": "إعادة الدخول",
               "zh-CN": "再次入场",
@@ -1825,7 +1825,7 @@
               "en-US": "Was on",
               "de-DE": "Früherer Termin",
               "fr-FR": "Prévu initialement le",
-              "da-DK": "Var den",
+              "da-DK": "Oprindelig dato",
               "cs-CZ": "Původně dne",
               "ar-EG": "كان موعده",
               "zh-CN": "原定日期",
@@ -2757,8 +2757,8 @@
                     "da-DK": "Plads",
                     "cs-CZ": "Místo",
                     "ar-EG": "المكان",
-                    "zh-CN": "排位",
-                    "zh-TW": "順位"
+                    "zh-CN": "名额",
+                    "zh-TW": "名額"
                   },
                   "presale": {
                     "en-US": "Presale",
@@ -3274,7 +3274,7 @@
               "da-DK": "Alle arrangementer i",
               "cs-CZ": "Všechny akce v",
               "ar-EG": "كل الحفلات في",
-              "zh-CN": "该场地的全部演出",
+              "zh-CN": "适用演出厅",
               "zh-TW": "適用場地的所有演出"
             },
             "nullable": true
@@ -3362,8 +3362,8 @@
                     "da-DK": "Plads",
                     "cs-CZ": "Místo",
                     "ar-EG": "المكان",
-                    "zh-CN": "排位",
-                    "zh-TW": "順位"
+                    "zh-CN": "名额",
+                    "zh-TW": "名額"
                   },
                   "presale": {
                     "en-US": "Presale",
@@ -3731,7 +3731,7 @@
                   "text": {
                     "en-US": "Words",
                     "de-DE": "Text",
-                    "fr-FR": "Textes",
+                    "fr-FR": "Texte",
                     "da-DK": "Tekster",
                     "cs-CZ": "Texty",
                     "ar-EG": "النصوص",
@@ -3746,7 +3746,7 @@
                     "cs-CZ": "Volba",
                     "ar-EG": "اختيار",
                     "zh-CN": "选项",
-                    "zh-TW": "一個選項"
+                    "zh-TW": "選項"
                   },
                   "yes_no": {
                     "en-US": "Yes or no",
@@ -4419,7 +4419,7 @@
             "label": {
               "en-US": "Number (running)",
               "de-DE": "Laufende Nummer",
-              "fr-FR": "Numéro (à la suite)",
+              "fr-FR": "Numéro (séquentiel)",
               "da-DK": "Nummer (løbende)",
               "cs-CZ": "Číslo (průběžné)",
               "ar-EG": "الرقم (متسلسل)",
@@ -4587,7 +4587,7 @@
                     "de-DE": "Nicht gekommen",
                     "fr-FR": "Absent",
                     "da-DK": "Mødte ikke op",
-                    "cs-CZ": "Nedorazil",
+                    "cs-CZ": "Neúčast",
                     "ar-EG": "لم يحضر",
                     "zh-CN": "未到场",
                     "zh-TW": "未到場"
@@ -4596,7 +4596,7 @@
                     "en-US": "Let go",
                     "de-DE": "Freigegeben",
                     "fr-FR": "Abandonné",
-                    "da-DK": "Frigivet",
+                    "da-DK": "Opgivet",
                     "cs-CZ": "Uvolněno",
                     "ar-EG": "أُفرج عنها",
                     "zh-CN": "已放弃",
@@ -5073,8 +5073,8 @@
                     "da-DK": "Plads",
                     "cs-CZ": "Místo",
                     "ar-EG": "المكان",
-                    "zh-CN": "排位",
-                    "zh-TW": "順位"
+                    "zh-CN": "名额",
+                    "zh-TW": "名額"
                   },
                   "presale": {
                     "en-US": "Presale",
@@ -5624,7 +5624,7 @@
               "de-DE": "Reserviert bis",
               "fr-FR": "Réservé jusqu'à",
               "da-DK": "Reserveret til",
-              "cs-CZ": "Rezervováno do",
+              "cs-CZ": "Drženo do",
               "ar-EG": "محجوزة حتى",
               "zh-CN": "保留至",
               "zh-TW": "保留至"
@@ -5888,12 +5888,12 @@
             "type": "timestamptz",
             "label": {
               "en-US": "Set to pay at the door",
-              "de-DE": "Auf Zahlung an der Abendkasse gesetzt",
+              "de-DE": "Auf Zahlung am Einlass gesetzt",
               "fr-FR": "Passé en paiement sur place",
               "da-DK": "Sat til betaling ved døren",
-              "cs-CZ": "Nastaveno na platbu na místě",
+              "cs-CZ": "Nastaveno na platbu u vchodu",
               "ar-EG": "حُوّل إلى الدفع عند الباب",
-              "zh-CN": "改为现场付款的时间",
+              "zh-CN": "改为门口付款的时间",
               "zh-TW": "改為現場付款的時間"
             },
             "nullable": true,
@@ -6429,7 +6429,7 @@
             "label": {
               "en-US": "Retry key",
               "de-DE": "Wiederholungsschlüssel",
-              "fr-FR": "Clé de relance",
+              "fr-FR": "Clé de nouvelle tentative",
               "da-DK": "Genforsøgsnøgle",
               "cs-CZ": "Klíč pro opakování",
               "ar-EG": "مفتاح إعادة المحاولة",
@@ -7077,7 +7077,7 @@
                     "de-DE": "Nicht gekommen",
                     "fr-FR": "Absent",
                     "da-DK": "Mødte ikke op",
-                    "cs-CZ": "Nedorazil",
+                    "cs-CZ": "Neúčast",
                     "ar-EG": "لم يحضر",
                     "zh-CN": "未到场",
                     "zh-TW": "未到場"
@@ -7086,7 +7086,7 @@
                     "en-US": "Let go",
                     "de-DE": "Freigegeben",
                     "fr-FR": "Abandonné",
-                    "da-DK": "Frigivet",
+                    "da-DK": "Opgivet",
                     "cs-CZ": "Uvolněno",
                     "ar-EG": "أُفرج عنها",
                     "zh-CN": "已放弃",
@@ -7463,8 +7463,8 @@
                     "da-DK": "Plads",
                     "cs-CZ": "Místo",
                     "ar-EG": "المكان",
-                    "zh-CN": "排位",
-                    "zh-TW": "順位"
+                    "zh-CN": "名额",
+                    "zh-TW": "名額"
                   },
                   "presale": {
                     "en-US": "Presale",
@@ -7888,8 +7888,8 @@
                     "da-DK": "Plads",
                     "cs-CZ": "Místo",
                     "ar-EG": "المكان",
-                    "zh-CN": "排位",
-                    "zh-TW": "順位"
+                    "zh-CN": "名额",
+                    "zh-TW": "名額"
                   },
                   "presale": {
                     "en-US": "Presale",
@@ -8192,7 +8192,7 @@
               "cs-CZ": "Cena po dobu platnosti",
               "ar-EG": "السعر أثناء سريانه",
               "zh-CN": "生效期间价格",
-              "zh-TW": "上線期間票價"
+              "zh-TW": "有效票的票價"
             },
             "rules": {
               "formula": {
@@ -8243,7 +8243,7 @@
               "cs-CZ": "Sleva po dobu platnosti",
               "ar-EG": "الخصم أثناء سريانه",
               "zh-CN": "生效期间优惠",
-              "zh-TW": "啟用期間折扣"
+              "zh-TW": "有效票的折扣"
             },
             "rules": {
               "formula": {
@@ -8292,8 +8292,8 @@
               "da-DK": "Aktiv",
               "cs-CZ": "Aktivní",
               "ar-EG": "فعّال",
-              "zh-CN": "已上线",
-              "zh-TW": "上線中"
+              "zh-CN": "有效",
+              "zh-TW": "仍有效"
             },
             "rules": {
               "formula": {
@@ -8733,7 +8733,7 @@
               "de-DE": "Nicht angenommen zurück",
               "fr-FR": "Revenu sans être accepté",
               "da-DK": "Kom tilbage uden at blive accepteret",
-              "cs-CZ": "Vráceno nepřijaté",
+              "cs-CZ": "Vráceno bez přijetí",
               "ar-EG": "عادت دون قبول",
               "zh-CN": "未被接收，已退回",
               "zh-TW": "未獲接受而退回"
@@ -9649,7 +9649,7 @@
                   "taken": {
                     "en-US": "Taken",
                     "de-DE": "Eingenommen",
-                    "fr-FR": "Pris",
+                    "fr-FR": "Encaissé",
                     "da-DK": "Taget",
                     "cs-CZ": "Vybráno",
                     "ar-EG": "محصَّل",
@@ -9680,7 +9680,7 @@
             "label": {
               "en-US": "Taken",
               "de-DE": "Eingenommen",
-              "fr-FR": "Pris",
+              "fr-FR": "Encaissé",
               "da-DK": "Taget",
               "cs-CZ": "Vybráno",
               "ar-EG": "محصَّل",
@@ -10043,7 +10043,7 @@
             "label": {
               "en-US": "Retry key",
               "de-DE": "Wiederholungsschlüssel",
-              "fr-FR": "Clé de relance",
+              "fr-FR": "Clé de nouvelle tentative",
               "da-DK": "Genforsøgsnøgle",
               "cs-CZ": "Klíč pro opakování",
               "ar-EG": "مفتاح إعادة المحاولة",
@@ -10394,7 +10394,7 @@
             "label": {
               "en-US": "Retry key",
               "de-DE": "Wiederholungsschlüssel",
-              "fr-FR": "Clé de relance",
+              "fr-FR": "Clé de nouvelle tentative",
               "da-DK": "Genforsøgsnøgle",
               "cs-CZ": "Klíč pro opakování",
               "ar-EG": "مفتاح إعادة المحاولة",
@@ -10497,8 +10497,8 @@
               "fr-FR": "En plus",
               "da-DK": "Plus",
               "cs-CZ": "Plus",
-              "ar-EG": "إضافة",
-              "zh-CN": "另加",
+              "ar-EG": "المرافقون",
+              "zh-CN": "同行",
               "zh-TW": "攜伴人數"
             },
             "default": 0,
@@ -10904,7 +10904,7 @@
                     "fr-FR": "Récupéré",
                     "da-DK": "Taget imod",
                     "cs-CZ": "Uplatněno",
-                    "ar-EG": "تمت المطالبة بها",
+                    "ar-EG": "حصل عليها",
                     "zh-CN": "已领取",
                     "zh-TW": "已領取"
                   },
@@ -10912,7 +10912,7 @@
                     "en-US": "Missed",
                     "de-DE": "Verpasst",
                     "fr-FR": "Manqué",
-                    "da-DK": "Ikke nået",
+                    "da-DK": "Ikke taget imod",
                     "cs-CZ": "Zmeškáno",
                     "ar-EG": "فاته الحفل",
                     "zh-CN": "已错过",
@@ -10921,12 +10921,12 @@
                   "left": {
                     "en-US": "Left",
                     "de-DE": "Abgemeldet",
-                    "fr-FR": "Restant",
+                    "fr-FR": "A quitté la liste",
                     "da-DK": "Tilbage",
                     "cs-CZ": "Zbývá",
                     "ar-EG": "المتبقي",
-                    "zh-CN": "剩余",
-                    "zh-TW": "剩餘"
+                    "zh-CN": "已退出",
+                    "zh-TW": "已離開"
                   },
                   "removed": {
                     "en-US": "Removed",
@@ -10974,7 +10974,7 @@
               "de-DE": "Eingetragen",
               "fr-FR": "Inscrit le",
               "da-DK": "Skrevet op",
-              "cs-CZ": "Přihlášeno",
+              "cs-CZ": "Zapsáno",
               "ar-EG": "تاريخ الانضمام",
               "zh-CN": "加入时间",
               "zh-TW": "加入時間"
@@ -11341,7 +11341,7 @@
               "cs-CZ": "Komu",
               "ar-EG": "إلى",
               "zh-CN": "收件人",
-              "zh-TW": "至"
+              "zh-TW": "收件人"
             },
             "default": "everyone",
             "rules": {
@@ -12118,7 +12118,7 @@
               "cs-CZ": "Komu",
               "ar-EG": "إلى",
               "zh-CN": "收件人",
-              "zh-TW": "至"
+              "zh-TW": "收件人"
             },
             "nullable": true,
             "semantic": "email"
@@ -12381,7 +12381,7 @@
                   "void": {
                     "en-US": "Void",
                     "de-DE": "Ungültig",
-                    "fr-FR": "Invalider",
+                    "fr-FR": "Sans objet",
                     "da-DK": "Ugyldig",
                     "cs-CZ": "Neplatné",
                     "ar-EG": "إبطال",
@@ -12401,7 +12401,7 @@
                   "by-hand": {
                     "en-US": "Skipped by hand",
                     "de-DE": "Von Hand übersprungen",
-                    "fr-FR": "Ignoré à la main",
+                    "fr-FR": "Ignoré manuellement",
                     "da-DK": "Sprunget over manuelt",
                     "cs-CZ": "Přeskočeno ručně",
                     "ar-EG": "تم تخطيها يدويا",
@@ -12729,7 +12729,7 @@
                 "title": "Awaiting bank transfer",
                 "titles": {
                   "en-US": "Awaiting bank transfer",
-                  "de-DE": "Warte auf Überweisung",
+                  "de-DE": "Wartet auf Überweisung",
                   "fr-FR": "En attente du virement bancaire",
                   "da-DK": "Afventer bankoverførsel",
                   "cs-CZ": "Čeká na bankovní převod",
@@ -13609,9 +13609,9 @@
                   "de-DE": "Erhalten zählt die vom Team erfassten Zahlungen; offen ist, was am Einlass oder per Überweisung zu zahlen ist.",
                   "fr-FR": "Reçu compte les paiements enregistrés par l'équipe ; dû, c'est ce qui reste à payer à l'entrée ou par virement.",
                   "da-DK": "Modtaget tæller betalinger, som personalet har registreret; skyldigt er det, der skal betales ved døren eller via bankoverførsel.",
-                  "cs-CZ": "Přijato zahrnuje platby zaznamenané personálem; dlužné je to, co se platí u vchodu nebo bankovním převodem.",
+                  "cs-CZ": "Obdrženo zahrnuje platby zaznamenané personálem; dlužné je to, co se platí u vchodu nebo bankovním převodem.",
                   "ar-EG": "المستلم يشمل المدفوعات التي سجّلها الفريق؛ والمستحق هو ما يُدفع عند الباب أو بالتحويل البنكي.",
-                  "zh-CN": "已收为工作人员记录的付款；待收为现场或银行转账待付的金额。",
+                  "zh-CN": "已收为工作人员记录的付款；待收为门口或银行转账待付的金额。",
                   "zh-TW": "已收為工作人員記錄的付款；待收為現場或銀行轉帳待付的金額。"
                 },
                 "emptyState": {
@@ -19209,7 +19209,7 @@
               "data": {
                 "paras": [
                   "Du möchtest deine Tickets für {{order.event.name}} per Überweisung bezahlen. Drück bis {{order.held_until.time}} auf den Button, um die Bestellung zu bestätigen – dann schicken wir dir die Bankdaten.",
-                  "Bis dahin halten wir deine Tickets für dich zurück."
+                  "Bis dahin sind deine Tickets für dich reserviert."
                 ]
               }
             },
@@ -19490,7 +19490,7 @@
               "data": {
                 "paras": [
                   "Du möchtest deine Tickets von der Warteliste für {{order.event.name}} per Überweisung bezahlen. Drück bis {{order.offer_until.date}}, {{order.offer_until.time}} auf den Button, um die Bestellung zu bestätigen – dann schicken wir dir die Bankdaten.",
-                  "Bis dahin halten wir deine Tickets für dich zurück."
+                  "Bis dahin sind deine Tickets für dich reserviert."
                 ]
               }
             },
@@ -19805,7 +19805,7 @@
               "data": {
                 "paras": [
                   "Überweise {{order.balance}} bis {{order.pay_by.date}}, {{order.pay_by.time}} mit dem Verwendungszweck {{order.number}}. Sobald das Geld da ist, kommen deine Tickets per E-Mail.",
-                  "Unbezahlte Tickets gehen {{practice.release_after_hours}} Std. danach wieder in den Verkauf."
+                  "Unbezahlte Tickets gehen {{practice.release_after_hours}} Stunden danach wieder in den Verkauf."
                 ]
               }
             },
@@ -19985,7 +19985,7 @@
               "data": {
                 "paras": [
                   "Pošlete {{order.balance}} do {{order.pay_by.date}}, {{order.pay_by.time}} s variabilním symbolem {{order.number}}. Jakmile platba dorazí, pošleme vám vstupenky e-mailem.",
-                  "Nezaplacené vstupenky se po uplynutí dalšího odkladu vrátí do prodeje (odklad v hodinách: {{practice.release_after_hours}})."
+                  "Nezaplacené vstupenky se vrátí do prodeje {{practice.release_after_hours}} h poté."
                 ]
               }
             },
@@ -21737,7 +21737,7 @@
               "data": {
                 "paras": [
                   "{{ticket.name}} · {{ticket.event.doors_at.date}} · otevíráme v {{ticket.event.doors_at.time}}.",
-                  "Přijměte ji do {{ticket.offer_until.date}}, {{ticket.offer_until.time}} a bude vaše, s vlastním kódem. Přijměte ji před otevřením, nebo si o vstupenku řekněte u vchodu přímo {{ticket.order.buyer_name}}."
+                  "Přijměte ji do {{ticket.offer_until.date}}, {{ticket.offer_until.time}} a bude vaše, s vlastním kódem. Přijměte ji před otevřením, nebo si o ni u vchodu řekněte odesílateli ({{ticket.order.buyer_name}})."
                 ]
               }
             },
@@ -21938,7 +21938,7 @@
               }
             }
           ],
-          "footer": "Angenommen von {{ticket.order.buyer_name}}. Der Button öffnet dein Ticket – heb diese E-Mail gut auf. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+          "footer": "Weitergegeben von {{ticket.order.buyer_name}}. Der Button öffnet dein Ticket – heb diese E-Mail gut auf. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
         },
         "fr-FR": {
           "subject": "Votre billet pour {{ticket.event.name}}",
@@ -24185,7 +24185,7 @@
           "footer": "Vous avez des billets pour ce spectacle · commande {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
         },
         "da-DK": {
-          "subject": "{{order.event.name}} den {{order.event.doors_at.date}} er aflyst",
+          "subject": "{{order.event.name}} {{order.event.doors_at.date}} er aflyst",
           "preheader": "Du får dine penge tilbage",
           "blocks": [
             {
@@ -24200,7 +24200,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Vi beklager – {{order.event.name}} den {{order.event.doors_at.date}} er aflyst.",
+                  "Vi beklager – {{order.event.name}} {{order.event.doors_at.date}} er aflyst.",
                   "Du har betalt {{order.received}}. Vi betaler beløbet tilbage {{practice.refund_payback_text}}, på samme måde som du betalte."
                 ]
               }
@@ -24217,14 +24217,14 @@
           "footer": "Du har billetter til dette arrangement · ordre {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
         },
         "cs-CZ": {
-          "subject": "{{order.event.name}} dne {{order.event.doors_at.date}} je zrušena",
+          "subject": "Akce {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena",
           "preheader": "Peníze vám vrátíme",
           "blocks": [
             {
               "block": "email.heading",
               "id": "heading",
               "data": {
-                "text": "{{order.event.name}} je zrušena"
+                "text": "Akce {{order.event.name}} je zrušena"
               }
             },
             {
@@ -24232,7 +24232,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Je nám líto – {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena.",
+                  "Je nám líto – akce {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena.",
                   "Zaplatili jste {{order.received}}. Peníze vám vrátíme {{practice.refund_payback_text}}, stejným způsobem, jakým jste platili."
                 ]
               }
@@ -24465,7 +24465,7 @@
           "footer": "Vous avez des billets pour ce spectacle · commande {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
         },
         "da-DK": {
-          "subject": "{{order.event.name}} den {{order.event.doors_at.date}} er aflyst",
+          "subject": "{{order.event.name}} {{order.event.doors_at.date}} er aflyst",
           "preheader": "Intet at betale",
           "blocks": [
             {
@@ -24480,7 +24480,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Vi beklager – {{order.event.name}} den {{order.event.doors_at.date}} er aflyst.",
+                  "Vi beklager – {{order.event.name}} {{order.event.doors_at.date}} er aflyst.",
                   "Du har ikke betalt noget, så der er intet at betale tilbage."
                 ]
               }
@@ -24497,14 +24497,14 @@
           "footer": "Du har billetter til dette arrangement · ordre {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
         },
         "cs-CZ": {
-          "subject": "{{order.event.name}} dne {{order.event.doors_at.date}} je zrušena",
+          "subject": "Akce {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena",
           "preheader": "Nic k placení",
           "blocks": [
             {
               "block": "email.heading",
               "id": "heading",
               "data": {
-                "text": "{{order.event.name}} je zrušena"
+                "text": "Akce {{order.event.name}} je zrušena"
               }
             },
             {
@@ -24512,7 +24512,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Je nám líto – {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena.",
+                  "Je nám líto – akce {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena.",
                   "Nic jste nezaplatili, takže není co vracet."
                 ]
               }
@@ -24719,7 +24719,7 @@
           "footer": "Vous avez un billet pour ce spectacle. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
         },
         "da-DK": {
-          "subject": "{{ticket.event.name}} den {{ticket.event.doors_at.date}} er aflyst",
+          "subject": "{{ticket.event.name}} {{ticket.event.doors_at.date}} er aflyst",
           "preheader": "Du får ikke brug for din billet",
           "blocks": [
             {
@@ -24734,7 +24734,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Vi beklager – {{ticket.event.name}} den {{ticket.event.doors_at.date}} er aflyst.",
+                  "Vi beklager – {{ticket.event.name}} {{ticket.event.doors_at.date}} er aflyst.",
                   "{{ticket.order.buyer_name}} har sendt dig denne billet. Eventuelle penge tilbage går til køberen."
                 ]
               }
@@ -24743,14 +24743,14 @@
           "footer": "Du har en billet til dette arrangement. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
         },
         "cs-CZ": {
-          "subject": "{{ticket.event.name}} dne {{ticket.event.doors_at.date}} je zrušena",
+          "subject": "Akce {{ticket.event.name}} dne {{ticket.event.doors_at.date}} je zrušena",
           "preheader": "Vstupenku už nebudete potřebovat",
           "blocks": [
             {
               "block": "email.heading",
               "id": "heading",
               "data": {
-                "text": "{{ticket.event.name}} je zrušena"
+                "text": "Akce {{ticket.event.name}} je zrušena"
               }
             },
             {
@@ -24758,7 +24758,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Je nám líto – {{ticket.event.name}} dne {{ticket.event.doors_at.date}} je zrušena.",
+                  "Je nám líto – akce {{ticket.event.name}} dne {{ticket.event.doors_at.date}} je zrušena.",
                   "Tuto vstupenku vám poslal(a) {{ticket.order.buyer_name}}. Případné peníze vracíme kupujícímu."
                 ]
               }

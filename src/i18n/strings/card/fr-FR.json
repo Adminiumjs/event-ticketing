@@ -57,7 +57,7 @@
  "demo.clock.next-day": "+1 jour",
  "demo.clock.reset": "Revenir à 16:30",
  "demo.toast.panel": "Panneau de démo · {text}",
- "demo.toast.moved": "Avancé à {when}. Revenir à 16:30 annule tout depuis.",
+ "demo.toast.moved": "Avancé à {when}. Revenir à 16:30 annule tout ce qui s'est passé depuis.",
  "demo.toast.doors": "Il est 19:58 — ouverture des portes dans deux minutes",
  "demo.toast.filled": "Coordonnées de Mia remplies",
  "demo.toast.signed-in": "Connecté en tant que Mia pour la démo",

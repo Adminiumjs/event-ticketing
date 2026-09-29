@@ -52,7 +52,7 @@ export const EMAIL_DE: EmailWords = {
     "heading": "Bestätige deine Bestellung",
     "paras": [
       "Du möchtest deine Tickets für {{order.event.name}} per Überweisung bezahlen. Drück bis {{order.held_until.time}} auf den Button, um die Bestellung zu bestätigen – dann schicken wir dir die Bankdaten.",
-      "Bis dahin halten wir deine Tickets für dich zurück."
+      "Bis dahin sind deine Tickets für dich reserviert."
     ],
     "button": "Bestellung bestätigen",
     "foot": "Du bekommst diese E-Mail, weil mit dieser Adresse Tickets bei {{appName}} bestellt wurden. Du hast nichts bestellt? Dann ignoriere sie einfach."
@@ -64,7 +64,7 @@ export const EMAIL_DE: EmailWords = {
     "heading": "Bestätige deine Bestellung",
     "paras": [
       "Du möchtest deine Tickets von der Warteliste für {{order.event.name}} per Überweisung bezahlen. Drück bis {{order.offer_until.date}}, {{order.offer_until.time}} auf den Button, um die Bestellung zu bestätigen – dann schicken wir dir die Bankdaten.",
-      "Bis dahin halten wir deine Tickets für dich zurück."
+      "Bis dahin sind deine Tickets für dich reserviert."
     ],
     "button": "Bestellung bestätigen",
     "foot": "Du bekommst diese E-Mail, weil mit dieser Adresse Tickets von der Warteliste bei {{appName}} angenommen wurden. Das warst du nicht? Dann ignoriere sie einfach."
@@ -76,7 +76,7 @@ export const EMAIL_DE: EmailWords = {
     "heading": "Noch ein Schritt: die Überweisung",
     "paras": [
       "Überweise {{order.balance}} bis {{order.pay_by.date}}, {{order.pay_by.time}} mit dem Verwendungszweck {{order.number}}. Sobald das Geld da ist, kommen deine Tickets per E-Mail.",
-      "Unbezahlte Tickets gehen {{practice.release_after_hours}} Std. danach wieder in den Verkauf."
+      "Unbezahlte Tickets gehen {{practice.release_after_hours}} Stunden danach wieder in den Verkauf."
     ],
     "button": "Meine Bestellung ansehen",
     "foot": "Bestellung {{order.number}}. Der Button öffnet deine Bestellung – heb diese E-Mail gut auf."
@@ -138,7 +138,7 @@ export const EMAIL_DE: EmailWords = {
       "{{ticket.event.doors_at.date}} · Einlass {{ticket.event.doors_at.time}}. Zeig diesen Code am Einlass."
     ],
     "button": "Mein Ticket ansehen",
-    "foot": "Angenommen von {{ticket.order.buyer_name}}. Der Button öffnet dein Ticket – heb diese E-Mail gut auf."
+    "foot": "Weitergegeben von {{ticket.order.buyer_name}}. Der Button öffnet dein Ticket – heb diese E-Mail gut auf."
   },
   "friend-returned": {
     "name": "Dein Ticket ist zurück",
@@ -920,11 +920,11 @@ export const EMAIL_DA: EmailWords = {
   },
   "cancelled-paid": {
     "name": "Dit arrangement er aflyst (betalt)",
-    "subject": "{{order.event.name}} den {{order.event.doors_at.date}} er aflyst",
+    "subject": "{{order.event.name}} {{order.event.doors_at.date}} er aflyst",
     "preheader": "Du får dine penge tilbage",
     "heading": "{{order.event.name}} er aflyst",
     "paras": [
-      "Vi beklager – {{order.event.name}} den {{order.event.doors_at.date}} er aflyst.",
+      "Vi beklager – {{order.event.name}} {{order.event.doors_at.date}} er aflyst.",
       "Du har betalt {{order.received}}. Vi betaler beløbet tilbage {{practice.refund_payback_text}}, på samme måde som du betalte."
     ],
     "button": "Se min ordre",
@@ -932,11 +932,11 @@ export const EMAIL_DA: EmailWords = {
   },
   "cancelled-unpaid": {
     "name": "Dit arrangement er aflyst (intet betalt)",
-    "subject": "{{order.event.name}} den {{order.event.doors_at.date}} er aflyst",
+    "subject": "{{order.event.name}} {{order.event.doors_at.date}} er aflyst",
     "preheader": "Intet at betale",
     "heading": "{{order.event.name}} er aflyst",
     "paras": [
-      "Vi beklager – {{order.event.name}} den {{order.event.doors_at.date}} er aflyst.",
+      "Vi beklager – {{order.event.name}} {{order.event.doors_at.date}} er aflyst.",
       "Du har ikke betalt noget, så der er intet at betale tilbage."
     ],
     "button": "Se min ordre",
@@ -944,11 +944,11 @@ export const EMAIL_DA: EmailWords = {
   },
   "cancelled-holder": {
     "name": "Dit arrangement er aflyst (en vens billet)",
-    "subject": "{{ticket.event.name}} den {{ticket.event.doors_at.date}} er aflyst",
+    "subject": "{{ticket.event.name}} {{ticket.event.doors_at.date}} er aflyst",
     "preheader": "Du får ikke brug for din billet",
     "heading": "{{ticket.event.name}} er aflyst",
     "paras": [
-      "Vi beklager – {{ticket.event.name}} den {{ticket.event.doors_at.date}} er aflyst.",
+      "Vi beklager – {{ticket.event.name}} {{ticket.event.doors_at.date}} er aflyst.",
       "{{ticket.order.buyer_name}} har sendt dig denne billet. Eventuelle penge tilbage går til køberen."
     ],
     "foot": "Du har en billet til dette arrangement."
@@ -1123,7 +1123,7 @@ export const EMAIL_CS: EmailWords = {
     "heading": "Zbývá jediný krok: bankovní převod",
     "paras": [
       "Pošlete {{order.balance}} do {{order.pay_by.date}}, {{order.pay_by.time}} s variabilním symbolem {{order.number}}. Jakmile platba dorazí, pošleme vám vstupenky e-mailem.",
-      "Nezaplacené vstupenky se po uplynutí dalšího odkladu vrátí do prodeje (odklad v hodinách: {{practice.release_after_hours}})."
+      "Nezaplacené vstupenky se vrátí do prodeje {{practice.release_after_hours}} h poté."
     ],
     "button": "Zobrazit objednávku",
     "foot": "Objednávka {{order.number}}. Tlačítko otevře vaši objednávku – tento e-mail si uschovejte."
@@ -1170,7 +1170,7 @@ export const EMAIL_CS: EmailWords = {
     "heading": "{{ticket.order.buyer_name}} vám posílá vstupenku na {{ticket.event.name}}",
     "paras": [
       "{{ticket.name}} · {{ticket.event.doors_at.date}} · otevíráme v {{ticket.event.doors_at.time}}.",
-      "Přijměte ji do {{ticket.offer_until.date}}, {{ticket.offer_until.time}} a bude vaše, s vlastním kódem. Přijměte ji před otevřením, nebo si o vstupenku řekněte u vchodu přímo {{ticket.order.buyer_name}}."
+      "Přijměte ji do {{ticket.offer_until.date}}, {{ticket.offer_until.time}} a bude vaše, s vlastním kódem. Přijměte ji před otevřením, nebo si o ni u vchodu řekněte odesílateli ({{ticket.order.buyer_name}})."
     ],
     "button": "Přijmout vstupenku",
     "foot": "{{ticket.order.buyer_name}} vám ji poslal(a) ze své objednávky v {{appName}}. Pokud e-mail ignorujete, vstupenka zůstane u odesílatele."
@@ -1269,11 +1269,11 @@ export const EMAIL_CS: EmailWords = {
   },
   "cancelled-paid": {
     "name": "Vaše akce je zrušená (zaplaceno)",
-    "subject": "{{order.event.name}} dne {{order.event.doors_at.date}} je zrušena",
+    "subject": "Akce {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena",
     "preheader": "Peníze vám vrátíme",
-    "heading": "{{order.event.name}} je zrušena",
+    "heading": "Akce {{order.event.name}} je zrušena",
     "paras": [
-      "Je nám líto – {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena.",
+      "Je nám líto – akce {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena.",
       "Zaplatili jste {{order.received}}. Peníze vám vrátíme {{practice.refund_payback_text}}, stejným způsobem, jakým jste platili."
     ],
     "button": "Zobrazit objednávku",
@@ -1281,11 +1281,11 @@ export const EMAIL_CS: EmailWords = {
   },
   "cancelled-unpaid": {
     "name": "Vaše akce je zrušená (nic nezaplaceno)",
-    "subject": "{{order.event.name}} dne {{order.event.doors_at.date}} je zrušena",
+    "subject": "Akce {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena",
     "preheader": "Nic k placení",
-    "heading": "{{order.event.name}} je zrušena",
+    "heading": "Akce {{order.event.name}} je zrušena",
     "paras": [
-      "Je nám líto – {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena.",
+      "Je nám líto – akce {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena.",
       "Nic jste nezaplatili, takže není co vracet."
     ],
     "button": "Zobrazit objednávku",
@@ -1293,11 +1293,11 @@ export const EMAIL_CS: EmailWords = {
   },
   "cancelled-holder": {
     "name": "Vaše akce je zrušená (vstupenka od kamaráda)",
-    "subject": "{{ticket.event.name}} dne {{ticket.event.doors_at.date}} je zrušena",
+    "subject": "Akce {{ticket.event.name}} dne {{ticket.event.doors_at.date}} je zrušena",
     "preheader": "Vstupenku už nebudete potřebovat",
-    "heading": "{{ticket.event.name}} je zrušena",
+    "heading": "Akce {{ticket.event.name}} je zrušena",
     "paras": [
-      "Je nám líto – {{ticket.event.name}} dne {{ticket.event.doors_at.date}} je zrušena.",
+      "Je nám líto – akce {{ticket.event.name}} dne {{ticket.event.doors_at.date}} je zrušena.",
       "Tuto vstupenku vám poslal(a) {{ticket.order.buyer_name}}. Případné peníze vracíme kupujícímu."
     ],
     "foot": "Máte vstupenku na tuto akci."

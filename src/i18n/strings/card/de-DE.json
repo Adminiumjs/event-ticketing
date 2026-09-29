@@ -57,7 +57,7 @@
   "demo.clock.next-day": "+1 Tag",
   "demo.clock.reset": "Zurück auf 16:30",
   "demo.toast.panel": "Demo-Bereich · {text}",
-  "demo.toast.moved": "Weiter auf {when}. „Zurück auf 16:30“ macht alles seitdem rückgängig.",
+  "demo.toast.moved": "Vorgespult auf {when}. „Zurück auf 16:30“ macht alles seitdem rückgängig.",
   "demo.toast.doors": "Es ist 19:58 — Einlass in zwei Minuten",
   "demo.toast.filled": "Mias Angaben ausgefüllt",
   "demo.toast.signed-in": "Für die Demo als Mia angemeldet",

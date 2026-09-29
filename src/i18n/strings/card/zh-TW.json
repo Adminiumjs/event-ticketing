@@ -61,7 +61,7 @@
  "demo.toast.doors": "現在是 19:58 — 再兩分鐘開放入場",
  "demo.toast.filled": "已填入 Mia 的資料",
  "demo.toast.signed-in": "已以 Mia 的身分登入（示範用）",
- "demo.toast.code-ended": "STUDENT10 在一分鐘前已結束",
+ "demo.toast.code-ended": "STUDENT10 一分鐘前已過期",
  "demo.toast.mail-down": "下一個連結寄送時，郵件服務會中斷",
  "demo.toast.too-many": "這個地址今天索取的連結次數太多了",
  "demo.toast.check-fails": "下一次真人驗證會失敗",
