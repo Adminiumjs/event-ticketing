@@ -119,10 +119,12 @@ async function boot(): Promise<void> {
     return;
   }
   const { bootAdminium } = await import("./app/bootAdminium.tsx");
+  const before = document.title;
   await bootAdminium(container as HTMLElement, (detail, code) => showStartupFailure(container as HTMLElement, detail, code));
-  // The browser tab carries the name the operator gave the app, when they gave one.
+  // The browser tab carries the name the operator gave the app, when they gave one — unless a screen has named
+  // itself already ("{screen} · {venue}", which falls back to that name too).
   const named = appName();
-  if (named !== null) document.title = named;
+  if (named !== null && document.title === before) document.title = named;
 }
 
 void boot();

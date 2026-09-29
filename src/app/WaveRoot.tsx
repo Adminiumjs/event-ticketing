@@ -11,6 +11,7 @@ import { OverlaysView } from "../view/OverlaysView.tsx";
 import { StaffView } from "../view/StaffView.tsx";
 import { st } from "../view/dom.tsx";
 import { AUDIENCE, STAFF } from "./sides.ts";
+import { docTitle } from "./title.ts";
 import { renderVals } from "./vals/base.ts";
 import type { WaveApp } from "./wave.ts";
 
@@ -112,8 +113,9 @@ export function WaveRoot({ app }: { app: WaveApp }) {
     document.documentElement.dir = String(v["dir"]);
     document.documentElement.dataset["theme"] = String(v["themeAttr"]);
     document.documentElement.style.background = "var(--bg)";
-    const title = String(v["docTitle"] ?? "");
-    if (title !== "") document.title = title;
+    // Every screen names itself in the tab (and to a screen reader's page change).
+    const title = docTitle(app);
+    if (title !== "" && document.title !== title) document.title = title;
   });
   return (
     <div data-wv-root="1" dir={String(v["dir"])} lang={String(v["langCode"])} style={st(String(v["rootStyle"]))}>
