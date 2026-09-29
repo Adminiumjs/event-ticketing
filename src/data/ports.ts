@@ -189,8 +189,6 @@ export interface BoxOfficePort {
 export interface DoorPort {
   me(): Promise<StaffPerson>;
   config(): Promise<Config>;
-  /** The shows on the venue's day, with their days. */
-  tonight(): Promise<{ events: Row[]; days: Row[] }>;
   /** A code scanned or typed: its ticket, order and any check-in today; null for no such ticket. */
   find(code: string, eventDayId: Id): Promise<{ ticket: Row; order: Row; checkIn: Row | null } | null>;
   /** A ticket's door money taken (and the order paid when nothing is owed any more); a replay from the phone's offline list carries its time. */
