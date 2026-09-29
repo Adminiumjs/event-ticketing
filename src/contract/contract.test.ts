@@ -400,8 +400,10 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
           headers: { authorization: `Bearer ${bearer}`, origin: server.base, "content-type": "application/json", ...(session === null ? {} : { "x-adminium-public-session": session }) },
           ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
         });
-        return { status: res.status, body: (await res.json().catch(() => ({}))) as { data?: Row[] | Row } };
+        return { status: res.status, ended: res.headers.get("x-adminium-session-ended"), body: (await res.json().catch(() => ({}))) as { data?: Row[] | Row } };
       };
+      /** A buyer's own account row, read with their session: Adminium 0.3.5 answers it 503 (a masked column it cannot read yet). */
+      const ACCOUNT_ROW_ANSWERS_503 = true;
       /** Two buyers on an address the outbox sends to (a reserved one is skipped), each with an order and its own link. */
       const pair = { a: { email: `rui.${engine}@waveform.dev`, id: 0, token: "", sent: new Map<string, string>() }, b: { email: `lena.${engine}@waveform.dev`, id: 0, token: "", sent: new Map<string, string>() } };
       let signedA: AdminiumAudience | null = null;
@@ -409,17 +411,26 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
       let heldSession = "";
       /** A's Cinder order, paid by transfer. */
       let xferA = 0;
-      const signIn = async (who: "a" | "b") => {
-        const buyer = await audience(pair[who].sent);
+      /** Signs in by the code the emailed sign-in carries: any address the outbox sends to. */
+      const signInAs = async (email: string, sent?: Map<string, string>) => {
+        const buyer = await audience(sent);
         const before = await sinkCount();
-        await buyer.signIn(pair[who].email);
+        await buyer.signIn(email);
         const mail = await until(async () => {
           const all = (await (await fetch(`${server.sink}/messages`)).json()) as { to: string[]; subject: string; text: string }[];
-          return all.slice(before).find((m) => m.to.includes(pair[who].email) && codeIn(m.text) !== "");
-        }, `a sign-in code for ${pair[who].email}`, 150_000);
-        await buyer.verify(pair[who].email, codeIn(mail.text));
+          return all.slice(before).find((m) => m.to.includes(email) && codeIn(m.text) !== "");
+        }, `a sign-in code for ${email}`, 150_000);
+        await buyer.verify(email, codeIn(mail.text));
         return buyer;
       };
+      const signIn = (who: "a" | "b") => signInAs(pair[who].email, pair[who].sent);
+      /** The browser keys the site serves, by name (the customer key is its own). */
+      const keys = async () => {
+        const served = ok(await new Caller(server.base).get<{ publishableKey: string; publicKeys: Record<string, string> }>("/apps/events/customer/surface-config.json"));
+        return { customer: `Bearer ${served.publishableKey}`, link: `Bearer ${served.publicKeys["link"]!}`, confirm: `Bearer ${served.publicKeys["confirm"]!}`, ticket: `Bearer ${served.publicKeys["ticket"]!}` };
+      };
+      /** A staff row's columns a buyer's write must leave as they were. */
+      const snap = (row: Row | undefined) => (row === undefined ? null : Object.fromEntries(["status", "holder_name", "pending_email", "holder_customer_id", "cancel_cause", "access_note", "kept_at"].map((c) => [c, row[c] ?? null])));
 
       it("keeps each buyer to their own orders, signed in or by an order's own link", async (ctx) => {
         needsWrites(() => ctx.skip());
@@ -450,23 +461,78 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         expect(await refusal(() => a.nameTicket(bTickets[0]!.id, "Someone Else"))).not.toBeNull();
         expect(await refusal(() => a.sendTicket(bTickets[1]!.id, "taker@waveform.dev", "A Taker"))).not.toBeNull();
         expect((await rows("tickets")).filter((t) => t["order_id"] === pair.b.id).map((t) => [t["holder_name"], t["status"]])).toEqual(bTickets.map((t) => [t["holder_name"], t["status"]]));
-        // What A's session reads through each door of theirs, row by row: nothing of anyone else's.
+        // As A, every other change to B's rows, by every door of A's: refused, and B's rows as they were.
         const refs = publicRefs(real);
         const served = ok(await new Caller(server.base).get<{ publishableKey: string; publicKeys: Record<string, string> }>("/apps/events/customer/surface-config.json"));
         const aSession = pair.a.sent.get(`Bearer ${served.publishableKey}`)!;
         expect(aSession).toBeTruthy();
         heldSession = aSession;
+        const bOrderBefore = snap((await rows("orders")).find((o) => o.id === pair.b.id));
         const aCustomer = (await rows("customers")).find((c) => c["email"] === pair.a.email)!;
+        const someoneWaiting = (await rows("waitlist")).find((x) => x["customer_id"] !== aCustomer.id && x["status"] === "waiting")!;
+        const paidNotA = (await rows("orders")).find((o) => o["status"] === "paid" && o["customer_id"] !== aCustomer.id)!;
+        for (const [ref, values] of [
+          [refs.myCancels, { status: "cancelled" }],
+          [refs.myReturns, { status: "returned", cancel_cause: "buyer" }],
+          [refs.myReturns, { status: "returned" }],
+          [refs.myTickets, { status: "refund_asked" }],
+        ] as const) {
+          const got = await publicCall("customer", aSession, `/api/v1/public/records/${ref}/${String(bTickets[0]!.id)}`, { method: "PATCH", body: { values } });
+          expect(got.status, ref).toBeGreaterThanOrEqual(400);
+        }
+        expect((await publicCall("customer", aSession, `/api/v1/public/records/${refs.myTickets}/${String(bTickets[0]!.id)}`)).status).not.toBe(200);
+        expect(await refusal(() => a.keep(pair.b.id))).not.toBeNull();
+        expect(await refusal(() => a.choose("let_go", undefined, pair.b.id))).not.toBeNull();
+        expect(await refusal(() => a.leaveWaitlist(someoneWaiting.id))).not.toBeNull();
+        if (withInvoices()) expect(await refusal(() => a.receipt(paidNotA.id))).not.toBeNull();
+        expect((await rows("tickets")).filter((t) => t["order_id"] === pair.b.id).map(snap)).toEqual(bTickets.map(snap));
+        expect(snap((await rows("orders")).find((o) => o.id === pair.b.id))).toEqual(bOrderBefore);
+        expect((await rows("waitlist")).find((x) => x.id === someoneWaiting.id)!["status"]).toBe("waiting");
+
+        // What A's session reads through each door of theirs, row by row: nothing of anyone else's. A holds a
+        // waitlist place and a reminder first, so those doors answer rows to judge.
+        const venueNow = await a.venue();
+        const velvet = venueNow.events.find((e) => e["name"] === "Velvet Hour")!;
+        const bloom = venueNow.events.find((e) => e["name"] === "Static Bloom")!;
+        await a.joinWaitlist(velvet.id, pair.a.email, 1);
+        await a.remindMe(bloom.id, pair.a.email, null);
         const others = new Set((await rows("orders")).filter((o) => o.id !== pair.a.id).map((o) => o.id));
         expect(others.size).toBeGreaterThan(700);
+        const held = new Set((await rows("tickets")).filter((t) => t["holder_customer_id"] === aCustomer.id).map((t) => t.id));
+        const waits = new Set((await rows("waitlist")).filter((x) => x["customer_id"] === aCustomer.id).map((x) => x.id));
+        const rems = new Set((await rows("reminders")).filter((x) => x["customer_id"] === aCustomer.id).map((x) => x.id));
+        expect([waits.size > 0, rems.size > 0]).toEqual([true, true]);
         const theirs = (ref: string, row: Row) =>
-          ref === refs.myOrders ? others.has(row.id) : ref === refs.account ? row.id !== aCustomer.id : row["order_id"] !== undefined ? others.has(row["order_id"] as number) : row["customer_id"] !== undefined && row["customer_id"] !== aCustomer.id;
-        for (const ref of [refs.account, refs.myOrders, refs.myTickets, refs.myNames, refs.myReturns, refs.myCancels, refs.heldTickets, refs.myWaitlist, refs.myReminders]) {
+          ref === refs.myOrders
+            ? others.has(row.id)
+            : ref === refs.account
+              ? row["email"] !== pair.a.email
+              : ref === refs.heldTickets
+                ? !held.has(row.id)
+                : ref === refs.myWaitlist
+                  ? !waits.has(row.id)
+                  : ref === refs.myReminders
+                    ? !rems.has(row.id)
+                    : row["order_id"] !== undefined
+                      ? others.has(row["order_id"] as number)
+                      : row["customer_id"] !== undefined && row["customer_id"] !== aCustomer.id;
+        const reads = [refs.myOrders, refs.myTickets, refs.heldTickets, refs.myWaitlist, refs.myReminders];
+        const changeOnly = [refs.myNames, refs.myReturns, refs.myCancels];
+        for (const ref of [...reads, ...changeOnly]) {
           const got = await publicCall("customer", aSession, `/api/v1/public/records/${ref}?limit=200`);
-          // A change-only door answers a read 404; this Adminium answers a person's own account row 503 while it masks
-          // a column (fixed in its next release). Whatever it answers, nothing of anyone else's comes back.
-          expect([200, 404, 503], ref).toContain(got.status);
-          expect(((got.body.data ?? []) as Row[]).filter((row) => theirs(ref, row)), ref).toEqual([]);
+          // A change-only door answers a read 404.
+          expect(got.status, ref).toBe(changeOnly.includes(ref) ? 404 : 200);
+          const data = (got.body.data ?? []) as Row[];
+          expect(data.filter((row) => theirs(ref, row)), ref).toEqual([]);
+          if (ref === refs.myWaitlist || ref === refs.myReminders) expect(data.length, ref).toBeGreaterThan(0);
+        }
+        // The person's own account row: theirs alone once Adminium reads it; until then the switch above says why not.
+        const account = await publicCall("customer", aSession, `/api/v1/public/records/${refs.account}?limit=200`);
+        if (ACCOUNT_ROW_ANSWERS_503) {
+          expect(account.status, "the account row answers now: set ACCOUNT_ROW_ANSWERS_503 to false").toBe(503);
+        } else {
+          expect(account.status).toBe(200);
+          expect(((account.body.data ?? []) as Row[]).map((row) => row["email"])).toEqual([pair.a.email]);
         }
         // B's own link opens B's order, and never A's: read, changed and listed through the link's door itself.
         const b = await audience(pair.b.sent);
@@ -481,9 +547,59 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
           expect([200, 404], ref).toContain(got.status);
           expect(((got.body.data ?? []) as Row[]).filter((row) => (ref === refs.linkOrder ? row.id : row["order_id"]) !== pair.b.id), ref).toEqual([]);
         }
-        // No session at all: nobody's orders, tickets or account.
-        for (const ref of [refs.myOrders, refs.myTickets, refs.account]) expect((await publicCall("customer", null, `/api/v1/public/records/${ref}`)).status, ref).not.toBe(200);
-        expect((await publicCall("ticket", null, `/api/v1/public/records/${refs.ticket}`)).status).not.toBe(200);
+        // B's link against A's tickets by id: not there to read, and no change reaches them; nor A's receipt.
+        const aTickets = (await rows("tickets")).filter((t) => t["order_id"] === pair.a.id);
+        const aT = aTickets[0]!;
+        for (const [ref, values] of [
+          [refs.linkTickets, { status: "offered", pending_email: "taker@waveform.dev", pending_name: "A Taker" }],
+          [refs.linkTickets, { status: "refund_asked" }],
+          [refs.linkNames, { holder_name: "X" }],
+          [refs.linkReturns, { status: "returned" }],
+          [refs.linkReturns, { status: "returned", cancel_cause: "buyer" }],
+          [refs.linkCancels, { status: "cancelled" }],
+        ] as const) {
+          expect((await publicCall("link", bLink, `/api/v1/public/records/${ref}/${String(aT.id)}`, { method: "PATCH", body: { values } })).status, ref).toBe(404);
+        }
+        expect((await publicCall("link", bLink, `/api/v1/public/records/${refs.linkTickets}/${String(aT.id)}`)).status).toBe(404);
+        expect((await rows("tickets")).filter((t) => t["order_id"] === pair.a.id).map(snap)).toEqual(aTickets.map(snap));
+        if (withInvoices()) {
+          const render = await publicCall("link", bLink, "/api/v1/public/documents/render", { method: "POST", body: { kind: "receipt", ref: refs.linkOrder, id: String(paidNotA.id) } });
+          expect(render.status).toBe(404);
+        }
+        // No session at all: nothing of anyone's, by any door of a person or a link — read or changed.
+        const orderOf = (await rows("orders")).find((o) => o["status"] === "door")!;
+        const ticketOfIt = (await rows("tickets")).find((t) => t["order_id"] === orderOf.id)!;
+        const idFor: Record<string, number> = { orders: orderOf.id, tickets: ticketOfIt.id, waitlist: someoneWaiting.id, customers: aCustomer.id, settings: 1, reminders: [...rems][0]! };
+        const personal: [string, string, string][] = [
+          ["customer", refs.account, "customers"],
+          ["customer", refs.myOrders, "orders"],
+          ["customer", refs.myTickets, "tickets"],
+          ["customer", refs.myNames, "tickets"],
+          ["customer", refs.myReturns, "tickets"],
+          ["customer", refs.myCancels, "tickets"],
+          ["customer", refs.heldTickets, "tickets"],
+          ["customer", refs.myWaitlist, "waitlist"],
+          ["customer", refs.myReminders, "reminders"],
+          ["customer", refs.bank, "settings"],
+          ["link", refs.linkOrder, "orders"],
+          ["link", refs.linkTickets, "tickets"],
+          ["link", refs.linkNames, "tickets"],
+          ["link", refs.linkReturns, "tickets"],
+          ["link", refs.linkCancels, "tickets"],
+          ["link", refs.linkBank, "settings"],
+          ["confirm", refs.confirmOrder, "orders"],
+          ["confirm", refs.confirmBank, "settings"],
+          ["ticket", refs.ticket, "tickets"],
+        ];
+        for (const [keyName, ref, table] of personal) {
+          const read = await publicCall(keyName, null, `/api/v1/public/records/${ref}?limit=200`);
+          expect(read.status, `${keyName} ${ref}`).not.toBe(200);
+          const write = await publicCall(keyName, null, `/api/v1/public/records/${ref}/${String(idFor[table])}`, { method: "PATCH", body: { values: { status: "let_go" } } });
+          expect(write.status, `${keyName} ${ref} PATCH`).toBeGreaterThanOrEqual(400);
+        }
+        // The venue's public face carries no bank details: those are for a proved session only.
+        const face = await publicCall("customer", null, `/api/v1/public/records/${refs.settings}`);
+        expect(((face.body.data ?? []) as Row[]).flatMap((row) => Object.keys(row).filter((k) => k.startsWith("bank_")))).toEqual([]);
         expect((await rows("orders")).find((o) => o.id === pair.a.id)!["access_note"]).toBeNull();
       }, 420_000);
 
@@ -529,16 +645,31 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         xferA = made.data.id;
       }, 240_000);
 
+      /** A Neon ticket offered to a friend who never answers, and its link: judged a day on, once the offer has lapsed. */
+      let lapsing: { ticket: number; link: string } | null = null;
+
       it("sends a ticket to a friend: sent again after a take-back, accepted with a new code the buyer no longer sees", async (ctx) => {
         needsWrites(() => ctx.skip());
         const a = signedA!;
         const box = await staffPort(ADMIN);
         const kai = `kai.${engine}@waveform.dev`;
+        const lee = `lee.${engine}@waveform.dev`;
         const ticketOf = async (id: number) => (await box.list("tickets", { where: [{ column: "id", eq: id }] })).rows[0]!;
-        const second = (await a.myOrders()).orders.find((o) => o.order.id === pair.a.id)!.tickets.find((t) => t["holder_name"] === "Jo Petrak")!;
+        const aTickets = (await a.myOrders()).orders.find((o) => o.order.id === pair.a.id)!.tickets;
+        const second = aTickets.find((t) => t["holder_name"] === "Jo Petrak")!;
+        const own = aTickets.find((t) => t["holder_name"] === "Rui Costa")!;
         const oldCode = String((await ticketOf(second.id))["code"]);
         const offers = async () => (await box.list("messages", { where: [{ column: "kind", eq: "friend-offer" }, { column: "to_address", eq: kai }] })).rows.length;
         await a.sendTicket(second.id, kai, "Kai Renner");
+        // The first friend's link, opened before the take-back: it opens nothing once the ticket went to someone else.
+        const first = String((await ticketOf(second.id))["link_token"]);
+        const old = await audience();
+        await old.openTicket(first);
+        await a.takeBack(second.id);
+        await a.sendTicket(second.id, lee, "Lee Tan");
+        expect(await refusal(() => old.acceptTicket(first, "Old Friend"))).not.toBeNull();
+        expect(await refusal(async () => (await audience()).openTicket(first))).not.toBeNull();
+        expect((await ticketOf(second.id))["holder_customer_id"] ?? null).toBeNull();
         await a.takeBack(second.id);
         await a.sendTicket(second.id, kai, "Kai Renner");
         // Each send is its own email: the second after a take-back goes too.
@@ -547,7 +678,8 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         const pending = (await a.myOrders()).orders.find((o) => o.order.id === pair.a.id)!.tickets.find((t) => t.id === second.id)!;
         expect([pending["status"], pending["pending_name"], pending["code"] ?? null]).toEqual(["offered", "Kai Renner", oldCode]);
         // Kai opens the ticket by its link: no code until it is theirs; accepted, a new one.
-        const friend = await audience();
+        const friendSent = new Map<string, string>();
+        const friend = await audience(friendSent);
         const opened = await friend.openTicket(String((await ticketOf(second.id))["link_token"]));
         expect([opened["status"], opened["code"] ?? null]).toEqual(["offered", null]);
         const accepted = await friend.acceptTicket(String((await ticketOf(second.id))["link_token"]), "Kai Renner");
@@ -555,8 +687,135 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         expect(accepted["code"]).not.toBe(oldCode);
         const after = (await a.myOrders()).orders.find((o) => o.order.id === pair.a.id)!.tickets.find((t) => t.id === second.id)!;
         expect([after["holder_name"], after["code"] ?? null]).toEqual(["Kai Renner", null]);
+        // Nothing of the friend's reaches the buyer: no address, no account, only that it was accepted.
+        expect([after["holder_email"] ?? null, after["pending_email"] ?? null, after["holder_customer_id"] ?? null, after["accepted_at"] !== null && after["accepted_at"] !== undefined]).toEqual([null, null, null, true]);
         // The old code opens nothing at the door any more.
         expect(await box.find(oldCode, (await box.list("event_days", { where: [{ column: "event_id", eq: second["event_id"] }] })).rows[0]!.id)).toBeNull();
+
+        // Nothing the buyer does reaches the ticket now: signed in, or by the order's own link.
+        const tries = (door: AdminiumAudience) => [
+          () => door.sendTicket(second.id, `x.${engine}@waveform.dev`, "X"),
+          () => door.takeBack(second.id),
+          () => door.askRefund(second.id),
+          () => door.nameTicket(second.id, "Someone"),
+          () => door.cancelTicket(second.id),
+          () => door.cancelTicket(second.id, true),
+        ];
+        for (const run of tries(a)) expect(await refusal(run)).not.toBeNull();
+        const byLink = await audience();
+        await byLink.openOrder(pair.a.token);
+        expect((await byLink.order()).tickets.find((t) => t.id === second.id)!["code"] ?? null).toBeNull();
+        for (const run of tries(byLink)) expect(await refusal(run)).not.toBeNull();
+        const still = await ticketOf(second.id);
+        expect([still["status"], still["holder_name"], still["code"]]).toEqual(["valid", "Kai Renner", accepted["code"]]);
+
+        // The friend's own: Kai, signed in, reads the ticket with its code among those they hold, and nothing of A's.
+        const kaiCustomer = async () => (await rows("customers")).find((c) => c["email"] === kai)!;
+        const kaiSent = new Map<string, string>();
+        const kaiSigned = await signInAs(kai, kaiSent);
+        const mineNow = await kaiSigned.myOrders();
+        expect(mineNow.held.filter((t) => t.id === second.id).map((t) => [t.id, t["code"]])).toEqual([[second.id, accepted["code"]]]);
+        expect(mineNow.orders.filter((o) => o.order.id === pair.a.id)).toEqual([]);
+        const refs = publicRefs(real);
+        const k = await keys();
+        const kaiId = (await kaiCustomer()).id;
+        const kaiHolds = new Set((await rows("tickets")).filter((t) => t["holder_customer_id"] === kaiId).map((t) => t.id));
+        const heldRead = await publicCall("customer", kaiSent.get(k.customer)!, `/api/v1/public/records/${refs.heldTickets}?limit=200`);
+        expect(heldRead.status).toBe(200);
+        const heldRows = (heldRead.body.data ?? []) as Row[];
+        expect([heldRows.length > 0, heldRows.filter((t) => !kaiHolds.has(t.id))]).toEqual([true, []]);
+        // Kai's ticket link reaches that ticket alone: A's own ticket is not there, to read or to change.
+        const kaiLink = friendSent.get(k.ticket)!;
+        expect(kaiLink).toBeTruthy();
+        expect((await publicCall("ticket", kaiLink, `/api/v1/public/records/${refs.ticket}/${String(own.id)}`)).status).toBe(404);
+        expect((await publicCall("ticket", kaiLink, `/api/v1/public/records/${refs.ticket}/${String(own.id)}`, { method: "PATCH", body: { values: { status: "valid", holder_name: "Kai Renner" } } })).status).toBe(404);
+
+        // An offer nobody answers: a Neon ticket of a buyer's own, offered now; its link is judged a day on.
+        const buyer = await audience();
+        const venue = await buyer.venue();
+        const neon = venue.events.find((e) => e["name"] === "Neon Circuit")!;
+        const std = venue.types.find((t) => t["event_id"] === neon.id && t["name"] === "Standard")!;
+        const body = { values: { event_id: neon.id, room_id: neon["room_id"], buyer_name: "Ola Berg", email: `ola.${engine}@waveform.dev`, language: "en-US" }, tickets: [{ ticket_type_id: std.id }] };
+        await buyer.buy({ ...body, expect: { total: Number((await buyer.quote(body)).data["total"]) } }, key("lapse"));
+        const t = (await buyer.order()).tickets[0]!;
+        await buyer.nameTicket(t.id, "Ola Berg");
+        await buyer.choose("door");
+        await buyer.sendTicket(t.id, `nobody.${engine}@waveform.dev`, "Nobody Answers");
+        lapsing = { ticket: t.id, link: String((await ticketOf(t.id))["link_token"]) };
+      }, 420_000);
+
+      it("opens one order by a confirm link: another checkout's is not there, to read or to move on", async (ctx) => {
+        needsWrites(() => ctx.skip());
+        const box = await staffPort(ADMIN);
+        const venue = await (await audience()).venue();
+        const cinder = venue.events.find((e) => e["name"] === "Cinder")!;
+        const std = venue.types.find((t) => t["event_id"] === cinder.id && t["name"] === "Standard")!;
+        const checkout = async (who: string) => {
+          const buyer = await audience();
+          const body = { values: { event_id: cinder.id, room_id: cinder["room_id"], buyer_name: who, email: `${who.toLowerCase()}.${engine}@waveform.dev`, language: "en-US" }, tickets: [{ ticket_type_id: std.id }] };
+          const made = await buyer.buy({ ...body, expect: { total: Number((await buyer.quote(body)).data["total"]) } }, key(`confirm-${who}`));
+          await buyer.choose("confirming");
+          return (await box.list("orders", { where: [{ column: "id", eq: made.data.id }] })).rows[0]!;
+        };
+        const x = await checkout("Xena");
+        const y = await checkout("Yuri");
+        const sent = new Map<string, string>();
+        const byX = await audience(sent);
+        expect((await byX.openConfirm(String(x["confirm_token"]))).id).toBe(x.id);
+        const xSession = sent.get((await keys()).confirm)!;
+        expect(xSession).toBeTruthy();
+        const refs = publicRefs(real);
+        expect((await publicCall("confirm", xSession, `/api/v1/public/records/${refs.confirmOrder}/${String(y.id)}`)).status).toBe(404);
+        expect((await publicCall("confirm", xSession, `/api/v1/public/records/${refs.confirmOrder}/${String(y.id)}`, { method: "PATCH", body: { values: { status: "awaiting_transfer" } } })).status).toBe(404);
+        expect((await box.list("orders", { where: [{ column: "id", eq: y.id }] })).rows[0]!["status"]).toBe("confirming");
+        // The confirm link's own bank details, for the order it confirms: read through that link alone.
+        expect(String((await byX.bank("confirm"))["bank_account_number"] ?? "")).not.toBe("");
+        for (const who of [x, y]) await box.move(who.id, "let_go").catch(() => undefined);
+      }, 240_000);
+
+      it("gives the bank details to a proved session only, on each of its doors", async (ctx) => {
+        needsWrites(() => ctx.skip());
+        const a = signedA!;
+        expect(String((await a.bank("me"))["bank_account_number"] ?? "")).not.toBe("");
+        const byLink = await audience();
+        await byLink.openOrder(pair.a.token);
+        expect(String((await byLink.bank("link"))["bank_account_number"] ?? "")).not.toBe("");
+        expect(await refusal(async () => (await audience()).bank("me"))).not.toBeNull();
+      }, 120_000);
+
+      it("shows nothing of a show still being drafted: its days, acts, ticket types and questions stay the box office's", async (ctx) => {
+        needsWrites(() => ctx.skip());
+        const box = await staffPort(ADMIN);
+        const room = (await box.rows("rooms"))[0]!;
+        const doors = "2026-09-18T23:00:00.000Z";
+        const draft = await box.saveEvent(
+          null,
+          { slug: `draft-${engine}-${String(Date.now())}`, name: "Draft Night", room_id: room.id, doors_at: doors, starts_at: "2026-09-18T23:30:00.000Z", curfew_at: "2026-09-19T03:00:00.000Z" },
+          {
+            event_days: [{ day: 1, doors_at: doors, curfew_at: "2026-09-19T03:00:00.000Z" }],
+            ticket_types: [{ name: "Standard", price: "20.00", capacity: 50, visibility: "public" }],
+            acts: [{ name: "The Unannounced", starts_at: "2026-09-18T23:30:00.000Z" }],
+            questions: [{ text: "Anything we should know?" }],
+          },
+        );
+        expect(draft["status"]).toBe("draft");
+        const venue = await (await audience()).venue();
+        expect([
+          venue.events.some((e) => e.id === draft.id),
+          venue.days.some((d) => d["event_id"] === draft.id),
+          venue.acts.some((x) => x["event_id"] === draft.id),
+          venue.types.some((t) => t["event_id"] === draft.id),
+          venue.questions.some((q) => q["event_id"] === draft.id),
+        ]).toEqual([false, false, false, false, false]);
+        // An announced show whose set times are not up: its acts by name, never their times.
+        const refs = publicRefs(real);
+        const events = await box.rows("events");
+        const hidden = new Set(events.filter((e) => e["sets_published"] !== true && e["sets_published"] !== 1).map((e) => e.id));
+        const timed = ((await publicCall("customer", null, `/api/v1/public/records/${refs.actTimes}?limit=200`)).body.data ?? []) as Row[];
+        expect(timed.filter((x) => hidden.has(x["event_id"] as number))).toEqual([]);
+        const named = ((await publicCall("customer", null, `/api/v1/public/records/${refs.acts}?limit=200`)).body.data ?? []) as Row[];
+        expect(named.length).toBeGreaterThan(0);
+        expect(named.filter((x) => x["starts_at"] !== undefined)).toEqual([]);
       }, 240_000);
 
       it("signs a buyer out everywhere: the session they held, sent again as it was, opens nothing", async (ctx) => {
@@ -591,9 +850,24 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
 
       it("forgets a buyer at their asking: the account emptied, the orders kept, their links stopped", async (ctx) => {
         needsWrites(() => ctx.skip());
+        // B's order link, opened before the forget (as a page B left open would hold it).
+        const linkSent = new Map<string, string>();
+        const bl = await audience(linkSent);
+        await bl.openOrder(pair.b.token);
+        const k = await keys();
+        const bLink = linkSent.get(k.link)!;
+        expect(bLink).toBeTruthy();
         const b = await signIn("b");
+        const bSession = pair.b.sent.get(k.customer)!;
+        expect(bSession).toBeTruthy();
         await b.forget();
         expect(await b.me()).toBeNull();
+        // Each session B held, sent again as it was: told once that it ended, and opening nothing.
+        const refs = publicRefs(real);
+        const byLink = await publicCall("link", bLink, `/api/v1/public/records/${refs.linkOrder}`);
+        expect([byLink.status === 200, byLink.ended, (byLink.body.data ?? []) as Row[]]).toEqual([false, "forgotten", []]);
+        const signedIn = await publicCall("customer", bSession, `/api/v1/public/records/${refs.myOrders}`);
+        expect([signedIn.status === 200, signedIn.ended, (signedIn.body.data ?? []) as Row[]]).toEqual([false, "forgotten", []]);
         const bOrder = (await rows("orders")).find((o) => o.id === pair.b.id)!;
         const account = (await rows("customers")).find((c) => c.id === bOrder["customer_id"])!;
         expect([account["email"] ?? null, account["name"] ?? null, account["forgotten_at"] === null]).toEqual([null, null, false]);
@@ -694,11 +968,16 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         const cinder = venue.events.find((e) => e["name"] === "Cinder")!;
         const std = venue.types.find((t) => t["event_id"] === cinder.id && t["name"] === "Standard")!;
         const body = { values: { event_id: cinder.id, room_id: cinder["room_id"], buyer_name: "Kai Renner", email: "kai.contract@example.com", language: "en-US" }, tickets: [{ ticket_type_id: std.id }, { ticket_type_id: std.id }] };
-        await aud.buy({ ...body, expect: { total: Number((await aud.quote(body)).data["total"]) } }, key("ask"));
+        const total = Number((await aud.quote(body)).data["total"]);
+        const made = await aud.buy({ ...body, expect: { total } }, key("ask"));
         await aud.choose("door");
         const [a, b] = (await aud.order()).tickets;
-        expect([(await aud.askRefund(a!.id))["status"], (await aud.askRefund(b!.id))["status"]]).toEqual(["refund_asked", "refund_asked"]);
+        // Nothing paid yet (pay at the door): nothing to ask back.
+        expect(await refusal(() => aud.askRefund(a!.id))).not.toBeNull();
         const box = await staffPort(ADMIN);
+        await box.recordPayment(made.data.id, total, "card");
+        await box.move(made.data.id, "paid", { paid_method: "card" });
+        expect([(await aud.askRefund(a!.id))["status"], (await aud.askRefund(b!.id))["status"]]).toEqual(["refund_asked", "refund_asked"]);
         await box.cancelTickets([a!.id], "request");
         expect((await box.declineRefund(b!.id))["status"]).toBe("valid");
         const now = (await box.list("tickets", { where: [{ column: "id", in: [a!.id, b!.id] }], sort: [{ column: "id" }] })).rows;
@@ -810,6 +1089,32 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         expect(Number(after["collected"])).toBe(Number(after["due"]));
       }, 240_000);
 
+      it("lets a buyer cancel a pay-at-the-door ticket only before the door takes it, and hands a waitlist show's place to the waitlist", async (ctx) => {
+        needsWrites(() => ctx.skip());
+        const box = await staffPort(ADMIN);
+        // 19:58, Neon's doors at 20:00: A's own ticket, its money taken at the door, cannot be cancelled by its buyer now.
+        const own = (await rows("tickets")).find((t) => t["order_id"] === pair.a.id && t["holder_name"] === "Rui Costa")!;
+        await box.collect(own.id, "cash", null);
+        const byLink = await audience();
+        await byLink.openOrder(pair.a.token);
+        await byLink.order();
+        expect(await refusal(() => byLink.cancelTicket(own.id))).not.toBeNull();
+        const after = (await rows("tickets")).find((t) => t.id === own.id)!;
+        expect([after["status"], Number(after["collected"])]).toEqual(["valid", Number(after["due"])]);
+        // Velvet Hour keeps a waitlist: a buyer's own cancel hands the place to it, never straight back on sale.
+        const velvet = (await box.rows("events")).find((e) => e["name"] === "Velvet Hour")!;
+        const velvetDoor = (await rows("orders")).find((o) => o["event_id"] === velvet.id && o["status"] === "door")!;
+        const ticket = (await rows("tickets")).find((t) => t["order_id"] === velvetDoor.id && t["status"] === "valid" && (t["holder_customer_id"] ?? null) === null)!;
+        touched.add(velvetDoor.id);
+        const v = await audience();
+        await v.openOrder(String(velvetDoor["link_token"]));
+        await v.order();
+        expect(await refusal(() => v.cancelTicket(ticket.id))).not.toBeNull();
+        expect((await v.cancelTicket(ticket.id, true))["status"]).toBe("returned");
+        const back = (await rows("tickets")).find((t) => t.id === ticket.id)!;
+        expect([back["status"], back["cancel_cause"]]).toEqual(["returned", "buyer"]);
+      }, 180_000);
+
       it("a day on: the door money nobody paid is marked, and the waitlist is offered in joining order", async (ctx) => {
         needsWrites(() => ctx.skip());
         const box = await staffPort(ADMIN);
@@ -820,6 +1125,18 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         expect(offers.length).toBeGreaterThan(0);
         expect(offers.every((o) => o["status"] === "offered")).toBe(true);
         expect(offers[0]!["email"]).toBe("kai.renner@example.com");
+      }, 240_000);
+
+      it("a day on: an offer nobody accepted came back to its buyer, and its link opens nothing", async (ctx) => {
+        needsWrites(() => ctx.skip());
+        expect(lapsing).not.toBeNull();
+        const box = await staffPort(ADMIN);
+        const back = await until(async () => {
+          const row = (await box.list("tickets", { where: [{ column: "id", eq: lapsing!.ticket }] })).rows[0];
+          return row !== undefined && row["status"] === "valid" ? row : undefined;
+        }, "the unanswered offer back with its buyer", 180_000);
+        expect([back["pending_email"] ?? null, back["holder_customer_id"] ?? null]).toEqual([null, null]);
+        expect(await refusal(async () => (await audience()).openTicket(lapsing!.link))).not.toBeNull();
       }, 240_000);
 
       it("postpones a show and cancels another, one write an order; a message to a show's buyers queues their emails", async (ctx) => {
