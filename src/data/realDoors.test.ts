@@ -10,8 +10,11 @@ import { PublicApiError } from "@adminiumjs/public-client";
 import { describe, expect, it } from "vitest";
 
 import { asApiError as audienceError, rowOf as audienceRow } from "./adminiumAudience.ts";
-import { AdminiumStaff, filterOf, normalizeCode, rowOf, wallToIso } from "./adminiumStaff.ts";
-import type { SessionTransport } from "./sessionSource.ts";
+import manifest from "../../manifest.json" with { type: "json" };
+import { AdminiumStaff, BOOLS, filterOf, normalizeCode, rowOf, wallToIso, writeRateWait } from "./adminiumStaff.ts";
+import { offerPlan } from "./boxSteps.ts";
+import { SessionPortError, type SessionTransport } from "./sessionSource.ts";
+import { yes, type Row } from "./wire.ts";
 import type { StaffConfig } from "../staffConnection.ts";
 
 const decode = (f: string | null) => (f === null ? null : (JSON.parse(decodeURIComponent(f)) as unknown));
@@ -116,5 +119,149 @@ describe("a list the box office reads", () => {
     expect(await port.list("orders", { limit: 0 })).toEqual({ rows: [], total: 784 });
     expect((await port.list("orders", { limit: 3 })).total).toBe(784);
     expect(asked.map((p) => p.includes("count=exact"))).toEqual([true, true]);
+  });
+});
+
+describe("the box office's writes and reads against a real Adminium's answers", () => {
+  // A transport that keeps the rows written in memory and answers the data API's shapes.
+  function fakeServer(opts: { refuse?: (method: string, path: string, n: number) => number | null; total?: number } = {}) {
+    const tables = new Map<string, Record<string, unknown>[]>();
+    const writes: { method: string; path: string; body: unknown }[] = [];
+    let id = 100;
+    let n = 0;
+    const tableOf = (path: string) => decodeURIComponent(path.split("/")[5] ?? "").replace(/^events_/, "");
+    const t = {
+      connection: async () => "c1",
+      refresh: async () => undefined,
+      relation: async (child: string) => child,
+      tableId: async (name: string) => name,
+      get: async (path: string) => {
+        const rows = tables.get(tableOf(path.split("?")[0]!)) ?? [];
+        const one = /^\/api\/v1\/data\/[^/]+\/[^/?]+\/(\d+)$/.exec(path);
+        if (one !== null) return { data: rows.find((r) => r["id"] === Number(one[1])) };
+        const where = /where=([^&]+)/.exec(path)?.[1];
+        const cond = where === undefined ? null : (JSON.parse(decodeURIComponent(where)) as { column?: string; value?: unknown; and?: { column: string; value: unknown }[] });
+        const all = cond === null ? [] : (cond.and ?? [cond]);
+        const hit = rows.filter((r) => all.every((c) => c.column === undefined || String(r[c.column]) === String(c.value)));
+        const limit = Number(/limit=(\d+)/.exec(path)?.[1] ?? 50);
+        const offset = Number(/offset=(\d+)/.exec(path)?.[1] ?? 0);
+        return { data: hit.slice(offset, offset + limit), page: path.includes("count=exact") ? { total: opts.total ?? hit.length } : {} };
+      },
+      mutate: async (path: string, method: string, body?: unknown) => {
+        n += 1;
+        const refused = opts.refuse?.(method, path, n) ?? null;
+        if (refused !== null) throw new SessionPortError("no", refused, refused === 429 ? "RATE_LIMITED" : refused === 409 ? "UNIQUE_VIOLATION" : "INTERNAL", refused === 429 ? { resetAt: new Date(Date.now() + 2_000).toISOString() } : {});
+        writes.push({ method, path, body });
+        const table = tableOf(path);
+        const rows = tables.get(table) ?? [];
+        tables.set(table, rows);
+        const values = (body as { values?: Record<string, unknown> } | undefined)?.values ?? {};
+        if (method === "POST") {
+          const row = { id: (id += 1), ...values };
+          rows.push(row);
+          return { data: row };
+        }
+        const rowId = Number(path.split("/")[6]);
+        const row = rows.find((r) => r["id"] === rowId) ?? { id: rowId };
+        Object.assign(row, values);
+        return { data: row };
+      },
+    } as unknown as SessionTransport;
+    return { t, tables, writes };
+  }
+  const config = { connectionId: "c1", tables: {}, serverTimezone: "UTC", access: null } as unknown as StaffConfig;
+
+  it("reads a yes/no that MySQL or SQLite answers as 0/1 as a yes/no, for every yes/no column the app has", () => {
+    expect(rowOf({ id: "3", active: 0, required: "1", voided: 1, waitlist_on: "0", eve_email: true })).toEqual({ id: 3, active: false, required: true, voided: true, waitlist_on: false, eve_email: true });
+    const bools = new Set<string>();
+    const walk = (o: unknown): void => {
+      if (Array.isArray(o)) return o.forEach(walk);
+      if (o !== null && typeof o === "object") {
+        if ((o as { type?: unknown }).type === "bool") bools.add(String((o as { ref?: unknown }).ref));
+        Object.values(o).forEach(walk);
+      }
+    };
+    walk(manifest);
+    expect([...BOOLS].sort()).toEqual([...bools].sort());
+    expect([yes(1), yes("1"), yes(true), yes(0), yes("0"), yes(false), yes(null)]).toEqual([true, true, true, false, false, false, false]);
+  });
+
+  it("sends a write refused for rate again, the same request, once the bucket has room — and never holds up the door", async () => {
+    const waits: number[] = [];
+    const server = fakeServer({ refuse: (_method, path, n) => (path.includes("payments") && n <= 2 ? 429 : path.includes("check_ins") ? 429 : null) });
+    const port = new AdminiumStaff(server.t, config, { sleep: async (ms) => void waits.push(ms) });
+    const paid = await port.recordPayment(7, 12, "cash");
+    expect(paid["order_id"]).toBe(7);
+    expect(server.writes.filter((w) => w.path.includes("payments")).length).toBe(1);
+    expect(waits.length).toBe(2);
+    expect(waits.every((ms) => ms >= 1_000 && ms <= 60_000)).toBe(true);
+    await expect(port.checkIn(1, 2, null)).rejects.toMatchObject({ status: 429 });
+    expect(waits.length).toBe(2);
+    expect(writeRateWait({ resetAt: new Date(10_000).toISOString() }, 0)).toBe(10_250);
+    expect(writeRateWait({}, 0)).toBe(5_000);
+  });
+
+  it("says so when asked for every row and there are more than one read brings back", async () => {
+    const server = fakeServer({ total: 25_000 });
+    server.tables.set("tickets", [{ id: 1 }, { id: 2 }]);
+    const port = new AdminiumStaff(server.t, config);
+    await expect(port.rows("tickets")).rejects.toMatchObject({ code: "TOO_MANY_ROWS" });
+    await expect(port.list("tickets", { limit: 20_000 })).rejects.toMatchObject({ code: "TOO_MANY_ROWS" });
+    expect((await port.list("tickets", { limit: 2 })).total).toBe(25_000);
+  });
+
+  it("records a payment once per press: the same press sent again finds the payment it made", async () => {
+    let first = true;
+    const server = fakeServer({ refuse: (method, path) => (path.includes("payments") && method === "POST" && !first ? 409 : null) });
+    const port = new AdminiumStaff(server.t, config);
+    const made = await port.recordPayment(7, 96, "bank_transfer", null, "pay-1753720200000-abc123-00ff00ff");
+    first = false;
+    const again = await port.recordPayment(7, 96, "bank_transfer", null, "pay-1753720200000-abc123-00ff00ff");
+    expect(again.id).toBe(made.id);
+    expect(server.tables.get("payments")!.length).toBe(1);
+    expect(made["client_key"]).toBe("pay-1753720200000-abc123-00ff00ff");
+  });
+
+  it("claims a message before sending, finishes one that stopped part-way, and never emails anyone twice", async () => {
+    let stopAt = 4;
+    const server = fakeServer({ refuse: (method, path, n) => (path.includes("messages") && method === "POST" && n === stopAt ? 500 : null) });
+    const port = new AdminiumStaff(server.t, config);
+    const to = [1, 2, 3, 4, 5, 6].map((o) => ({ order_id: o, to_address: `b${String(o)}@example.com` }));
+    await expect(port.broadcast({ event_id: 9, template: "other", subject: "s", body: "b" }, to, true)).rejects.toBeTruthy();
+    const b = server.tables.get("broadcasts")![0]!;
+    expect(b["status"]).toBe("sending");
+    stopAt = -1;
+    await port.sendBroadcast(b["id"] as number, { subject: "changed" }, to);
+    const mails = server.tables.get("messages")!;
+    expect(mails.map((m) => m["order_id"]).sort()).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(b["status"]).toBe("sent");
+    // The words some already have are kept.
+    expect(b["subject"]).toBe("s");
+    // A waiting message is claimed from waiting: a second sender is refused by the state it names.
+    const claims = server.writes.filter((w) => w.path.includes("broadcasts") && w.method === "PATCH").map((w) => (w.body as { from?: string }).from);
+    expect(claims).toEqual(["waiting", "sending"]);
+  });
+
+  it("offers the places back type by type, never more than a pool has free", () => {
+    const back = [{ id: 1, ticket_type_id: 10 }, { id: 2, ticket_type_id: 11 }, { id: 3, ticket_type_id: 11 }] as Row[];
+    const plan = offerPlan(back, [{ id: 9, ticket_type_id: 11 }] as Row[], [
+      { event_id: 1, ticket_type_id: 10, size: 5, taken: 5, held: 0, reserved: 0, left: 1 },
+      { event_id: 1, ticket_type_id: 11, size: 5, taken: 5, held: 0, reserved: 0, left: 3 },
+      { event_id: 1, ticket_type_id: null, size: 10, taken: 8, held: 0, reserved: 0, left: 5 },
+    ]);
+    expect(plan.take(3).sort()).toEqual([10, 11]);
+    expect(plan.take(2)).toEqual([]);
+    const tight = offerPlan(back, [], [{ event_id: 1, ticket_type_id: null, size: 10, taken: 9, held: 0, reserved: 0, left: 1 }]);
+    expect(tight.take(4)).toHaveLength(1);
+  });
+
+  it("refuses a poster for a show not saved yet in the box office's words", async () => {
+    const port = new AdminiumStaff(fakeServer().t, config);
+    await expect(port.uploadPoster(new File(["x"], "p.jpg", { type: "image/jpeg" }), null)).rejects.toMatchObject({ code: "SAVE_FIRST" });
+  });
+
+  it("says what the person may do with each table, as Adminium told it", async () => {
+    const port = new AdminiumStaff(fakeServer().t, { ...config, access: { roles: [{ slug: "events-door", name: "Door" }], tables: { check_ins: ["read", "create"] } }, user: { id: "1", name: "Sam", email: "sam@example.com" } } as unknown as StaffConfig);
+    expect(await port.me()).toMatchObject({ roles: ["door"], tables: { check_ins: ["read", "create"] } });
   });
 });

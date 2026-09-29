@@ -14,10 +14,11 @@
  * that Adminium refuses reaches the screens with its code and what it said.
  */
 import type { BoxOfficePort, DoorPort, EventChildren, StaffPerson } from "./ports.ts";
+import { cancelShowOrders, offerPlan, recipientKey } from "./boxSteps.ts";
 import { SessionPortError, type SessionTransport } from "./sessionSource.ts";
 import type { StaffConfig } from "../staffConnection.ts";
 import { zoneOffsetMs } from "../lib/venueTime.ts";
-import { ApiError, type Config, type HistoryEntry, type Id, type ListQuery, type ListReply, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type Where } from "./wire.ts";
+import { ApiError, yes, type Config, type HistoryEntry, type Id, type ListQuery, type ListReply, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type Where } from "./wire.ts";
 
 /** The app's key: its roles are named `events-<role>`, its tables `events_<table>` when the server does not say. */
 const APP_KEY = "events";
@@ -26,6 +27,12 @@ const PAGE = 200;
 const MOST_ROWS = 20_000;
 /** The columns the data API answers as decimal strings, read as numbers here. */
 const MONEY = new Set(["price", "subtotal", "discount", "adjusted", "total", "collected", "paid_in", "refunded", "balance", "due", "code_value", "value", "live_price", "live_discount", "amount", "received", "owed_door", "owed_transfer", "owed_overdue"]);
+
+/**
+ * The app's yes/no columns (every `bool` in the manifest): MySQL and SQLite answer them as 0/1, read
+ * here as false/true so no screen meets a number where it asks a yes.
+ */
+export const BOOLS = new Set(["accounts_on", "active", "admits_day1", "admits_day2", "admits_day3", "codes_on", "door_on", "eve_email", "lapsed", "link_stopped", "opt_in", "pay_door", "pay_transfer", "questions_on", "required", "selling", "send_on", "sets_published", "timetable_on", "tonight_email_on", "transfer_on", "voided", "waitlist_on"]);
 
 /** A time with no zone, as a database that keeps none answers it: `2026-07-29 01:59:17.183`. */
 const WALL = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(\.\d+)?)?$/;
@@ -52,6 +59,7 @@ export function rowOf(row: Record<string, unknown>, zone: string | null = null):
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(row)) {
     if ((k === "id" || k.endsWith("_id")) && typeof v === "string" && /^\d+$/.test(v)) out[k] = Number(v);
+    else if (BOOLS.has(k) && v !== null && v !== undefined) out[k] = yes(v);
     // Money by its name, when it is a number: a message's `due` is a moment, a ticket's is money.
     else if (MONEY.has(k) && typeof v === "string" && /^-?\d+(\.\d+)?$/.test(v)) out[k] = Number(v);
     else if (zone !== null && typeof v === "string" && WALL.test(v)) out[k] = wallToIso(v, zone);
@@ -109,6 +117,25 @@ interface Page {
 export interface StaffOptions {
   /** Where signing out lands. */
   leave?: (url: string) => void;
+  /** Test seam: how a write waits out the person's rate limit. */
+  sleep?: (ms: number) => Promise<void>;
+}
+
+/**
+ * A box-office write refused for rate (429) is sent again, the same request, once the person's bucket has
+ * room: Adminium answers 429 before it runs anything, so nothing was written and a resend cannot write
+ * twice. A long run (a show cancelled, a message to hundreds) goes at the pace the bucket allows instead
+ * of stopping part-way. The door's own writes are never held back here: a scan must answer at once.
+ */
+const WRITE_RATE_TRIES = 8;
+const WRITE_RATE_WAIT_MS = 5_000;
+const WRITE_RATE_WAIT_CAP_MS = 60_000;
+
+/** How long a 429 on a write asks to wait: until the bucket's reset it names, else a default. */
+export function writeRateWait(details: unknown, now = Date.now()): number {
+  const reset = details !== null && typeof details === "object" ? Date.parse(String((details as { resetAt?: unknown }).resetAt ?? "")) : Number.NaN;
+  if (Number.isNaN(reset)) return WRITE_RATE_WAIT_MS;
+  return Math.min(WRITE_RATE_WAIT_CAP_MS, Math.max(1_000, reset - now + 250));
 }
 
 export class AdminiumStaff implements BoxOfficePort, DoorPort {
@@ -143,17 +170,27 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
    * the one this page holds is refused, and the write never happened — so it
    * is sent once more with a fresh token.
    */
-  private async mutate<T>(path: string, method: "POST" | "PATCH" | "DELETE", body?: unknown): Promise<T> {
+  private async mutate<T>(path: string, method: "POST" | "PATCH" | "DELETE", body?: unknown, paced = true): Promise<T> {
     // The session's CSRF token is captured when the transport first finds its connection: a door phone's
     // first act can be a write (a scan), so it is found before one.
     this.found ??= this.t.connection();
     await this.found;
-    try {
-      return await this.t.mutate<T>(path, method, body);
-    } catch (error) {
-      if (!refusedAs(error, "CSRF_FAILED")) throw error;
-      await this.t.refresh();
-      return this.t.mutate<T>(path, method, body);
+    const send = async (): Promise<T> => {
+      try {
+        return await this.t.mutate<T>(path, method, body);
+      } catch (error) {
+        if (!refusedAs(error, "CSRF_FAILED")) throw error;
+        await this.t.refresh();
+        return this.t.mutate<T>(path, method, body);
+      }
+    };
+    for (let tries = 1; ; tries += 1) {
+      try {
+        return await send();
+      } catch (error) {
+        if (!paced || tries >= WRITE_RATE_TRIES || !(error instanceof SessionPortError) || error.status !== 429) throw error;
+        await (this.opts.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))))(writeRateWait(error.details));
+      }
     }
   }
   private async page(table: string, filter: string | null, limit: number, offset: number, order: string | null, counted = false): Promise<Page> {
@@ -163,11 +200,11 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
   private async one(table: string, id: Id): Promise<Row> {
     return this.row((await this.t.get<{ data: Record<string, unknown> }>(await this.path(table, `/${encodeURIComponent(String(id))}`))).data);
   }
-  private async insert(table: string, values: Record<string, unknown>, extra: Record<string, unknown> = {}): Promise<Row> {
-    return this.row((await this.mutate<{ data: Record<string, unknown> }>(await this.path(table), "POST", { values, ...extra })).data);
+  private async insert(table: string, values: Record<string, unknown>, extra: Record<string, unknown> = {}, paced = true): Promise<Row> {
+    return this.row((await this.mutate<{ data: Record<string, unknown> }>(await this.path(table), "POST", { values, ...extra }, paced)).data);
   }
-  private async change(table: string, id: Id, values: Record<string, unknown>, extra: Record<string, unknown> = {}): Promise<Row> {
-    return this.row((await this.mutate<{ data: Record<string, unknown> }>(await this.path(table, `/${encodeURIComponent(String(id))}`), "PATCH", { values, ...extra })).data);
+  private async change(table: string, id: Id, values: Record<string, unknown>, extra: Record<string, unknown> = {}, paced = true): Promise<Row> {
+    return this.row((await this.mutate<{ data: Record<string, unknown> }>(await this.path(table, `/${encodeURIComponent(String(id))}`), "PATCH", { values, ...extra }, paced)).data);
   }
   /** Adminium's clock, from the config's `now` (never the phone's). */
   private now(): number {
@@ -182,7 +219,7 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
   async me(): Promise<StaffPerson> {
     const prefix = `${APP_KEY}-`;
     const roles = (this.cfg.access?.roles ?? []).map((r) => (r.slug.startsWith(prefix) ? r.slug.slice(prefix.length) : r.slug));
-    return { name: this.cfg.user?.name ?? "", roles, email: this.cfg.user?.email ?? null };
+    return { name: this.cfg.user?.name ?? "", roles, email: this.cfg.user?.email ?? null, tables: this.cfg.access === null || this.cfg.access === undefined ? null : { ...this.cfg.access.tables } };
   }
 
   async config(): Promise<Config> {
@@ -215,6 +252,8 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
         rows.push(...got.data.map((r) => this.row(r)));
         if (got.data.length < size) break;
       }
+      // Asked for every row and there are more than one read brings back: said, never cut short quietly.
+      if (want === MOST_ROWS && total > rows.length) throw new ApiError(413, "TOO_MANY_ROWS", { table, total, read: rows.length });
       return { rows, total: Math.max(total, rows.length) };
     });
   }
@@ -261,8 +300,8 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
   create(table: string, values: Record<string, unknown>): Promise<Row> {
     return answer(() => this.insert(table, values));
   }
-  update(table: string, id: Id, values: Record<string, unknown>): Promise<Row> {
-    return answer(() => this.change(table, id, values));
+  update(table: string, id: Id, values: Record<string, unknown>, from?: string): Promise<Row> {
+    return answer(() => this.change(table, id, values, from === undefined ? {} : { from }));
   }
   remove(table: string, id: Id): Promise<void> {
     return answer(async () => {
@@ -274,7 +313,7 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
    * A show saved with its days, types, acts and questions in one write. Each
    * list is the whole list: a row left out goes (a sold type is refused).
    */
-  saveEvent(id: Id | null, values: Record<string, unknown>, children: EventChildren): Promise<Row> {
+  saveEvent(id: Id | null, values: Record<string, unknown>, children: Partial<EventChildren>): Promise<Row> {
     return answer(async () => {
       const kids: Record<string, { key?: { id: Id }; values: Record<string, unknown> }[]> = {};
       for (const [table, rows] of Object.entries(children) as [keyof EventChildren, Record<string, unknown>[]][]) {
@@ -296,30 +335,37 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
     });
   }
 
-  /** The emails of a message to a show's buyers, one an order: written after the message, a few at a time. */
+  /**
+   * The emails of a message to a show's buyers, one an order: only those it does not have yet (a send
+   * that stopped part-way is finished, nobody twice), a few at a time.
+   */
   private async queueBroadcast(b: Row, to: Record<string, unknown>[]): Promise<void> {
     const kind = b["template"] === "moved" ? "moved" : "broadcast";
-    for (let i = 0; i < to.length; i += 8) {
-      await Promise.all(
-        to.slice(i, i + 8).map((row) => this.insert("messages", { kind, event_id: b["event_id"], broadcast_id: b.id, ...row })),
-      );
+    const had = await this.list("messages", { where: [{ column: "broadcast_id", eq: b.id }], limit: MOST_ROWS });
+    const done = new Set(had.rows.map(recipientKey));
+    const missing = to.filter((row) => !done.has(recipientKey(row)));
+    for (let i = 0; i < missing.length; i += 4) {
+      await Promise.all(missing.slice(i, i + 4).map((row) => this.insert("messages", { kind, event_id: b["event_id"], broadcast_id: b.id, ...row })));
     }
   }
 
   broadcast(values: Record<string, unknown>, to: Record<string, unknown>[], send: boolean): Promise<Row> {
     return answer(async () => {
-      const made = await this.insert("broadcasts", { ...values, status: send ? "sent" : "waiting" });
-      if (send) await this.queueBroadcast(made, to);
-      return made;
+      const made = await this.insert("broadcasts", { ...values, status: "waiting" });
+      return send ? this.sendNow(made, {}, to) : made;
     });
   }
 
   sendBroadcast(id: Id, values: Record<string, unknown>, to: Record<string, unknown>[]): Promise<Row> {
-    return answer(async () => {
-      const sent = await this.change("broadcasts", id, { ...values, status: "sent" });
-      await this.queueBroadcast(sent, to);
-      return sent;
-    });
+    return answer(async () => this.sendNow(await this.one("broadcasts", id), values, to));
+  }
+
+  /** Claimed (waiting → sending: a second sender is refused), its emails written, then sent. */
+  private async sendNow(b: Row, values: Record<string, unknown>, to: Record<string, unknown>[]): Promise<Row> {
+    // One that stopped part-way keeps the words some people already have.
+    const claimed = b["status"] === "sending" ? b : await this.change("broadcasts", b.id, { ...values, status: "sending" }, { from: "waiting" });
+    await this.queueBroadcast(claimed, to);
+    return this.change("broadcasts", b.id, { status: "sent" }, { from: "sending" });
   }
 
   exportFormats(): string[] {
@@ -327,9 +373,9 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
   }
 
   /** A show's poster, uploaded onto the show itself (a file not linked to its row is swept). */
-  uploadPoster(file: File, eventId?: Id): Promise<string> {
+  uploadPoster(file: File, eventId: Id | null): Promise<string> {
     return answer(async () => {
-      if (eventId === undefined) throw new ApiError(409, "SAVE_FIRST", {}, "Save the show first, then add its poster.");
+      if (eventId === null) throw new ApiError(409, "SAVE_FIRST", {}, "Save the show first, then add its poster.");
       const conn = this.cfg.connectionId ?? (await this.t.connection());
       const tableId = await this.t.tableId(this.real("events"));
       const q = new URLSearchParams({ filename: file.name, connectionId: conn, table: tableId, column: "image", recordId: String(eventId) });
@@ -390,16 +436,32 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
     });
   }
 
-  move(orderId: Id, status: string, values: Record<string, unknown> = {}): Promise<Row> {
-    return answer(() => this.change("orders", orderId, { ...values, status }));
+  move(orderId: Id, status: string, values: Record<string, unknown> = {}, from?: string): Promise<Row> {
+    return answer(() => this.change("orders", orderId, { ...values, status }, from === undefined ? {} : { from }));
   }
 
-  recordPayment(orderId: Id, amount: number, method: "bank_transfer" | "card" | "cash", note: string | null = null): Promise<Row> {
-    return answer(() => this.insert("payments", { order_id: orderId, amount: amount.toFixed(2), method, note }));
+  recordPayment(orderId: Id, amount: number, method: "bank_transfer" | "card" | "cash", note: string | null = null, key?: string): Promise<Row> {
+    return answer(() => this.keyed("payments", { order_id: orderId, amount: amount.toFixed(2), method, note }, key));
   }
 
-  recordRefund(orderId: Id, amount: number, method: "bank_transfer" | "card" | "cash", kind: "cancelled_tickets" | "goodwill"): Promise<Row> {
-    return answer(() => this.insert("refunds", { order_id: orderId, amount: amount.toFixed(2), method, kind }));
+  recordRefund(orderId: Id, amount: number, method: "bank_transfer" | "card" | "cash", kind: "cancelled_tickets" | "goodwill", key?: string): Promise<Row> {
+    return answer(() => this.keyed("refunds", { order_id: orderId, amount: amount.toFixed(2), method, kind }, key));
+  }
+
+  /**
+   * Money written once per press: the row carries the press's key, which is unique, so a press sent again
+   * (its first answer lost) is refused as already there and answered with the row it made.
+   */
+  private async keyed(table: string, values: Record<string, unknown>, key: string | undefined): Promise<Row> {
+    if (key === undefined) return this.insert(table, values);
+    try {
+      return await this.insert(table, { ...values, client_key: key });
+    } catch (error) {
+      if (!refusedAs(error, "UNIQUE_VIOLATION")) throw error;
+      const made = (await this.list(table, { where: [{ column: "client_key", eq: key }], limit: 1 })).rows[0];
+      if (made === undefined) throw error;
+      return made;
+    }
   }
 
   /** Tickets cancelled, each its own write: on a show with a waitlist their places go to it. */
@@ -409,7 +471,7 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
       for (const id of ticketIds) {
         const ticket = await this.one("tickets", id);
         const eventId = ticket["event_id"] as Id;
-        if (!shows.has(eventId)) shows.set(eventId, (await this.one("events", eventId))["waitlist_on"] === true);
+        if (!shows.has(eventId)) shows.set(eventId, yes((await this.one("events", eventId))["waitlist_on"]));
         await this.change("tickets", id, { status: shows.get(eventId) === true ? "returned" : "cancelled", cancel_cause: cause }, { from: ticket["status"] });
       }
     });
@@ -420,45 +482,35 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
   }
 
   /**
-   * The places back offered to the next people, in joining order (the next is
-   * offered what is back): for each, an order made, moved to offered (which
-   * starts its time), and the waitlist place moved to offered.
+   * The places back offered to the next people, in joining order (the next is offered what is back): for
+   * each, an order made of the types that came back, moved to offered (which starts its time), and the
+   * waitlist place moved to offered with its offer's order.
    */
   offerWaitlist(eventId: Id): Promise<Row[]> {
     return answer(async () => {
-      const returned = (await this.list("tickets", { where: [{ column: "event_id", eq: eventId }, { column: "status", eq: "returned" }], limit: 2000 })).rows;
-      const offeredOrders = (await this.list("orders", { where: [{ column: "event_id", eq: eventId }, { column: "status", eq: "offered" }], limit: 500 })).rows;
-      const offeredAlready = offeredOrders.length === 0 ? 0 : await this.count("tickets", [{ column: "order_id", in: offeredOrders.map((o) => o.id) }]);
-      // Never more than the places free for the box office: a claim that kept its places could not hand the
-      // waitlist's back, so the returned tickets can outnumber them.
-      const pools = await this.counts(eventId);
-      const free = Math.min(...pools.filter((p) => p.ticket_type_id === null || p.ticket_type_id === returned[0]?.["ticket_type_id"]).map((p) => p.left));
-      let left = Math.min(returned.length - offeredAlready, Number.isFinite(free) ? free : 0);
-      const type = returned[0]?.["ticket_type_id"] as Id | undefined;
+      const returned = (await this.list("tickets", { where: [{ column: "event_id", eq: eventId }, { column: "status", eq: "returned" }], limit: MOST_ROWS })).rows;
+      const offeredOrders = (await this.list("orders", { where: [{ column: "event_id", eq: eventId }, { column: "status", eq: "offered" }], limit: MOST_ROWS })).rows;
+      const offeredTickets = offeredOrders.length === 0 ? [] : (await this.list("tickets", { where: [{ column: "order_id", in: offeredOrders.map((o) => o.id) }], limit: MOST_ROWS })).rows;
+      const plan = offerPlan(returned, offeredTickets, await this.counts(eventId));
       const queue = (await this.list("waitlist", { where: [{ column: "event_id", eq: eventId }, { column: "status", eq: "waiting" }], sort: [{ column: "joined_at" }], limit: 500 })).rows;
       const offers: Row[] = [];
       for (const entry of queue) {
-        if (left <= 0 || type === undefined) break;
-        const n = Math.min(Number(entry["qty"]), left);
+        const tickets = plan.take(Number(entry["qty"]));
+        if (tickets.length === 0) break;
         const made = await this.newOrder(
-          { values: { event_id: eventId, channel: "box_office", email: entry["email"], customer_id: entry["customer_id"], waitlist_id: entry.id }, tickets: Array.from({ length: n }, () => ({ ticket_type_id: type })) },
+          { values: { event_id: eventId, channel: "box_office", email: entry["email"], customer_id: entry["customer_id"], waitlist_id: entry.id }, tickets: tickets.map((ticket_type_id) => ({ ticket_type_id })) },
           `offer-${String(entry.id)}-${String(this.now())}-${Math.random().toString(36).slice(2, 10)}`,
         );
         offers.push(await this.change("orders", made.data.id, { status: "offered" }, { from: "held" }));
-        await this.change("waitlist", entry.id, { status: "offered" }, { from: "waiting" });
-        left -= n;
+        await this.change("waitlist", entry.id, { status: "offered", order_id: made.data.id }, { from: "waiting" });
       }
       return offers;
     });
   }
 
-  /** A show cancelled: the show, then each live order, each its own write. */
+  /** A show and its live orders cancelled, each order its own write; their emails held until sent. */
   cancelShow(eventId: Id): Promise<void> {
-    return answer(async () => {
-      await this.change("events", eventId, { status: "cancelled" }, { from: "published" });
-      const live = (await this.list("orders", { where: [{ column: "event_id", eq: eventId }, { column: "status", in: ["held", "confirming", "offered", "door", "awaiting_transfer", "overdue", "no_charge", "paid"] }], limit: 10_000 })).rows;
-      for (const order of live) await this.change("orders", order.id, { status: "cancelled", cancel_cause: "show" }, { from: order["status"] });
-    });
+    return cancelShowOrders(this, eventId);
   }
 
   // ── the door ──────────────────────────────────────────────────────────────
@@ -478,11 +530,11 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
   /** A ticket's door money taken; the order moved to paid by the door itself once nothing is owed. */
   collect(ticketId: Id, method: "card" | "cash", deviceId: Id | null, occurredAt?: number): Promise<Row> {
     return answer(async () => {
-      const made = await this.insert("door_collections", { ticket_id: ticketId, method, device_id: deviceId }, occurredAt === undefined ? {} : { occurredAt: new Date(occurredAt).toISOString() });
+      const made = await this.insert("door_collections", { ticket_id: ticketId, method, device_id: deviceId }, occurredAt === undefined ? {} : { occurredAt: new Date(occurredAt).toISOString() }, false);
       const order = await this.one("orders", made["order_id"] as Id);
       if (order["status"] === "door" && Number(order["balance"] ?? 0) <= 0) {
         try {
-          await this.change("orders", order.id, { status: "paid", paid_method: method }, { from: "door" });
+          await this.change("orders", order.id, { status: "paid", paid_method: method }, { from: "door" }, false);
         } catch (error) {
           // Another phone paid it off a moment ago: it is paid either way.
           if (!refusedAs(error, "STATE_MOVE_REFUSED") && !refusedAs(error, "STATE_UNCHANGED")) throw error;
@@ -493,10 +545,13 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
   }
 
   checkIn(ticketId: Id, eventDayId: Id, deviceId: Id | null, occurredAt?: number): Promise<Row> {
-    return answer(() => this.insert("check_ins", { ticket_id: ticketId, event_day_id: eventDayId, device_id: deviceId }, occurredAt === undefined ? {} : { occurredAt: new Date(occurredAt).toISOString() }));
+    return answer(() => this.insert("check_ins", { ticket_id: ticketId, event_day_id: eventDayId, device_id: deviceId }, occurredAt === undefined ? {} : { occurredAt: new Date(occurredAt).toISOString() }, false));
   }
 
   undo(checkInId: Id): Promise<void> {
-    return this.remove("check_ins", checkInId);
+    return answer(async () => {
+      await this.mutate(await this.path("check_ins", `/${encodeURIComponent(String(checkInId))}`), "DELETE", undefined, false);
+    });
   }
 }
+
