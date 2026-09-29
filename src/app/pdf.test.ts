@@ -15,6 +15,7 @@ import { fD, fT, money, setZone } from "./fmt.ts";
 import { latin, ticketPdf } from "./pdf.ts";
 import { ageWords } from "./vals/audience.ts";
 import { ticketLines } from "./vals/account.ts";
+import type { Row } from "../data/wire.ts";
 import type { Show } from "./world.ts";
 
 const at = (s: string) => Date.parse(s);
@@ -25,7 +26,7 @@ const show = {
   start: at("2026-07-28T20:30:00Z"),
   age: "18",
 } as unknown as Show;
-const ticket = { holder_name: "Mia Hart", name: "Standard", code: "K7QXM2PD" };
+const ticket = { id: 1, holder_name: "Mia Hart", name: "Standard", code: "K7QXM2PD" } as unknown as Row;
 
 const STATUSES: [string, () => string, RegExp][] = [
   ["pay at the door", () => tr("Pay {amount} at the door", { amount: money(24) }), /24[.,]00/],
