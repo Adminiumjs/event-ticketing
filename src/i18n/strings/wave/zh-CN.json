@@ -1407,5 +1407,6 @@
  "You're signed out — sign in again.": "你已退出登录——请重新登录。",
  "You're signed out": "你已退出登录",
  "Adminium isn't taking anything from this page until you sign in again. What the door lets in meanwhile stays on this phone and is sent then.": "在你重新登录之前，Adminium 不会接收此页面的任何操作。在此期间门口的检票会保存在这部手机上，届时再发送。",
- "{n} check-in or payment hasn't synced yet|{n} check-ins and payments haven't synced yet": "还有 {n} 条检票或付款记录未同步"
+ "{n} check-in or payment hasn't synced yet|{n} check-ins and payments haven't synced yet": "还有 {n} 条检票或付款记录未同步",
+ "Someone else is sending this message already — it goes out once.": "已有其他人在发送这条消息——它只会发出一次。"
 }

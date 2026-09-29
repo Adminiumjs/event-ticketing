@@ -681,15 +681,20 @@ export class DemoBoxOffice implements BoxOfficePort {
   }
 
   async update(table: string, id: Id, values: Record<string, unknown>, from?: string): Promise<Row> {
-    this.seen(table, id, from);
+    this.seen(table, id, from, values["status"]);
     return this.engine.update(table as Table, id, values, this.writer);
   }
 
-  /** A change that names the state it saw: refused, as Adminium refuses it, when the row has moved on. */
-  private seen(table: string, id: Id, from: string | undefined): void {
+  /**
+   * A change that names the state it saw, refused as Adminium refuses it: first one naming the state a
+   * once-only row already holds (a message a colleague is sending already), then one whose row has moved on.
+   */
+  private seen(table: string, id: Id, from: string | undefined, to?: unknown): void {
     if (from === undefined) return;
     const now = this.engine.world.get(table as Table, id)?.["status"];
-    if (now !== from) throw new ApiError(409, "STATE_MOVE_REFUSED", { column: "status", from: now ?? null, named: from });
+    const strict = (MANIFEST_RULES.states as Record<string, { strict?: boolean } | undefined>)[table]?.strict === true;
+    if (strict && to !== undefined && to === now) throw new ApiError(409, "STATE_UNCHANGED", { column: "status", state: now });
+    if (now !== from) throw new ApiError(409, "STATE_MOVE_REFUSED", { column: "status", from: now ?? null, ...(to === undefined ? {} : { to }), named: from });
   }
 
   async remove(table: string, id: Id): Promise<void> {
@@ -760,7 +765,7 @@ export class DemoBoxOffice implements BoxOfficePort {
   private sendNow(b: Row, values: Record<string, unknown>, to: Record<string, unknown>[]): void {
     const engine = this.engine;
     if (b["status"] !== "sending") {
-      this.seen("broadcasts", b.id, "waiting");
+      this.seen("broadcasts", b.id, "waiting", "sending");
       engine.update("broadcasts", b.id, { ...values, status: "sending" }, this.writer);
     }
     this.queueBroadcast(engine.world.get("broadcasts", b.id)!, to);
@@ -817,7 +822,7 @@ export class DemoBoxOffice implements BoxOfficePort {
   }
 
   async move(orderId: Id, status: string, values: Record<string, unknown> = {}, from?: string): Promise<Row> {
-    this.seen("orders", orderId, from);
+    this.seen("orders", orderId, from, status);
     return this.engine.update("orders", orderId, { ...values, status }, this.writer);
   }
 
