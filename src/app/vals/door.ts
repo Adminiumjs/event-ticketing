@@ -109,7 +109,7 @@ export function doorVals(app: WaveApp, nar: boolean): V {
   const ticketsToday = online ? box.count("tickets", liveWhere) : undefined;
   const guestRows = show.guestPlaces > 0 || fest === false ? (box.list("guest_list", { where: [{ column: "event_id", eq: show.id }], sort: [{ column: "id" }], limit: 500 })?.rows ?? []) : [];
   const gPeople = guestRows.reduce((a, g) => a + Number(g["people"] ?? 1), 0);
-  const gIn = guestRows.reduce((a, g) => a + Number(g["arrived"] ?? 0), 0);
+  const gIn = guestRows.reduce((a, g) => a + door.arrivedOf(g), 0);
   const list = door.list(t);
   const kept = !online && list !== undefined;
   const inToday = kept ? list.checkIns.length + s.queue.filter((q) => q.kind === "in" && q.dayId === t.day.id).length : (box.count("check_ins", [{ column: "event_day_id", eq: t.day.id }]) ?? 0);
@@ -162,7 +162,7 @@ export function doorVals(app: WaveApp, nar: boolean): V {
     const on = tab === id;
     return {
       id: `dr-tab-${id}`,
-      panel: `dr-panel-${id}`,
+      panel: on ? `dr-panel-${id}` : undefined,
       label,
       on,
       tabIndex: on ? 0 : -1,
@@ -203,7 +203,7 @@ export function doorVals(app: WaveApp, nar: boolean): V {
   // The guest list, each party ticked in person by person.
   const guests = guestRows.map((g) => {
     const tot = Number(g["people"] ?? 1);
-    const k = Number(g["arrived"] ?? 0);
+    const k = door.arrivedOf(g);
     const plus = Number(g["plus"] ?? 0);
     const sub = [String(g["on_behalf"] ?? ""), String(g["note"] ?? "")].filter((x) => x !== "" && x !== "null");
     if (k > 0) sub.push(tot > 1 ? tr("{n} of {total} in", { n: k, total: tot }) : tr("in {time}", { time: strip(fT(g["in_at"])) }));
@@ -221,7 +221,7 @@ export function doorVals(app: WaveApp, nar: boolean): V {
       },
     };
   });
-  const namesIn = guestRows.filter((g) => Number(g["arrived"] ?? 0) > 0).length;
+  const namesIn = guestRows.filter((g) => door.arrivedOf(g) > 0).length;
   const gTxt = `${tr("{n} of {total} names in|{n} of {total} names in", { n: namesIn, total: guestRows.length })} · ${tr("{n} of {total} person|{n} of {total} people", { n: gIn, total: gPeople })}`;
 
   // Sell: the show's types (a festival's, those that let in today) with what is left for the box office.
@@ -302,8 +302,9 @@ export function doorVals(app: WaveApp, nar: boolean): V {
             if (v.collect === null && (e.key === "Enter" || e.key === " ")) {
               e.preventDefault();
               door.dismiss();
-            }
+            } else if (e.key !== "Escape") door.hold(true);
           },
+          blur: () => door.hold(false),
           down: () => door.hold(true),
           up: () => door.hold(false),
           style: `position:absolute; inset:0; z-index:20; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:28px 22px; background:${colr[v.k]}; color:${vfg}; cursor:${v.collect === null ? "pointer" : "default"}; overflow-wrap:anywhere;`,
@@ -364,9 +365,11 @@ export function doorVals(app: WaveApp, nar: boolean): V {
     tapScan,
     padLabel: demoScan !== undefined ? tr("Scan the next ticket in the queue") : tr("Camera — point it at the ticket's QR code"),
     padMsg,
+    usesCamera: demoScan === undefined,
     camOn: cam === "on",
     camBad: cam === "blocked" || cam === "none",
-    onCode: (text: string) => void door.scan(text, "pad"),
+    // A code the camera reads is taken only when the door is ready for it (no verdict up, no scan on its way).
+    onCode: (text: string) => door.s.verdict === null && !door.s.busy && (void door.scan(text, "pad"), true),
     onCamera: (state: "on" | "off" | "blocked" | "none") => door.cameraState(state),
     q: s.q,
     onQ: (e: { target: { value: string } }) => door.set({ q: e.target.value }),
@@ -419,7 +422,7 @@ function found(app: WaveApp, door: Door, t: Tonight, q: string, guestRows: Row[]
     ins = tids.length === 0 ? [] : (box.list("check_ins", { where: [{ column: "event_day_id", eq: t.day.id }, { column: "ticket_id", in: [...tids].sort((a, b) => a - b) }], limit: 6 })?.rows ?? []);
   } else {
     const f = fold(q);
-    tickets = (list?.tickets ?? []).filter((x) => fold(x["holder_name"]).includes(f) || fold(x["pending_name"]).includes(f) || (code && fold(x["code"]).replace(/-/g, "").includes(f.replace(/-/g, "")))).slice(0, 6);
+    tickets = (list?.tickets ?? []).filter((x) => x["event_id"] === show.id).filter((x) => fold(x["holder_name"]).includes(f) || fold(x["pending_name"]).includes(f) || (code && fold(x["code"]).replace(/-/g, "").includes(f.replace(/-/g, "")))).slice(0, 6);
     orders = list?.orders ?? [];
     ins = list?.checkIns ?? [];
   }

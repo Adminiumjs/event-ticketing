@@ -7,7 +7,7 @@
  */
 import type { Id, OrderBody, Row } from "../../data/wire.ts";
 import { tr } from "../../i18n/tr.ts";
-import { boxOf, LIVE_TICKET, plural, type Box } from "../box.ts";
+import { boxOf, LIVE_TICKET, plural, unsentScans, type Box } from "../box.ts";
 import { doorOf } from "../door.ts";
 import type { BoxShow } from "../boxWorld.ts";
 import { fD, fT, money, ms, num } from "../fmt.ts";
@@ -101,7 +101,7 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
 
   // Signing out with check-ins this phone has not sent yet.
   if (k === "drSignOut") {
-    const n = (app.state.door?.queue ?? []).filter((q) => q.kind === "in").length;
+    const n = unsentScans();
     Object.assign(o, {
       icon: "wifi-off",
       tone: "warn",

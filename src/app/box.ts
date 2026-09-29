@@ -103,6 +103,8 @@ const WHOLE = ["settings", "rooms", "events", "event_days", "acts", "ticket_type
 
 export class Box {
   readonly app: WaveApp;
+  /** What goes from this phone at sign-out (the door's list of tonight). */
+  readonly onSignOut: (() => void)[] = [];
   private memo: { key: unknown[]; w: BoxWorld } | null = null;
 
   constructor(app: WaveApp) {
@@ -770,11 +772,12 @@ export class Box {
       return;
     }
     // Check-ins the door has not sent yet are asked about first; signing out takes tonight's list off the phone.
-    if (!anyway && (this.app.state.door?.queue ?? []).some((q) => q.kind === "in")) {
+    if (!anyway && unsentScans() > 0) {
       this.app.openSheet("drSignOut", {});
       return;
     }
     this.app.closeSheet();
+    for (const forget of this.onSignOut) forget();
     this.app.setState({ door: null });
     try {
       localStorage.removeItem("wv-door-queue");
@@ -921,6 +924,16 @@ export function refusalOf(error: unknown): string {
       return tr("Adminium didn't take that — check the values.");
     default:
       return tr("Adminium didn't take that.");
+  }
+}
+
+/** The door's check-ins this phone has not sent yet (kept in the browser, so counted even before the door is opened). */
+export function unsentScans(): number {
+  try {
+    const v = JSON.parse(localStorage.getItem("wv-door-queue") ?? "[]") as unknown;
+    return Array.isArray(v) ? v.filter((q) => (q as { kind?: unknown }).kind === "in").length : 0;
+  } catch {
+    return 0;
   }
 }
 

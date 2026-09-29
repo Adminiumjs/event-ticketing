@@ -71,6 +71,8 @@ export interface Queued {
   deviceId: Id | null;
   at: number;
   method?: "card" | "cash";
+  /** A collection's amount (for the clash line when it cannot be recorded). */
+  amount?: number;
   name: string;
 }
 
@@ -92,10 +94,12 @@ export interface DoorState {
   clash: string[];
   camera: "off" | "on" | "blocked" | "none";
   busy: boolean;
+  /** The door sale being made: its retry key, kept until it goes through (a second press is the same sale). */
+  sellKey: string | null;
 }
 
 export function doorFresh(): DoorState {
-  return { dayId: null, tab: "scan", q: "", verdict: null, recent: [], sellType: null, sellQ: 1, chk: {}, offline: false, lost: false, queue: readQueue(), clash: [], camera: "off", busy: false };
+  return { dayId: null, tab: "scan", q: "", verdict: null, recent: [], sellType: null, sellQ: 1, chk: {}, offline: false, lost: false, queue: readQueue(), clash: [], camera: "off", busy: false, sellKey: null };
 }
 
 const QUEUE_KEY = "wv-door-queue";
@@ -194,12 +198,15 @@ export class Door {
   private syncing = false;
   /** Whether this phone was asked once which door it is. */
   askedDevice = false;
+  private arrived = new Map<Id, number>();
+  private guestBusy = new Set<Id>();
 
   constructor(app: WaveApp) {
     this.app = app;
     this.box = boxOf(app);
     const before = app.escapeHook;
     app.escapeHook = () => this.escape() || (before?.() ?? false);
+    this.box.onSignOut.push(() => this.forget());
     if (typeof window !== "undefined") {
       window.addEventListener("online", () => {
         this.set({ lost: false });
@@ -207,6 +214,8 @@ export class Door {
       });
       window.addEventListener("offline", () => this.wentOffline());
     }
+    // Scans kept from before the page was reloaded go now.
+    if (readQueue().length > 0) setTimeout(() => void this.sync(), 0);
   }
 
   get port(): DoorPort {
@@ -320,7 +329,9 @@ export class Door {
   /** Tonight's tickets, their orders and today's check-ins, as the door last read them. */
   list(t: Tonight): { tickets: Row[]; orders: Row[]; checkIns: Row[] } | undefined {
     if (!this.online() && this.kept?.dayId === t.day.id) return this.kept;
-    const where = [{ column: "event_id", eq: t.show.id }];
+    // Every show on tonight: a ticket for the room next door is still named without the signal.
+    const ids = [...new Set(this.tonight().map((x) => x.show.id))].sort((a, b) => a - b);
+    const where = [{ column: "event_id", in: ids.length > 0 ? ids : [t.show.id] }];
     const tickets = this.box.list("tickets", { where, limit: 20_000 });
     const orders = this.box.list("orders", { where, limit: 10_000 });
     const checkIns = this.box.list("check_ins", { where: [{ column: "event_day_id", eq: t.day.id }], limit: 20_000 });
@@ -332,23 +343,32 @@ export class Door {
   // ── scanning ───────────────────────────────────────────────────────────
 
   /** A code from the camera, the Find box or a result tapped. */
-  async scan(code: string, from: "pad" | "find" = "pad"): Promise<void> {
+  async scan(code: string, from: "pad" | "find" = "pad"): Promise<boolean> {
     const t = this.chosen();
-    if (t === null || this.s.busy) return;
-    if (this.s.verdict?.collect != null) return;
+    // One person at a time: a code read while a verdict is up (or a scan is on its way) waits for the next read.
+    if (t === null || this.s.busy || this.s.verdict !== null) return false;
     this.set({ q: "", busy: true });
     try {
-      if (!this.online()) return this.judgeHere(t, code, from);
+      if (!this.online()) {
+        this.judgeHere(t, code, from);
+        return true;
+      }
       let hit: Awaited<ReturnType<DoorPort["find"]>>;
       try {
         hit = await this.port.find(code, t.day.id);
       } catch (error) {
-        if (isApiError(error)) return this.show(this.danger(tr("Not found"), "", segs("No ticket with that code. If they were sent a ticket, ask for the new one.", {}), from));
+        if (isApiError(error) && error.status < 500) {
+          if (error.status === 404) this.show(this.danger(tr("Not found"), "", segs("No ticket with that code. If they were sent a ticket, ask for the new one.", {}), from));
+          else this.app.toast(refusalOf(error), "circle-alert");
+          return true;
+        }
         this.lose();
-        return this.judgeHere(t, code, from);
+        this.judgeHere(t, code, from);
+        return true;
       }
-      if (hit === null) return this.show(this.danger(tr("Not found"), "", segs("No ticket with that code. If they were sent a ticket, ask for the new one.", {}), from));
-      await this.admit(t, hit.ticket, hit.order, from, null);
+      if (hit === null) this.show(this.danger(tr("Not found"), "", segs("No ticket with that code. If they were sent a ticket, ask for the new one.", {}), from));
+      else await this.admit(t, hit.ticket, hit.order, from, null);
+      return true;
     } finally {
       this.set({ busy: false });
     }
@@ -368,7 +388,9 @@ export class Door {
     } catch (error) {
       if (!isApiError(error)) {
         this.lose();
-        this.enqueue(t, ticket, "in", undefined, from, paid);
+        // Collected already: only the check-in is owed. Otherwise the ticket and order just read judge it, as offline.
+        if (paid !== null) this.enqueue(t, ticket, from, paid);
+        else this.judgeLocal(t, ticket, order, from);
         return;
       }
       if (paid !== null) this.remember({ key: `${String(ticket.id)}:${String(t.day.id)}`, checkInId: null, ticketId: ticket.id, code: String(ticket["code"] ?? ""), name, type, at: this.app.now, made: Date.now(), paid, undone: true, queued: false });
@@ -483,6 +505,7 @@ export class Door {
     this.set({ busy: true });
     try {
       const dev = this.device();
+      let paid: Scan["paid"] = { amount: c.amount, method };
       if (!this.online()) {
         const hit = this.fromList(t, c.code);
         if (hit !== null) return this.enqueueCollect(t, hit.ticket, method, v.from, c.amount);
@@ -503,10 +526,25 @@ export class Door {
           this.app.toast(refusalOf(error), "circle-alert");
           return;
         }
+        // Taken on another phone: this one took nothing.
+        paid = null;
       }
-      const hit = await this.port.find(c.code, t.day.id);
-      if (hit === null) return;
-      await this.admit(t, hit.ticket, hit.order, v.from, { amount: c.amount, method });
+      let hit: Awaited<ReturnType<DoorPort["find"]>> = null;
+      try {
+        hit = await this.port.find(c.code, t.day.id);
+      } catch {
+        this.lose();
+        const kept = this.fromList(t, c.code);
+        this.set({ verdict: null });
+        if (kept !== null) this.enqueue(t, kept.ticket, v.from, paid);
+        return;
+      }
+      if (hit === null) {
+        this.set({ verdict: null });
+        return;
+      }
+      this.set({ verdict: null });
+      await this.admit(t, hit.ticket, hit.order, v.from, paid);
     } finally {
       this.set({ busy: false });
     }
@@ -539,7 +577,10 @@ export class Door {
     if (this.closeTimer !== null) clearTimeout(this.closeTimer);
     this.closeTimer = null;
     this.held = false;
+    const from = this.s.verdict?.from;
     this.set({ verdict: null });
+    // Back to where the scan came from: the scan pad, or Find (a result tapped there is gone now).
+    if (from !== undefined && typeof document !== "undefined") setTimeout(() => document.getElementById(from === "find" ? "door-q" : "door-pad")?.focus(), 0);
   }
   private escape(): boolean {
     const v = this.s.verdict;
@@ -570,24 +611,41 @@ export class Door {
       }
       this.box.refresh();
       this.set((s) => ({ recent: gone(s.recent, r) }));
-    }
+    } else return;
     this.app.toast(r.paid !== null ? tr("Undone — {name} is not checked in. The payment stays.", { name: r.name }) : tr("Undone — {name} is not checked in", { name: r.name }), "undo-2");
   }
 
   // ── the guest list ─────────────────────────────────────────────────────
 
   /** One more of a party in; a tap on a party all in steps one back. */
+  /** A party's arrivals as this phone last wrote them (until Adminium's answer says the same). */
+  arrivedOf(g: Row): number {
+    const mine = this.arrived.get(g.id);
+    const theirs = Number(g["arrived"] ?? 0);
+    if (mine === undefined || this.guestBusy.has(g.id)) return mine ?? theirs;
+    if (mine === theirs) this.arrived.delete(g.id);
+    return theirs;
+  }
+
   async tickGuest(g: Row): Promise<void> {
+    if (this.guestBusy.has(g.id)) return;
     const tot = Number(g["people"] ?? 1 + Number(g["plus"] ?? 0));
-    const k = Number(g["arrived"] ?? 0);
+    const k = this.arrivedOf(g);
     const name = String(g["name"] ?? "");
     const next = k >= tot ? k - 1 : k + 1;
     const status = next === 0 ? "not_in" : "in";
+    const was = k === 0 ? "not_in" : "in";
+    this.guestBusy.add(g.id);
+    this.arrived.set(g.id, next);
+    this.app.setState({});
     try {
-      await this.box.port.update("guest_list", g.id, { arrived: next, ...(status !== g["status"] ? { status } : {}) });
+      await this.box.port.update("guest_list", g.id, { arrived: next, ...(status !== was ? { status } : {}) });
     } catch (error) {
+      this.arrived.delete(g.id);
       this.app.toast(isApiError(error) ? refusalOf(error) : tr("That didn't go through — check the connection and try again."), "circle-alert");
       return;
+    } finally {
+      this.guestBusy.delete(g.id);
     }
     this.box.refresh();
     if (next === 0) this.app.toast(tr("Undone — {name} is not in", { name }), "undo-2");
@@ -606,36 +664,63 @@ export class Door {
     if (this.s.busy || !this.online()) return;
     const type = t.show.types.find((x) => x.id === typeId);
     if (type === undefined || qty < 1) return;
-    this.set({ busy: true });
-    const key = `door-${String(Date.now())}-${Math.random().toString(36).slice(2, 8)}`;
+    // One key a sale: pressed again after a failure, it is the same sale (Adminium answers the order already made).
+    const key = this.s.sellKey ?? `door-${String(Date.now())}-${Math.random().toString(36).slice(2, 8)}`;
+    this.set({ busy: true, sellKey: key });
     const dev = this.device();
+    const boxOffice = this.box.me()?.roles.includes("box-office") === true;
+    let order: Row | null = null;
     try {
       const reply = await this.box.port.newOrder(
         { values: { event_id: t.show.id, buyer_name: tr("Door sale"), channel: "door", email: null }, tickets: Array.from({ length: qty }, () => ({ ticket_type_id: typeId, holder_name: null })) },
         key,
       );
-      const order = reply.data;
+      order = reply.data;
       const total = Number(order["total"] ?? 0);
+      let status = String(order["status"] ?? "held");
       try {
-        if (method === "none" || total <= 0) await this.box.port.move(order.id, "no_charge");
-        else {
-          await this.box.port.move(order.id, "door");
-          for (const tk of reply.tickets) await this.port.collect(tk.id, method, dev?.id ?? null);
+        if (total <= 0) {
+          // Nothing to pay: the box office issues it at no charge; the door's own moves are to the door and paid.
+          if (status === "held" && boxOffice) status = String((await this.box.port.move(order.id, "no_charge"))["status"]);
+          if (status === "held") status = String((await this.box.port.move(order.id, "door"))["status"]);
+          if (status === "door") await this.box.port.move(order.id, "paid");
+        } else {
+          if (status === "held") await this.box.port.move(order.id, "door");
+          if (status !== "paid") {
+            for (const tk of reply.tickets) {
+              try {
+                await this.port.collect(tk.id, method === "none" ? "card" : method, dev?.id ?? null);
+              } catch (error) {
+                // Taken already (a retry of this sale): go on.
+                if (!isApiError(error) || error.code !== "CAPACITY_FULL") throw error;
+              }
+            }
+          }
         }
       } catch (error) {
-        await this.box.port.move(order.id, "let_go").catch(() => undefined);
+        // Nothing taken yet: the order goes. (The door's role cannot let an order go; its hold runs out instead.)
+        if (boxOffice && isApiError(error) && String(order["status"] ?? "held") === "held") await this.box.port.move(order.id, "let_go").catch(() => undefined);
         throw error;
       }
+      // Sold: each ticket checked in; one that cannot be sent now is kept on this phone and sent later.
+      this.set({ sellKey: null, sellQ: 1 });
       const made = Date.now();
       for (const tk of reply.tickets) {
-        const row = await this.port.checkIn(tk.id, t.day.id, dev?.id ?? null);
-        this.remember({ key: `${String(tk.id)}:${String(t.day.id)}`, checkInId: row.id, ticketId: tk.id, code: String(tk["code"] ?? ""), name: tr("Door sale"), type: type.short, at: ms(row["scanned_at"]) ?? this.app.now, made, paid: null, undone: false, queued: false });
+        const ticketKey = `${String(tk.id)}:${String(t.day.id)}`;
+        try {
+          const row = await this.port.checkIn(tk.id, t.day.id, dev?.id ?? null);
+          this.remember({ key: ticketKey, checkInId: row.id, ticketId: tk.id, code: String(tk["code"] ?? ""), name: tr("Door sale"), type: type.short, at: ms(row["scanned_at"]) ?? this.app.now, made, paid: null, undone: false, queued: false });
+        } catch (error) {
+          if (isApiError(error)) continue;
+          this.lose();
+          this.keep(t, tk, tr("Door sale"), null);
+        }
       }
       this.box.refresh();
-      this.set({ sellQ: 1 });
       this.app.toast(tr("{n} × {type} sold and checked in · {total}", { n: qty, type: type.short, total: money(total) }), "check");
     } catch (error) {
       this.box.refresh();
+      if (!isApiError(error)) this.lose();
       this.app.toast(isApiError(error) ? (this.box.placesWords(error, t.show.id) ?? refusalOf(error)) : tr("That didn't go through — check the connection and try again."), "circle-alert");
     } finally {
       this.set({ busy: false });
@@ -651,9 +736,10 @@ export class Door {
   }
   /** A write found no signal. */
   private lose(): void {
-    if (this.s.lost) return;
-    this.set({ lost: true });
-    this.wentOffline();
+    if (!this.s.lost) {
+      this.set({ lost: true });
+      this.wentOffline();
+    }
     if (this.retry === null && typeof setInterval !== "undefined") {
       this.retry = setInterval(() => {
         if (!this.s.lost) return this.stopRetry();
@@ -692,37 +778,51 @@ export class Door {
   private judgeHere(t: Tonight, code: string, from: "pad" | "find"): void {
     const hit = this.fromList(t, code);
     if (hit === null) return this.show(this.danger(tr("Not found"), "", segs("No ticket with that code. If they were sent a ticket, ask for the new one.", {}), from));
-    const { ticket, order } = hit;
+    this.judgeLocal(t, hit.ticket, hit.order, from);
+  }
+
+  /** A ticket judged on this phone, in the door's order; let in, its check-in is kept to send later. */
+  private judgeLocal(t: Tonight, ticket: Row, order: Row, from: "pad" | "find"): void {
     const name = holder(ticket);
+    if (ticket["event_id"] !== t.show.id) return this.show(this.wrongShow(ticket, name, from));
     const byStatus = this.byTicketAndOrder(t, ticket, order, from);
     if (byStatus !== null && byStatus.collect === null) return this.show(byStatus);
     if (t.show.days.length > 1 && ticket[`admits_day${String(t.day.day)}`] !== true) return this.show(this.notToday(name, segs("This ticket is for {days}", {}, { days: this.daysOf(t.show, ticket) }), from));
     if (this.app.now < t.opens) return this.show(this.tooEarly(t, name, from));
     if (this.app.now > t.closes) return this.show(this.notToday(name, segs("This show has finished", {}), from));
     const key = `${String(ticket.id)}:${String(t.day.id)}`;
-    const inRow = this.kept?.checkIns.find((c) => c["ticket_id"] === ticket.id) ?? null;
+    const inRow = this.kept?.checkIns.find((c) => c["ticket_id"] === ticket.id && c["event_day_id"] === t.day.id) ?? null;
     const queued = this.s.queue.find((q) => q.key === key && q.kind === "in");
     if (inRow !== null) return this.show(this.alreadyIn(name, this.typeName(t.show, ticket), inRow, from));
     if (queued !== undefined) return this.show(this.alreadyIn(name, this.typeName(t.show, ticket), { id: 0, scanned_at: new Date(queued.at).toISOString(), device_id: queued.deviceId, scanned_by: this.box.me()?.name ?? "" }, from));
     if (byStatus !== null) return this.show(byStatus);
-    this.enqueue(t, ticket, "in", undefined, from, null);
+    this.enqueue(t, ticket, from, null);
   }
 
-  private enqueue(t: Tonight, ticket: Row, kind: "in", method: undefined, from: "pad" | "find", paid: Scan["paid"]): void {
-    const dev = this.device();
+  /** A check-in kept on this phone to send later (never twice for a ticket and day). */
+  private keep(t: Tonight, ticket: Row, name: string, paid: Scan["paid"]): void {
     const key = `${String(ticket.id)}:${String(t.day.id)}`;
-    const q: Queued = { kind, key, code: String(ticket["code"] ?? ""), ticketId: ticket.id, dayId: t.day.id, deviceId: dev?.id ?? null, at: this.app.now, name: holder(ticket), ...(method === undefined ? {} : { method }) };
+    if (this.s.queue.some((q) => q.key === key && q.kind === "in")) return;
+    const dev = this.device();
+    const q: Queued = { kind: "in", key, code: String(ticket["code"] ?? ""), ticketId: ticket.id, dayId: t.day.id, deviceId: dev?.id ?? null, at: this.app.now, name };
     this.set((s) => ({ queue: [...s.queue, q] }));
+    this.remember({ key, checkInId: null, ticketId: ticket.id, code: q.code, name, type: this.typeName(t.show, ticket), at: q.at, made: Date.now(), paid, undone: false, queued: true });
+  }
+
+  /** Let in without the signal: the check-in kept, the verdict shown. */
+  private enqueue(t: Tonight, ticket: Row, from: "pad" | "find", paid: Scan["paid"]): void {
+    const name = holder(ticket);
+    this.keep(t, ticket, name, paid);
     const type = this.typeName(t.show, ticket);
-    this.remember({ key, checkInId: null, ticketId: ticket.id, code: q.code, name: q.name, type, at: q.at, made: Date.now(), paid, undone: false, queued: true });
     const typeLine = paid === null ? type : paid.method === "card" ? tr("{type} · paid by card", { type }) : tr("{type} · paid in cash", { type });
-    this.show({ k: "pos", word: tr("Let in"), amount: "", name: q.name, type: typeLine, id: idChip(t.show.age), line: [], collect: null, from, made: Date.now() });
+    this.show({ k: "pos", word: tr("Let in"), amount: "", name, type: typeLine, id: idChip(t.show.age), line: [], collect: null, from, made: Date.now() });
   }
   private enqueueCollect(t: Tonight, ticket: Row, method: "card" | "cash", from: "pad" | "find", amount: number): void {
     const dev = this.device();
     const key = `${String(ticket.id)}:${String(t.day.id)}`;
-    this.set((s) => ({ queue: [...s.queue, { kind: "collect", key, code: String(ticket["code"] ?? ""), ticketId: ticket.id, dayId: t.day.id, deviceId: dev?.id ?? null, at: this.app.now, method, name: holder(ticket) }] }));
-    this.enqueue(t, ticket, "in", undefined, from, { amount, method });
+    this.set((s) => ({ queue: [...s.queue, { kind: "collect", key, code: String(ticket["code"] ?? ""), ticketId: ticket.id, dayId: t.day.id, deviceId: dev?.id ?? null, at: this.app.now, method, amount, name: holder(ticket) }] }));
+    this.set({ verdict: null });
+    this.enqueue(t, ticket, from, { amount, method });
   }
 
   /**
@@ -731,7 +831,7 @@ export class Door {
    * someone else's is a clash, named with its time and door.
    */
   async sync(quiet = false): Promise<void> {
-    if (this.syncing || !this.online() && !quiet) return;
+    if (this.syncing || (!this.online() && !quiet)) return;
     const queue = [...this.s.queue];
     if (queue.length === 0) {
       if (this.s.lost) this.set({ lost: false });
@@ -740,16 +840,19 @@ export class Door {
     }
     this.syncing = true;
     const clashes: string[] = [];
+    const done: Queued[] = [];
     let synced = 0;
-    let left = queue;
     let noSignal = false;
+    const settleRow = (q: Queued, patch: Partial<Scan>) => this.set((s) => ({ recent: s.recent.map((r) => (r.key === q.key && r.queued ? { ...r, queued: false, ...patch } : r)) }));
     try {
       for (const q of queue) {
+        // Taken back (Undo) while this ran: not sent.
+        if (!this.s.queue.some((x) => sameQueued(x, q))) continue;
         try {
           if (q.kind === "collect") await this.port.collect(q.ticketId, q.method ?? "card", q.deviceId, q.at);
           else {
             const row = await this.port.checkIn(q.ticketId, q.dayId, q.deviceId, q.at);
-            this.set((s) => ({ recent: s.recent.map((r) => (r.key === q.key && r.queued ? { ...r, queued: false, checkInId: row.id } : r)) }));
+            settleRow(q, { checkInId: row.id });
             synced += 1;
           }
         } catch (error) {
@@ -757,45 +860,69 @@ export class Door {
             noSignal = true;
             break;
           }
-          if (q.kind === "in") {
-            const line = await this.clashOf(q, error.code, error.params);
-            if (line === null) synced += 1;
-            else clashes.push(line);
-            this.set((s) => ({ recent: s.recent.map((r) => (r.key === q.key && r.queued ? { ...r, queued: false } : r)) }));
-          }
+          const clash = q.kind === "collect" ? await this.collectClash(q, error.code, error.params) : await this.clashOf(q, error.code, error.params);
+          if (clash.line === null) {
+            if (q.kind === "in") synced += 1;
+          } else clashes.push(clash.line);
+          // This phone's own row: Undo reaches it. Anyone else's: nothing of this phone's to take back.
+          if (q.kind === "in") settleRow(q, clash.line === null ? { checkInId: clash.id } : { made: 0 });
         }
-        left = left.slice(1);
+        done.push(q);
       }
     } finally {
       this.syncing = false;
     }
-    this.set((s) => ({ queue: left, lost: noSignal || (left.length > 0 && s.lost), clash: [...s.clash, ...clashes] }));
+    this.set((s) => ({ queue: s.queue.filter((x) => !done.some((d) => sameQueued(d, x))), clash: [...s.clash, ...clashes] }));
     if (noSignal) this.lose();
-    if (left.length === 0) this.stopRetry();
+    else if (this.s.queue.length === 0) {
+      this.set({ lost: false });
+      this.stopRetry();
+    }
     this.box.refresh();
     if (synced + clashes.length === 0) return;
-    const done = tr("Back online — {n} check-in synced|Back online — {n} check-ins synced", { n: synced });
-    this.app.toast(clashes.length === 0 ? done : `${done} · ${tr("{n} clash|{n} clashes", { n: clashes.length })}`, "wifi");
+    const said = tr("Back online — {n} check-in synced|Back online — {n} check-ins synced", { n: synced });
+    this.app.toast(clashes.length === 0 ? said : `${said} · ${tr("{n} clash|{n} clashes", { n: clashes.length })}`, "wifi");
   }
 
-  /** A replay refused: null when it was this phone's own check-in already there, else the clash's words. */
-  private async clashOf(q: Queued, code: string, params: Readonly<Record<string, unknown>>): Promise<string | null> {
-    if (code === "OCCURRED_AT_OUT_OF_RANGE") return tr("{code} couldn't sync — scanned more than 6 hours ago", { code: q.code });
+  /** A replayed check-in refused: no line when it was this phone's own check-in already there, else the clash's words. */
+  private async clashOf(q: Queued, code: string, params: Readonly<Record<string, unknown>>): Promise<{ line: string | null; id: Id | null }> {
+    if (code === "OCCURRED_AT_OUT_OF_RANGE") return { line: tr("{code} couldn't sync — scanned more than 6 hours ago", { code: q.code }), id: null };
     if (code === "UNIQUE_VIOLATION") {
       const hit = await this.port.find(q.code, q.dayId).catch(() => null);
       const row = hit?.checkIn ?? null;
       const me = this.box.me()?.name ?? "";
-      if (row !== null && row["device_id"] === q.deviceId && row["scanned_by"] === me) return null;
+      if (row !== null && row["device_id"] === q.deviceId && row["scanned_by"] === me) return { line: null, id: row.id };
       const dev = row === null ? undefined : this.box.rows("devices")?.find((d) => d.id === row["device_id"]);
-      return row === null
-        ? tr("{code} was already in — check the person in front of you.", { code: q.code })
-        : tr("{code} was already in at {time} on {door} — check the person in front of you.", { code: q.code, time: strip(fT(row["scanned_at"])), door: String(dev?.["name"] ?? "") });
+      return {
+        line:
+          row === null
+            ? tr("{code} was already in — check the person in front of you.", { code: q.code })
+            : tr("{code} was already in at {time} on {door} — check the person in front of you.", { code: q.code, time: strip(fT(row["scanned_at"])), door: String(dev?.["name"] ?? "") }),
+        id: null,
+      };
     }
     const t = this.tonight().find((x) => x.day.id === q.dayId);
     const hit = await this.port.find(q.code, q.dayId).catch(() => null);
-    if (t === undefined || hit === null) return tr("{code} couldn't sync — {reason}", { code: q.code, reason: refusalOf(new ApiError(409, code, { ...params })) });
+    if (t === undefined || hit === null) return { line: tr("{code} couldn't sync — {reason}", { code: q.code, reason: refusalOf(new ApiError(409, code, { ...params })) }), id: null };
     const v = await this.refused(t, hit.ticket, hit.order, code, params, "pad");
-    return tr("{code} couldn't sync — {reason}", { code: q.code, reason: plainLine(v.line) || v.word });
+    return { line: tr("{code} couldn't sync — {reason}", { code: q.code, reason: plainLine(v.line) || v.word }), id: null };
+  }
+
+  /** A replayed collection refused: nothing to say when this phone's own is there; else the money is named. */
+  private async collectClash(q: Queued, code: string, params: Readonly<Record<string, unknown>>): Promise<{ line: string | null; id: Id | null }> {
+    const amount = money(q.amount ?? 0);
+    if (code === "CAPACITY_FULL") {
+      const taken = (await this.box.port.list("door_collections", { where: [{ column: "ticket_id", eq: q.ticketId }, { column: "state", eq: "taken" }], limit: 1 }).catch(() => ({ rows: [] as Row[] }))).rows[0];
+      const me = this.box.me()?.name ?? "";
+      if (taken !== undefined && taken["device_id"] === q.deviceId && taken["taken_by"] === me) return { line: null, id: taken.id };
+      const dev = taken === undefined ? undefined : this.box.rows("devices")?.find((d) => d.id === taken["device_id"]);
+      return {
+        line: taken === undefined ? tr("{code}: the {amount} taken here wasn't recorded — it was already paid.", { code: q.code, amount }) : tr("{code}: the {amount} taken here wasn't recorded — it was already paid on {door} at {time}.", { code: q.code, amount, door: String(dev?.["name"] ?? ""), time: strip(fT(taken["taken_at"])) }),
+        id: null,
+      };
+    }
+    if (code === "OCCURRED_AT_OUT_OF_RANGE") return { line: tr("{code}: the {amount} taken here couldn't sync — taken more than 6 hours ago", { code: q.code, amount }), id: null };
+    return { line: tr("{code}: the {amount} taken here couldn't sync — {reason}", { code: q.code, amount, reason: refusalOf(new ApiError(409, code, { ...params })) }), id: null };
   }
 
   /** Sign out: the list and anything not sent go from this phone. */
@@ -815,6 +942,7 @@ export class Door {
 
 /** The name on a ticket, or its order's buyer when nobody named it yet. */
 const holder = (ticket: Row): string => String(ticket["holder_name"] ?? "") || String(ticket["sender_name"] ?? "") || tr("No name");
+const sameQueued = (a: Queued, b: Queued): boolean => a.key === b.key && a.kind === b.kind && a.at === b.at;
 const gone = (recent: Scan[], r: Scan): Scan[] => (r.paid !== null ? recent.map((x) => (x === r ? { ...x, undone: true } : x)) : recent.filter((x) => x !== r));
 
 export { LIVE, LIVE_TICKET, plural };

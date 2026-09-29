@@ -44,8 +44,10 @@ async function open(opts: { now?: string; person?: { name: string; roles: string
     }
     return renderVals(app)["dd"] as V;
   };
+  // "Tap to scan the next one": the verdict up is closed first.
   const scan = async (code: string) => {
     await v();
+    if (door.s.verdict !== null && door.s.verdict.collect === null) door.dismiss();
     await door.scan(code, "find");
     return (await v())["v"] as V;
   };
@@ -227,6 +229,49 @@ describe("the doors (Tue 19:58, after the 38 early scans)", () => {
     expect(d["clash"]).toEqual(["328V-F2CK was already in at 19:59 on Door 2 — check the person in front of you."]);
     const made = demo.world.all("check_ins").find((c) => c["ticket_id"] === ticket("NG7T-6G8C").id)!;
     expect([made["scanned_by"], made["device_id"], made["scanned_at"]]).toEqual(["Priya", 1, new Date(at("2026-07-28T19:58")).toISOString()]);
+  });
+
+  it("judges a ticket on the phone when the check-in finds no signal, never guessing LET IN", async () => {
+    const { scan, v, demo, door } = await doors();
+    const real = demo.door.checkIn.bind(demo.door);
+    demo.door.checkIn = async () => {
+      throw new TypeError("Failed to fetch");
+    };
+    await v();
+    // The lookup still answered: a Velvet ticket is named as the wrong show, not let in.
+    expect(await scan("YDG2-C508").then((x) => x["word"])).toBe("Wrong show");
+    door.dismiss();
+    const ok = await scan("NG7T-6G8C");
+    expect([ok["word"], door.s.lost, door.s.queue.length]).toEqual(["Let in", true, 1]);
+    // A second tap on the same person is already in, and is not kept twice.
+    door.dismiss();
+    expect(await scan("NG7T-6G8C").then((x) => x["word"])).toBe("Already in");
+    expect(door.s.queue.length).toBe(1);
+    demo.door.checkIn = real;
+    await door.sync(true);
+    expect([door.s.lost, door.s.queue.length]).toEqual([false, 0]);
+  });
+
+  it("names a replayed payment another door already took, and still sends the check-in", async () => {
+    const { scan, v, demo, door, ticket } = await doors();
+    await v();
+    door.setOffline(true);
+    expect(await scan("H3TW-9CXR").then((x) => x["word"])).toBe("Collect");
+    await door.collect("cash");
+    expect(door.s.queue.map((q) => q.kind)).toEqual(["collect", "in"]);
+    demo.advance(1);
+    await new DemoDoor(demo.engine, { name: "Jo", roles: ["door"] }).collect(ticket("H3TW-9CXR").id, "card", 2 as Id);
+    door.setOffline(false);
+    for (let i = 0; i < 5; i += 1) await v();
+    expect(door.s.clash.map(bidi)).toEqual(["H3TW-9CXR: the $28.00 taken here wasn't recorded — it was already paid on Door 2 at 19:59."]);
+    expect(demo.world.all("check_ins").some((c) => c["ticket_id"] === ticket("H3TW-9CXR").id)).toBe(true);
+  });
+
+  it("leaves a code the camera reads for later while a verdict is up", async () => {
+    const { scan, v } = await doors();
+    await scan("W9S9-QH7R");
+    const d = await v();
+    expect((d["onCode"] as (t: string) => boolean)("NG7T-6G8C")).toBe(false);
   });
 
   it("gives the door role its own shell: the Door only, no search, its door on the account sheet", async () => {

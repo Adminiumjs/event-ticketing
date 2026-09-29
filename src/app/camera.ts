@@ -30,9 +30,20 @@ async function nativeDetector(): Promise<Detector | null> {
   }
 }
 
+let reader: Promise<typeof import("jsqr")> | null = null;
+/** Fetches the reader ahead, for a browser without its own (a door that loses the signal can still read codes). */
+export function prepareReader(): void {
+  if ((globalThis as { BarcodeDetector?: unknown }).BarcodeDetector !== undefined) return;
+  reader ??= import("jsqr");
+  reader.catch(() => {
+    reader = null;
+  });
+}
+
 /** The reader for browsers without one: a frame drawn to a canvas, its pixels read. */
 async function canvasDetector(): Promise<Detector> {
-  const { default: jsQR } = await import("jsqr");
+  reader ??= import("jsqr");
+  const { default: jsQR } = await reader;
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   return {
@@ -64,15 +75,23 @@ export function problemOf(error: unknown): CameraProblem {
  * reads (the same code again only after `quiet` ms, so one ticket held up is
  * one scan). Rejects with the camera's error when it cannot start.
  */
-export async function startScanner(video: HTMLVideoElement, onCode: (text: string) => void, quiet = 2500): Promise<Scanner> {
+export async function startScanner(video: HTMLVideoElement, onCode: (text: string) => boolean | void, quiet = 2500): Promise<Scanner> {
   const media = typeof navigator !== "undefined" ? navigator.mediaDevices : undefined;
   if (media?.getUserMedia === undefined) throw Object.assign(new Error("no camera"), { name: "NotFoundError" });
   const stream = await media.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
-  video.srcObject = stream;
-  video.muted = true;
-  video.setAttribute("playsinline", "");
-  await video.play().catch(() => undefined);
-  const detector = (await nativeDetector()) ?? (await canvasDetector());
+  let detector: Detector;
+  try {
+    video.srcObject = stream;
+    video.muted = true;
+    video.setAttribute("playsinline", "");
+    await video.play().catch(() => undefined);
+    detector = (await nativeDetector()) ?? (await canvasDetector());
+  } catch (error) {
+    // No reader: the camera goes off again rather than staying on reading nothing.
+    for (const track of stream.getTracks()) track.stop();
+    video.srcObject = null;
+    throw error;
+  }
   let stopped = false;
   let last = { text: "", at: 0 };
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -84,8 +103,8 @@ export async function startScanner(video: HTMLVideoElement, onCode: (text: strin
         const text = found[0]?.rawValue?.trim() ?? "";
         const now = Date.now();
         if (text !== "" && !(text === last.text && now - last.at < quiet)) {
-          last = { text, at: now };
-          onCode(text);
+          // A code the door was not ready for is read again on the next frame.
+          if (onCode(text) !== false) last = { text, at: now };
         } else if (text === last.text && text !== "") last.at = now;
       }
     } catch {

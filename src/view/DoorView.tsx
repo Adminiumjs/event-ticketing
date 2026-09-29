@@ -2,7 +2,7 @@
 // Every value comes from the door's values `d` (../app/vals/door.ts).
 import { Fragment, useEffect, useRef } from "react";
 
-import { problemOf, startScanner } from "../app/camera.ts";
+import { prepareReader, problemOf, startScanner } from "../app/camera.ts";
 import { tr } from "../i18n/tr.ts";
 import { Icon, st } from "./dom.tsx";
 
@@ -33,6 +33,10 @@ function ScanPad({ d }: { d: any }) {
   onCode.current = d.onCode;
   const onCamera = useRef(d.onCamera);
   onCamera.current = d.onCamera;
+  // The QR reader is fetched while the signal is here, so the camera still reads codes without it.
+  useEffect(() => {
+    if (d.usesCamera) prepareReader();
+  }, [d.usesCamera]);
   useEffect(() => {
     if (!d.camOn || video.current === null) return;
     let stop: (() => void) | null = null;
@@ -52,7 +56,7 @@ function ScanPad({ d }: { d: any }) {
     };
   }, [d.camOn]);
   return (
-    <button onClick={d.tapScan} aria-label={d.padLabel} aria-pressed={d.camOn} style={st("position:relative; display:block; flex-shrink:0; width:min(100%, 300px); height:280px; margin-inline:auto; padding:0; border:0; border-radius:24px; background:#050507; overflow:hidden; cursor:pointer;")}>
+    <button id="door-pad" onClick={d.tapScan} aria-label={d.padLabel} aria-pressed={d.camOn} style={st("position:relative; display:block; flex-shrink:0; width:min(100%, 300px); height:280px; margin-inline:auto; padding:0; border:0; border-radius:24px; background:#050507; overflow:hidden; cursor:pointer;")}>
       {d.camOn ? <video ref={video} muted playsInline aria-hidden="true" style={st("position:absolute; inset:0; width:100%; height:100%; object-fit:cover;")} /> : null}
       <span className="wv-breathe" style={st(`position:absolute; inset:17%; border-radius:18px; border:3px solid ${d.camBad ? "var(--warn)" : d.frame};`)}></span>
       {d.camBad ? (
@@ -343,6 +347,7 @@ export function DoorView({ d, s, bo }: { d: any; s: any; bo: any }) {
             onPointerDown={v.down}
             onPointerUp={v.up}
             onPointerCancel={v.up}
+            onBlur={v.blur}
             className="wv-verdict"
             style={st(v.style)}
           >
