@@ -52,7 +52,8 @@ export function rowOf(row: ClientRow): Row {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(row)) {
     if ((k === "id" || k.endsWith("_id")) && typeof v === "string" && /^\d+$/.test(v)) out[k] = Number(v);
-    else if (MONEY.has(k) && typeof v === "string" && v !== "") out[k] = Number(v);
+    // Money by its name, when it is a number: a message's `due` is a moment, a ticket's is money.
+    else if (MONEY.has(k) && typeof v === "string" && /^-?\d+(\.\d+)?$/.test(v)) out[k] = Number(v);
     else out[k] = v;
   }
   return out as Row;

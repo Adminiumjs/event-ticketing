@@ -80,6 +80,11 @@ describe("a row as the screens read one", () => {
     });
   });
 
+  it("keeps a moment a moment when a money column shares its name (a message's due)", () => {
+    expect(rowOf({ id: "4", kind: "tonight", due: "2026-08-14 12:00:00" }, "America/New_York")).toEqual({ id: 4, kind: "tonight", due: "2026-08-14T16:00:00.000Z" });
+    expect(rowOf({ id: "5", due: "2026-08-14T16:00:00.000Z" }, "UTC")["due"]).toBe("2026-08-14T16:00:00.000Z");
+  });
+
   it("the audience's too (its times are already moments)", () => {
     expect(audienceRow({ id: "3", ticket_type_id: "9", price: "28.00", held_until: "2026-07-28T20:41:43.868Z" })).toEqual({ id: 3, ticket_type_id: 9, price: 28, held_until: "2026-07-28T20:41:43.868Z" });
   });
