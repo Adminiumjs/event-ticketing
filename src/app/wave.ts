@@ -231,6 +231,10 @@ export class WaveApp {
       if (this.pending === 0) return;
     }
   }
+  /** The refusal an answer failed with, if it failed. */
+  errorOf(key: string): unknown {
+    return this.cache.get(key)?.error;
+  }
   /** Whether an answer failed (and nothing older is on screen). */
   failed(key: string): boolean {
     const c = this.cache.get(key);

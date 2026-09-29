@@ -1,4 +1,7 @@
+import { demoJsonPlugin } from "./demo-emit.ts";
 import { surfaceJsonPlugin } from "./surface-emit.ts";
+import { DEMO_APP_KEY, DEMO_CLOCK, DEMO_DIR, DEMO_FRAMES, DEMO_PERSONAS, DEMO_SCREENS, DEMO_TOGGLES } from "./src/demo-card.ts";
+import { DEMO_CARD_MESSAGES } from "./src/i18n/strings/card.ts";
 import { APP_KEY, APP_LABEL_KEY, SURFACE_NAV } from "./src/surface-nav.ts";
 import { MESSAGES } from "./src/i18n/messages/index.ts";
 
@@ -85,6 +88,21 @@ export default defineConfig({
       appLabelKey: APP_LABEL_KEY,
       nav: SURFACE_NAV,
       messages: MESSAGES,
+    }),
+    /*
+     * `demo.json` beside the demo build's `index.html`: the website's demo card
+     * reads it (screens, shortcuts, clock row, the online switch, in all eight
+     * languages). Only the demo build writes it.
+     */
+    demoJsonPlugin({
+      appKey: DEMO_APP_KEY,
+      dir: DEMO_DIR,
+      frames: DEMO_FRAMES,
+      screens: DEMO_SCREENS,
+      personas: [...DEMO_PERSONAS],
+      clock: DEMO_CLOCK,
+      toggles: [...DEMO_TOGGLES],
+      messages: DEMO_CARD_MESSAGES,
     }),
   ],
   build: {

@@ -450,7 +450,7 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
     const n = Number(sh["n"] ?? 0);
     Object.assign(o, {
       icon: "undo-2",
-      title: plural(n, `Put {n} ${ev?.name ?? ""} ticket back on sale?`, `Put {n} ${ev?.name ?? ""} tickets back on sale?`),
+      title: plural(n, "Put {n} {show} ticket back on sale?", "Put {n} {show} tickets back on sale?", { show: ev?.name ?? "" }),
       body: tr("Nobody is left waiting, so anyone can buy them."),
       btns: [P(tr("Put back on sale"), () => ev !== undefined && void box.putBack(ev.id, n)), P(tr("Keep them"), () => app.closeSheet(), "g")],
     });

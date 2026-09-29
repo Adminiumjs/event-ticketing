@@ -760,7 +760,7 @@ export class Box {
     const type = show?.types.find((t) => t.id === pool);
     if (type !== undefined) {
       const left = this.sold(show!)?.byType.get(type.id)?.left ?? 0;
-      return left <= 0 ? tr("{type}: all {n} are issued.", { type: type.short, n: type.capacity ?? 0 }) : plural(left, `${type.short}: only {n} left.`, `${type.short}: only {n} left.`);
+      return left <= 0 ? tr("{type}: all {n} are issued.", { type: type.short, n: type.capacity ?? 0 }) : plural(left, "{type}: only {n} left.", "{type}: only {n} left.", { type: type.short });
     }
     return tr("{name} has no places left for that many.", { name: show?.name ?? "" });
   }
@@ -899,7 +899,7 @@ export class Box {
 }
 
 /** "{n} ticket|{n} tickets", in the reader's language. */
-export const plural = (n: number, one: string, many: string): string => tr(`${one}|${many}`, { n });
+export const plural = (n: number, one: string, many: string, words: Record<string, string | number> = {}): string => tr(`${one}|${many}`, { ...words, n });
 
 /** A note added under the order's earlier ones. */
 const joinNote = (was: unknown, line: string): string => (typeof was === "string" && was.trim() !== "" ? `${was}\n${line}` : line).slice(-1000);

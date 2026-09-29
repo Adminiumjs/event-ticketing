@@ -10,7 +10,10 @@
  */
 import { fD, fT, strip } from "./app/fmt.ts";
 import type { BoxScreen, WaveApp } from "./app/wave.ts";
-import { DEMO_APP_KEY, DEMO_DOORS_AT, DEMO_PERSONAS, DEMO_SCREENS, type CardPersona } from "./demo-card.ts";
+import { doorOf } from "./app/door.ts";
+import type { DemoAdminium } from "./demo/adminium.ts";
+import { DEMO_APP_KEY, DEMO_DOORS_AT, DEMO_PERSONAS, DEMO_SCREENS, DEMO_SHORTCUT_IDS, type CardPersona } from "./demo-card.ts";
+import { runShortcut } from "./demoShortcuts.ts";
 import { DEMO_PROTOCOL_VERSION, isDemoMessage, type DemoMessage } from "./demo-types.ts";
 import { isLocaleTag } from "./i18n/locales.ts";
 
@@ -21,6 +24,9 @@ export interface DemoClock {
   /** On to the doors, with what happens at the door on the way (the demo's Adminium makes the early scans). */
   toDoors?(): void;
 }
+
+/** The demo's own Adminium (a bare clock in some tests plays no shortcut). */
+const isDemo = (clock: DemoClock): clock is DemoClock & DemoAdminium => "engine" in clock && "audience" in clock;
 
 const cardPersona = (app: WaveApp): CardPersona => (app.persona === "box" ? "box" : "aud");
 
@@ -46,7 +52,7 @@ export function stateMessage(app: WaveApp, clock: DemoClock): DemoMessage {
     screen: currentScreen(app),
     persona: cardPersona(app),
     mode: null,
-    online: true,
+    online: app.state.door?.offline !== true,
     toggles: {},
     locale: app.state.lang,
     theme: app.state.theme,
@@ -130,6 +136,11 @@ export function applyDemoMessage(message: DemoMessage, app: WaveApp, clock: Demo
       if (message.theme !== undefined) app.setState({ theme: message.theme });
       if (message.locale !== undefined && isLocaleTag(message.locale)) app.setState({ lang: message.locale });
       setPersona(app, message.persona);
+      // The card's online switch is the door's signal.
+      if (message.online !== undefined) doorOf(app).setOffline(!message.online);
+      return;
+    case "adminium:demo:do":
+      if (isDemo(clock) && DEMO_SHORTCUT_IDS.includes(message.shortcut)) void runShortcut(message.shortcut, app, clock);
       return;
     case "adminium:demo:clock":
       // The demo's Adminium never moves back: "Advance to doors" after "+1 day" does nothing.

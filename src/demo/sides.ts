@@ -73,6 +73,8 @@ export class DemoAudience implements AudiencePort {
   private signed: { customer: Id; at: number } | null = null;
   /** The sign-in links and codes the demo "emailed", by address. */
   readonly mail = new Map<string, { code: string; token: string; until: number; tries: number }>();
+  /** The demo card's one-shot faults: the next sign-in email fails, or the next person check does. */
+  failNext: "mail-down" | "too-many" | "check" | null = null;
 
   constructor(engine: Engine) {
     this.engine = engine;
@@ -121,6 +123,10 @@ export class DemoAudience implements AudiencePort {
 
   async prove(): Promise<boolean> {
     await new Promise((resolve) => setTimeout(resolve, 900));
+    if (this.failNext === "check") {
+      this.failNext = null;
+      return false;
+    }
     return true;
   }
 
@@ -332,6 +338,11 @@ export class DemoAudience implements AudiencePort {
   // ── signing in by email ──────────────────────────────────────────────────
 
   async signIn(email: string): Promise<void> {
+    const fault = this.failNext;
+    if (fault === "mail-down" || fault === "too-many") {
+      this.failNext = null;
+      throw fault === "mail-down" ? new ApiError(503, "MAIL_UNAVAILABLE") : new ApiError(429, "PUBLIC_RATE_LIMITED", { reason: "per-value" });
+    }
     const address = email.trim().toLowerCase();
     // A new link and code each time (the demo's own: 6 digits from the address and the clock).
     const code = String(100000 + ((hashOf(`${address}:${String(this.engine.now)}`) % 900000))).slice(0, 6);
@@ -377,6 +388,11 @@ export class DemoAudience implements AudiencePort {
   }
 
   async signOutEverywhere(): Promise<void> {
+    this.signed = null;
+  }
+
+  /** The demo card's "Signed out on another device": this browser's session ends as if signed out elsewhere. */
+  endSession(): void {
     this.signed = null;
   }
 

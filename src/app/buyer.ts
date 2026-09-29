@@ -596,7 +596,18 @@ export class Buyer {
 
   mine(): { orders: OrderWithTickets[]; held: Row[] } | undefined {
     if (this.signedIn() === null) return undefined;
-    return this.app.get("aud:me:orders", () => this.port.myOrders());
+    const got = this.app.get("aud:me:orders", () => this.port.myOrders());
+    // Signed out elsewhere ("sign out everywhere" from another phone): back to sign in, saying why.
+    const err = this.app.errorOf("aud:me:orders");
+    if (isApiError(err) && err.code === "PUBLIC_CLAIM_REQUIRED" && this.person !== null) setTimeout(() => this.sessionEnded(), 0);
+    return got;
+  }
+
+  /** This browser's session ended somewhere else: signed out here, told so on the sign-in page. */
+  sessionEnded(): void {
+    if (this.person === null) return;
+    this.setPerson(null);
+    this.app.go("signin", { si: { ...blankSi(), notice: "out" } });
   }
   myWaitlist(): Row[] | undefined {
     if (this.signedIn() === null) return undefined;

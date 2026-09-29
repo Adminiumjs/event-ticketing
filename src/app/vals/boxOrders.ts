@@ -420,7 +420,7 @@ function refundsVals(app: WaveApp, box: Box, w: BoxWorld): V {
         no: String(o["number"]),
         buyer: String(o["buyer_name"] ?? ""),
         show: show?.name ?? "",
-        what: tr("{tickets} (of {all})", { tickets: plural(n, `{n} ${type?.short ?? ""} ticket`, `{n} ${type?.short ?? ""} tickets`), all: num(of) }),
+        what: tr("{tickets} (of {all})", { tickets: plural(n, "{n} {type} ticket", "{n} {type} tickets", { type: type?.short ?? "" }), all: num(of) }),
         paid: tr("{amount} paid", { amount: money(Number(o["paid_in"] ?? 0) + Number(o["collected"] ?? 0)) }),
         asked: tr("asked {when}", { when: when(mine[0]?.["refund_asked_at"]) }),
         open: () => box.openDrawer(o.id),
