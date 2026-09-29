@@ -404,7 +404,7 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         return { status: res.status, ended: res.headers.get("x-adminium-session-ended"), body: (await res.json().catch(() => ({}))) as { data?: Row[] | Row } };
       };
       /** A buyer's own account row, read with their session: Adminium 0.3.5 answers it 503 (a masked column it cannot read yet). */
-      const ACCOUNT_ROW_ANSWERS_503 = true;
+      const ACCOUNT_ROW_ANSWERS_503 = false;
       /** Two buyers on an address the outbox sends to (a reserved one is skipped), each with an order and its own link. */
       const pair = { a: { email: `rui.${engine}@waveform.dev`, id: 0, token: "", sent: new Map<string, string>() }, b: { email: `lena.${engine}@waveform.dev`, id: 0, token: "", sent: new Map<string, string>() } };
       let signedA: AdminiumAudience | null = null;
