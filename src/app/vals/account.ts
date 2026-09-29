@@ -12,7 +12,7 @@ import type { Id, Row } from "../../data/wire.ts";
 import { tr } from "../../i18n/tr.ts";
 import { cssUrl, poster, svgData, wave } from "../art.ts";
 import { masked, refusalWords, transferDeadline } from "../buyer.ts";
-import { dur, fD, fT, money, ms, places, sameDay, strip, tickets as ticketsW } from "../fmt.ts";
+import { codeFace, dur, fD, fT, money, ms, places, sameDay, strip, tickets as ticketsW } from "../fmt.ts";
 import type { WaveApp } from "../wave.ts";
 import type { Show, World } from "../world.ts";
 import { ageWords, stStyle, type Status } from "./audience.ts";
@@ -65,7 +65,7 @@ function releaseAt(app: WaveApp, order: Row): number {
 
 /** A ticket's one-page PDF, saved in the browser, with a toast naming the file. */
 export function downloadTicket(app: WaveApp, w: World, show: Show, number: string, t: Row, statusTxt: string): void {
-  const code = String(t["code"] ?? "");
+  const code = codeFace(String(t["code"] ?? ""));
   if (code === "") return;
   const line = (words: string, english: string) => (latin(words) ? words : english);
   const lines: PdfLine[] = [
@@ -364,7 +364,7 @@ function goingVals(app: WaveApp, w: World): V {
   const list = o.tickets.filter((t) => t["status"] !== "returned" && t["status"] !== "released");
   const tickets = list.map((t, i) => {
     const st = ticketStatus(app, show, order, t);
-    const code = t["code"] === null || t["code"] === undefined ? "" : String(t["code"]);
+    const code = t["code"] === null || t["code"] === undefined ? "" : codeFace(String(t["code"]));
     const sent = st.icon === "forward" && st.k === "muted";
     const hide = waiting || rel || sent || code === "";
     const live = !hide && !canc && !past && t["status"] !== "cancelled" && t["status"] !== "refund_asked";
@@ -688,7 +688,7 @@ function ticketsVals(app: WaveApp, w: World): V {
       for (const t of o.tickets) {
         if (t["status"] === "returned" || t["status"] === "released") continue;
         const st = ticketStatus(app, show, o.order, t);
-        const code = t["code"] === null || t["code"] === undefined ? "" : String(t["code"]);
+        const code = t["code"] === null || t["code"] === undefined ? "" : codeFace(String(t["code"]));
         const sent = st.icon === "forward" && st.k === "muted";
         const codeOn = code !== "" && !sent;
         const usable = codeOn && (["pos", "info", "accent"].includes(st.k) || (st.k === "warn" && show.was !== null && t["status"] !== "refund_asked"));
@@ -712,7 +712,7 @@ function ticketsVals(app: WaveApp, w: World): V {
       }
     }
     for (const t of heldByShow.get(show.id) ?? []) {
-      const code = String(t["code"] ?? "");
+      const code = codeFace(String(t["code"] ?? ""));
       tiles.push({
         code,
         codeOn: code !== "",
@@ -840,7 +840,7 @@ function dmVals(app: WaveApp, w: World): V {
     dots: list.map((_, k) => ({ k: `d${String(k)}`, style: `width:${k === idx ? "18" : "7"}px; height:7px; border-radius:4px; background:${k === idx ? "var(--accent)" : "var(--border-strong)"}; transition:width .2s;` })),
     tickets: list.map((t) => {
       const st = ticketStatus(app, show, o.order, t);
-      const code = String(t["code"] ?? "");
+      const code = codeFace(String(t["code"] ?? ""));
       return {
         code,
         holder: String(t["holder_name"] ?? ""),
@@ -881,7 +881,7 @@ function friendVals(app: WaveApp, w: World): V {
     ranout: [tr("This offer ran out"), tr("Nobody accepted it in time, so it went back to the person who sent it.")],
     past: [tr("This show has happened"), tr("{show} was on {date}.", { show: show.name, date: fD(show.start) })],
   };
-  const code = t["code"] === null || t["code"] === undefined ? "" : String(t["code"]);
+  const code = t["code"] === null || t["code"] === undefined ? "" : codeFace(String(t["code"]));
   const owed = n(t["due"]) - n(t["collected"]);
   return {
     head: st === "done" ? tr("It's yours") : sender === "" ? tr("A ticket for {show}", { show: show.name }) : tr("{name} sent you a ticket for {show}", { name: sender, show: show.name }),
@@ -1125,7 +1125,7 @@ export function accountSheet(app: WaveApp, w: World, o: V & { list: unknown[]; b
   const c = ticketOf(app, sh);
   if (c === null) return;
   const { t, show, order } = c;
-  const code = t["code"] === null || t["code"] === undefined ? "" : String(t["code"]);
+  const code = t["code"] === null || t["code"] === undefined ? "" : codeFace(String(t["code"]));
   const os = order === null ? "held" : String(order["status"]);
   const unpaidX = os === "awaiting_transfer" || os === "overdue";
   const paid = os === "paid";

@@ -116,6 +116,8 @@ export interface Ports {
 }
 
 const STARS_KEY = "wv-weekend";
+/** How old Adminium's rows on screen may get before the clock asks for them again. */
+const ASK_AGAIN_MS = 120_000;
 const readStars = (): string[] => {
   try {
     const v = JSON.parse(localStorage.getItem(STARS_KEY) ?? "[]") as unknown;
@@ -247,6 +249,7 @@ export class WaveApp {
   }
   /** After a write, or the clock moving: ask everything again, keeping what is on screen until the answers come. */
   refresh(prefix = ""): void {
+    if (prefix === "") this.askedAt = Date.now();
     for (const [key, c] of [...this.cache]) {
       if (!key.startsWith(prefix)) continue;
       if (!c.loading && c.value !== undefined) this.stale.set(key, c.value);
@@ -276,7 +279,11 @@ export class WaveApp {
     // A transfer checkout waiting on its email: the tab asks after the order every few seconds.
     setInterval(() => void this.buyer.pollMail(), 3000);
     if (this.demo?.onClock === undefined) {
-      setInterval(() => this.setClock(Date.now() + this.skew), 30_000);
+      setInterval(() => this.clockTick(), 30_000);
+      // Back on a page left hidden: what it shows may be old.
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden && Date.now() - this.askedAt >= ASK_AGAIN_MS) this.setClock(Date.now() + this.skew);
+      });
       // A running hold counts down each second on the server's clock.
       setInterval(() => {
         // (and the door's clock, with its seconds)
@@ -291,6 +298,19 @@ export class WaveApp {
     this.now = now;
     this.refresh();
     this.buyer.tick();
+  }
+  /** When Adminium's rows were last all asked again. */
+  private askedAt = Date.now();
+  /**
+   * The real clock's tick: the time on screen moves every 30 s, but Adminium's rows are asked
+   * again only every few minutes, and only while the page is seen. One full ask is some sixty
+   * reads, and each signed-in person has 300 a minute across all their tabs.
+   */
+  private clockTick(): void {
+    if (typeof document !== "undefined" && !document.hidden && Date.now() - this.askedAt >= ASK_AGAIN_MS) return this.setClock(Date.now() + this.skew);
+    this.now = Date.now() + this.skew;
+    this.buyer.tick();
+    this.bump();
   }
 
   /** Switches between the audience site (on What's on) and the box office (on Today). */
@@ -345,12 +365,14 @@ export class WaveApp {
   /**
    * The page a link opens: an order's own link (`…/o#code`), a ticket sent to a friend (`…/t#code`), a
    * transfer's confirm link (`…/confirm#code`), a sign-in link (`…/c#code`), a show (`…/events/{slug}`);
-   * anything else under the site is What's on, an unknown show the page nobody found.
+   * anything else under the site is What's on, an unknown show the page nobody found. `path` is the
+   * path under the site's own base: the base itself may say `events` (it is the app's key).
    */
   async arrive(path: string, hash: string): Promise<void> {
     const code = hash.replace(/^#/, "");
-    const tail = path.replace(/\/+$/, "").split("/").pop() ?? "";
-    const show = /\/events\/([^/]+)\/?$/.exec(path)?.[1];
+    const under = path.replace(/^\/+|\/+$/g, "");
+    const tail = under.split("/").pop() ?? "";
+    const show = /^events\/([^/]+)$/.exec(under)?.[1];
     if (tail === "o" && code !== "") return this.buyer.openByLink(code);
     if (tail === "t" && code !== "") return this.go("friend", { fr: { token: code, name: "", err: null, busy: false } });
     if (tail === "confirm" && code !== "") return this.go("confirm", { confirm: { token: code, busy: false, done: false } });

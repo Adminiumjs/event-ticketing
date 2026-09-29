@@ -68,7 +68,10 @@ export async function bootAdminium(mount: HTMLElement, fail: StartupFailure): Pr
   if (app.persona === "audience" && hash !== "" && /\/(o|t|c|confirm)\/?$/.test(path)) window.history.replaceState(window.history.state, "", path.replace(/\/(o|t|c|confirm)\/?$/, "/"));
   // The address bar's screen first, then where a link takes the reader: the link wins.
   if (HOSTED) await attachToHost(app);
-  if (app.persona === "audience") await app.arrive(path, hash);
+  if (app.persona === "audience") {
+    const { pathUnderBase, surfaceBase } = await import("../urlSync.ts");
+    await app.arrive(pathUnderBase(path, surfaceBase(path, import.meta.env.BASE_URL)), hash);
+  }
 
   createRoot(mount).render(
     <StrictMode>

@@ -9,7 +9,7 @@ import type { Id, Row } from "../../data/wire.ts";
 import { tr } from "../../i18n/tr.ts";
 import { LIVE, LIVE_TICKET, plural } from "../box.ts";
 import { doorOf, looksLikeCode, segs, typedCode, type Door, type Seg, type Tonight } from "../door.ts";
-import { dur, fD, fT, money, ms, strip } from "../fmt.ts";
+import { codeFace, dur, fD, fT, money, ms, strip } from "../fmt.ts";
 import type { WaveApp } from "../wave.ts";
 import { pill } from "./box.ts";
 import type { V } from "./base.ts";
@@ -414,7 +414,7 @@ function found(app: WaveApp, door: Door, t: Tonight, q: string, guestRows: Row[]
   let orders: Row[];
   let ins: Row[];
   if (online) {
-    const any = [{ column: "holder_name", like: q }, { column: "pending_name", like: q }, ...(code ? [{ column: "code", like: q.replace(/\s/g, "") }] : [])];
+    const any = [{ column: "holder_name", like: q }, { column: "pending_name", like: q }, ...(code ? [...new Set([q.replace(/\s/g, ""), q.replace(/[\s-]/g, "")])].map((c) => ({ column: "code", like: c })) : [])];
     tickets = box.list("tickets", { where: [{ column: "event_id", eq: show.id }], any, sort: [{ column: "id" }], limit: 6 })?.rows ?? [];
     const ids = tickets.map((x) => x["order_id"] as Id);
     orders = ids.length === 0 ? [] : (box.list("orders", { where: [{ column: "id", in: [...new Set(ids)].sort((a, b) => a - b) }], limit: 6 })?.rows ?? []);
@@ -433,7 +433,7 @@ function found(app: WaveApp, door: Door, t: Tonight, q: string, guestRows: Row[]
     return {
       id: `r${String(x.id)}`,
       name: String(x["holder_name"] ?? "") || String(x["sender_name"] ?? ""),
-      code: String(x["code"] ?? ""),
+      code: codeFace(String(x["code"] ?? "")),
       sub: `${door.typeName(show, x)} · ${String(o?.["number"] ?? "")}`,
       st: st[0],
       stStyle: pill(st[1]),

@@ -139,3 +139,6 @@ export function dur(span: number): string {
 /** Counted words, whole phrases in the reader's language. */
 export const tickets = (n: number): string => fsi(tr("{n} ticket|{n} tickets", { n }));
 export const places = (n: number): string => fsi(tr("{n} place|{n} places", { n }));
+
+/** A ticket's code as the tickets print it: eight letters and numbers read as two fours ("K7QX-M2PD"). */
+export const codeFace = (code: string): string => (/^[A-Z0-9]{8}$/.test(code) ? `${code.slice(0, 4)}-${code.slice(4)}` : code);

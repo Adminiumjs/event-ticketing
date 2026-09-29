@@ -55,6 +55,19 @@ describe("What's on at 16:30", () => {
   });
 });
 
+describe("arriving at an address", () => {
+  it("reads the path under the site: the site's own base names no show", async () => {
+    const { app, v } = await open();
+    // Hosted, the base is `/apps/events/customer/`: the app's key says `events` too.
+    await app.arrive("", "");
+    expect(app.state.scr).toBe("home");
+    await app.arrive("events/neon-circuit", "");
+    expect(((await v())["scr"] as V)["event"]).toBe(true);
+    await app.arrive("events/nobody-plays-here", "");
+    expect(((await v())["scr"] as V)["404"]).toBe(true);
+  });
+});
+
 describe("a show's page and its ticket panel", () => {
   it("prices two Standard on Neon Circuit by Adminium's dry run", async () => {
     const { app, v } = await open();

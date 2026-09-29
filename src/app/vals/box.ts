@@ -68,6 +68,9 @@ export const dayTime = (t: unknown): string => `${fD(t)} · ${fT(t)}`;
 /** "Mon 27 Jul 18:00": a moment inside a line. */
 export const when = (t: unknown): string => `${fD(t)} ${fT(t)}`;
 
+/** The box office's screens, each drawn when it is the one open. */
+const BOX_SCREENS = ["refunds", "today", "events", "editor", "sales", "orders", "guests", "waits", "codes", "msgs", "pc", "settings", "door"];
+
 export function boxVals(app: WaveApp, v: V): V {
   const box = boxOf(app);
   const s = box.s;
@@ -195,7 +198,7 @@ export function boxVals(app: WaveApp, v: V): V {
     userOpen: () => app.openSheet("bxUser", {}),
     toEvents: () => box.go("events"),
     ehOn: (evScr.includes(bx) || (bx === "orders" && s.ord.tab) || bx === "guests") && !(bx === "editor" && isNewDraft(s.ed)) && !(bx === "guests" && s.gl.ev === null),
-    s: Object.fromEntries(["refunds", "today", "events", "editor", "sales", "orders", "guests", "waits", "codes", "msgs", "pc", "settings", "door"].map((k) => [k, bx === k])),
+    s: Object.fromEntries(BOX_SCREENS.map((k) => [k, bx === k])),
   };
 
   const out: V = {
@@ -203,7 +206,8 @@ export function boxVals(app: WaveApp, v: V): V {
     boRef: (el: HTMLElement | null) => el?.setAttribute("data-bo-scroll", "1"),
     dd: bx === "door" ? doorVals(app, nar) : { shows: [], tabs: [], recent: [], guests: [], sellTypes: [], nums: [], res: [], checks: [], clash: [], v: {} },
   };
-  if (w === null) return { ...out, td: blankToday(), el: { rows: [], filters: [] }, eh: { tabs: [], p: {} }, sa: blankSales(), boLoading: true };
+  // Until the box office's rows arrive no screen is drawn (a deep link lands before them): the page pulses.
+  if (w === null) return { ...out, bo: { ...bo, s: Object.fromEntries(BOX_SCREENS.map((k) => [k, false])) }, td: blankToday(), el: { rows: [], filters: [] }, eh: { tabs: [], p: {} }, sa: blankSales(), boLoading: true };
   Object.assign(out, headerVals(app, box, w, B));
   Object.assign(out, todayVals(app, box, w));
   Object.assign(out, eventsVals(app, box, w, B));

@@ -58,6 +58,18 @@ async function open(opts: { now?: string; person?: { name: string; roles: string
 }
 
 describe("the door before check-in opens (Tue 16:30)", () => {
+  it("says which door this phone is from the sheet's own button, drawn as the form's", async () => {
+    const { app, door, v } = await open();
+    const two = door.devices().find((d) => d["name"] === "Door 2")!;
+    app.openSheet("drDevice", {});
+    app.patchSheet({ pick: String(two.id) });
+    const sh = renderVals(app)["sh"] as V;
+    // A sheet with a choice is a form: its submit is the one button drawn.
+    expect([sh["fieldsOn"], sh["btnsOn"], sh["submitLabel"]]).toEqual([true, false, "Use this door"]);
+    (sh["submit"] as () => void)();
+    expect((await v())["device"]).toBe("Door 2 · Priya");
+  });
+
   it("reads Neon Circuit's numbers from Adminium and this phone's door", async () => {
     const { v } = await open();
     const d = await v();

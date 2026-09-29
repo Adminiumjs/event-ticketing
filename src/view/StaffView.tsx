@@ -168,6 +168,14 @@ export function StaffView({ v }: { v: any }) {
                 </>
               ) : null}
               {" "}
+              {v.boLoading ? (
+                <div aria-busy="true" aria-label={tr("Loading")} className="wv-screen" style={st(v.bo.page)}>
+                  <div className="wv-pulse" style={st("height:34px; width:30%; border-radius:8px; background:var(--surface-2);")}></div>
+                  <div className="wv-pulse" style={st("height:220px; border-radius:18px; background:var(--surface-2);")}></div>
+                  <div className="wv-pulse" style={st("height:22px; width:55%; border-radius:8px; background:var(--surface-2);")}></div>
+                </div>
+              ) : null}
+              {" "}
               {v.bo.s.today ? (
                 <>
                   <div className="wv-screen" style={st(v.bo.page)}>

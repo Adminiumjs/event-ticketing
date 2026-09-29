@@ -102,7 +102,8 @@ async function bootDemo(mount: HTMLElement): Promise<void> {
   app.demo = { onClock: (fn) => demo.onClock(fn), doorDevice: "Door 1", nextScan: (dayId) => demo.nextInQueue(dayId) };
   (window as unknown as { __wave?: unknown }).__wave = { app, demo };
   await app.start();
-  await app.arrive(window.location.pathname, window.location.hash);
+  const { pathUnderBase, surfaceBase } = await import("./urlSync.ts");
+  await app.arrive(pathUnderBase(window.location.pathname, surfaceBase(window.location.pathname, import.meta.env.BASE_URL)), window.location.hash);
   createRoot(mount).render(
     <StrictMode>
       <WaveRoot app={app} />

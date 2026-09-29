@@ -10,7 +10,7 @@ import { tr } from "../../i18n/tr.ts";
 import { boxOf, LIVE_TICKET, plural, unsentScans, type Box } from "../box.ts";
 import { doorOf } from "../door.ts";
 import type { BoxShow } from "../boxWorld.ts";
-import { fD, fT, money, ms, num } from "../fmt.ts";
+import { codeFace, fD, fT, money, ms, num } from "../fmt.ts";
 import type { WaveApp } from "../wave.ts";
 import { S, type V } from "./base.ts";
 import { fromLocal, localValue, ordersQuery, payHow } from "./boxOrders.ts";
@@ -72,7 +72,7 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
   const paid = Number(order?.["paid_in"] ?? 0) + Number(order?.["collected"] ?? 0);
   const refunded = Number(order?.["refunded"] ?? 0);
   const live = tickets.filter((t) => LIVE_TICKET.includes(String(t["status"])));
-  const label = (t: Row) => `${String(t["holder_name"] ?? "") || tr("Name to add")} · ${String(t["code"] ?? "—")}`;
+  const label = (t: Row) => `${String(t["holder_name"] ?? "") || tr("Name to add")} · ${codeFace(String(t["code"] ?? "—"))}`;
 
   if (k === "bxUser") {
     const me = box.me();
@@ -95,7 +95,12 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
       title: tr("Which door is this phone?"),
       sub: tr("Its check-ins and the money it takes count for that door."),
       groups: [grp(tr("Door"), door.devices().map((d) => [String(d.id), String(d["name"] ?? "")] as Opt), String(sh["pick"] ?? cur?.id ?? ""), "pick")],
-      btns: [P(tr("Use this door"), () => sh["pick"] !== undefined || cur !== null ? door.chooseDevice(Number(sh["pick"] ?? cur!.id)) : undefined), P(tr("Cancel"), () => app.closeSheet(), "g")],
+      submitLabel: tr("Use this door"),
+      submit: (e?: { preventDefault: () => void }) => {
+        e?.preventDefault();
+        const pick = sh["pick"] ?? cur?.id;
+        if (pick !== undefined) door.chooseDevice(Number(pick));
+      },
     });
   }
 
@@ -252,7 +257,7 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
   if (k === "bxApprove" && order !== undefined) {
     const asked = tickets.filter((t) => t["status"] === "refund_asked");
     const back = asked.reduce((a, t) => a + Number(t["due"] ?? t["price"] ?? 0), 0);
-    const who = asked.map((t) => tr("{name}'s ticket ({code})", { name: String(t["holder_name"] ?? ""), code: String(t["code"] ?? "") })).join(", ");
+    const who = asked.map((t) => tr("{name}'s ticket ({code})", { name: String(t["holder_name"] ?? ""), code: codeFace(String(t["code"] ?? "")) })).join(", ");
     Object.assign(o, {
       icon: "check",
       title: tr("Approve the refund on {number}?", { number }),

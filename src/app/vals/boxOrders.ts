@@ -8,7 +8,7 @@ import type { Id, ListQuery, Row, Where } from "../../data/wire.ts";
 import { tr } from "../../i18n/tr.ts";
 import { LIVE, LIVE_TICKET, plural, type Box } from "../box.ts";
 import type { BoxWorld } from "../boxWorld.ts";
-import { fD, fT, money, ms, num, venueZone } from "../fmt.ts";
+import { codeFace, fD, fT, money, ms, num, venueZone } from "../fmt.ts";
 import type { WaveApp } from "../wave.ts";
 import { posterOf } from "./audience.ts";
 import type { V } from "./base.ts";
@@ -211,7 +211,7 @@ function drawerVals(app: WaveApp, box: Box, w: BoxWorld): V {
     } else if (["awaiting_transfer", "overdue", "confirming", "held"].includes(status)) x = [tr("Waiting for payment"), "warn"];
     else if (status === "offered") x = [tr("Offered from the waitlist"), "accent"];
     else x = [tr("Valid"), "pos"];
-    return { code: String(t["code"] ?? "—"), holder: String(t["holder_name"] ?? "") || tr("Name to add"), type: typeName(t), st: x[0], stStyle: pill(x[1]) };
+    return { code: codeFace(String(t["code"] ?? "—")), holder: String(t["holder_name"] ?? "") || tr("Name to add"), type: typeName(t), st: x[0], stStyle: pill(x[1]) };
   });
 
   const payRow = (p: Row, how: string, by: unknown, at: unknown, extra = "") => ({

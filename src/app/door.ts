@@ -17,7 +17,7 @@ import { ApiError, isApiError, type Id, type Row } from "../data/wire.ts";
 import { tr } from "../i18n/tr.ts";
 import { boxOf, LIVE, LIVE_TICKET, plural, refusalOf, type Box } from "./box.ts";
 import type { BoxShow } from "./boxWorld.ts";
-import { fD, fT, money, ms, strip } from "./fmt.ts";
+import { codeFace, fD, fT, money, ms, strip } from "./fmt.ts";
 import type { WaveApp } from "./wave.ts";
 import type { Day } from "./world.ts";
 
@@ -243,11 +243,11 @@ export class Door {
   /** Which door this phone is: chosen on it once, or the only door there is. */
   device(): Row | null {
     const all = this.devices();
-    let chosen: string | null = null;
+    let chosen = this.chosenHere;
     try {
-      chosen = localStorage.getItem(DEVICE_KEY);
+      chosen ??= localStorage.getItem(DEVICE_KEY);
     } catch {
-      chosen = null;
+      // This page's own choice, if it made one.
     }
     const byChoice = all.find((d) => String(d.id) === chosen);
     if (byChoice !== undefined) return byChoice;
@@ -256,7 +256,10 @@ export class Door {
     if (byName !== undefined) return byName;
     return all.length === 1 ? all[0]! : null;
   }
+  /** The door chosen on this page: what a phone that keeps nothing still remembers until it reloads. */
+  private chosenHere: string | null = null;
   chooseDevice(id: Id): void {
+    this.chosenHere = String(id);
     try {
       localStorage.setItem(DEVICE_KEY, String(id));
     } catch {
@@ -886,7 +889,7 @@ export class Door {
 
   /** A replayed check-in refused: no line when it was this phone's own check-in already there, else the clash's words. */
   private async clashOf(q: Queued, code: string, params: Readonly<Record<string, unknown>>): Promise<{ line: string | null; id: Id | null }> {
-    if (tooOld(code, params)) return { line: tr("{code} couldn't sync — scanned more than 6 hours ago", { code: q.code }), id: null };
+    if (tooOld(code, params)) return { line: tr("{code} couldn't sync — scanned more than 6 hours ago", { code: codeFace(q.code) }), id: null };
     if (code === "UNIQUE_VIOLATION") {
       const hit = await this.port.find(q.code, q.dayId).catch(() => null);
       const row = hit?.checkIn ?? null;
@@ -896,16 +899,16 @@ export class Door {
       return {
         line:
           row === null
-            ? tr("{code} was already in — check the person in front of you.", { code: q.code })
-            : tr("{code} was already in at {time} on {door} — check the person in front of you.", { code: q.code, time: strip(fT(row["scanned_at"])), door: String(dev?.["name"] ?? "") }),
+            ? tr("{code} was already in — check the person in front of you.", { code: codeFace(q.code) })
+            : tr("{code} was already in at {time} on {door} — check the person in front of you.", { code: codeFace(q.code), time: strip(fT(row["scanned_at"])), door: String(dev?.["name"] ?? "") }),
         id: null,
       };
     }
     const t = this.tonight().find((x) => x.day.id === q.dayId);
     const hit = await this.port.find(q.code, q.dayId).catch(() => null);
-    if (t === undefined || hit === null) return { line: tr("{code} couldn't sync — {reason}", { code: q.code, reason: refusalOf(new ApiError(409, code, { ...params })) }), id: null };
+    if (t === undefined || hit === null) return { line: tr("{code} couldn't sync — {reason}", { code: codeFace(q.code), reason: refusalOf(new ApiError(409, code, { ...params })) }), id: null };
     const v = await this.refused(t, hit.ticket, hit.order, code, params, "pad");
-    return { line: tr("{code} couldn't sync — {reason}", { code: q.code, reason: plainLine(v.line) || v.word }), id: null };
+    return { line: tr("{code} couldn't sync — {reason}", { code: codeFace(q.code), reason: plainLine(v.line) || v.word }), id: null };
   }
 
   /** A replayed collection refused: nothing to say when this phone's own is there; else the money is named. */
@@ -917,12 +920,12 @@ export class Door {
       if (taken !== undefined && taken["device_id"] === q.deviceId && taken["taken_by"] === me) return { line: null, id: taken.id };
       const dev = taken === undefined ? undefined : this.box.rows("devices")?.find((d) => d.id === taken["device_id"]);
       return {
-        line: taken === undefined ? tr("{code}: the {amount} taken here wasn't recorded — it was already paid.", { code: q.code, amount }) : tr("{code}: the {amount} taken here wasn't recorded — it was already paid on {door} at {time}.", { code: q.code, amount, door: String(dev?.["name"] ?? ""), time: strip(fT(taken["taken_at"])) }),
+        line: taken === undefined ? tr("{code}: the {amount} taken here wasn't recorded — it was already paid.", { code: codeFace(q.code), amount }) : tr("{code}: the {amount} taken here wasn't recorded — it was already paid on {door} at {time}.", { code: codeFace(q.code), amount, door: String(dev?.["name"] ?? ""), time: strip(fT(taken["taken_at"])) }),
         id: null,
       };
     }
-    if (tooOld(code, params)) return { line: tr("{code}: the {amount} taken here couldn't sync — taken more than 6 hours ago", { code: q.code, amount }), id: null };
-    return { line: tr("{code}: the {amount} taken here couldn't sync — {reason}", { code: q.code, amount, reason: refusalOf(new ApiError(409, code, { ...params })) }), id: null };
+    if (tooOld(code, params)) return { line: tr("{code}: the {amount} taken here couldn't sync — taken more than 6 hours ago", { code: codeFace(q.code), amount }), id: null };
+    return { line: tr("{code}: the {amount} taken here couldn't sync — {reason}", { code: codeFace(q.code), amount, reason: refusalOf(new ApiError(409, code, { ...params })) }), id: null };
   }
 
   /** Sign out: the list and anything not sent go from this phone. */
