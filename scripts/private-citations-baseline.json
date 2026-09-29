@@ -1,16 +1,5 @@
 {
   "files": {
-    "src/components/Shell.tsx": 3,
-    "src/data/adminiumSource.test.ts": 4,
-    "src/data/adminiumSource.ts": 6,
-    "src/i18n/ambient.ts": 1,
-    "src/i18n/index.tsx": 2,
-    "src/i18n/strings/chrome.ts": 2,
-    "src/main.tsx": 7,
-    "src/state/store.ts": 2,
-    "src/styles/components.css": 2,
-    "src/styles/tokens.css": 6,
-    "src/surface-nav.ts": 3,
     "src/testing/manifest/add-on-block.ts": 4,
     "src/testing/manifest/schema.ts": 3,
     "src/testing/manifest/slots.ts": 2,

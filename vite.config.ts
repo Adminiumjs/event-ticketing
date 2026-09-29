@@ -3,7 +3,7 @@ import { surfaceJsonPlugin } from "./surface-emit.ts";
 import { DEMO_APP_KEY, DEMO_CLOCK, DEMO_DIR, DEMO_FRAMES, DEMO_PERSONAS, DEMO_SCREENS, DEMO_TOGGLES } from "./src/demo-card.ts";
 import { DEMO_CARD_MESSAGES } from "./src/i18n/strings/card.ts";
 import { APP_KEY, APP_LABEL_KEY, SURFACE_NAV } from "./src/surface-nav.ts";
-import { MESSAGES } from "./src/i18n/messages/index.ts";
+import { surfaceWords } from "./src/i18n/surfaceWords.ts";
 
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
@@ -87,7 +87,7 @@ export default defineConfig({
       appKey: APP_KEY,
       appLabelKey: APP_LABEL_KEY,
       nav: SURFACE_NAV,
-      messages: MESSAGES,
+      messages: surfaceWords([APP_LABEL_KEY, ...SURFACE_NAV.map((n) => n.labelKey)]),
     }),
     /*
      * `demo.json` beside the demo build's `index.html`: the website's demo card

@@ -1,118 +1,52 @@
 /**
- * This app's screens, as data — the ONE declaration two build outputs and one
- * runtime all read (29-app-surfaces.md D7/D8).
+ * The app's screens as Adminium's sidebar and the address bar name them: each
+ * side's sections, with the path under the surface's base, the controller's
+ * screen it opens and an icon. Labels are the screens' own sentences, so the
+ * sidebar speaks every language the screens do (`surfaceWords`).
  *
- * ─── Why this exists ────────────────────────────────────────────────────────
- *
- * `App.tsx` held the side split as two literal `SCREENS` records, and the shell
- * held its own lists for the two sidebars. That was fine while each had one
- * reader. The split now has three:
- *
- *   `App.tsx`         which components a build renders,
- *   `urlSync.ts`      which path selects which screen,
- *   `surface.json`    which sections Adminium's sidebar offers.
- *
- * Three copies of "the screens of this app" is three chances for a path to
- * exist in one and not another — which presents as a link that navigates
- * nowhere, or a sidebar row Adminium offers for a screen the bundle dropped.
+ * Read by the Vite config (to write `surface.json`) and by the surface gate:
+ * it reaches no screen code.
  */
-
-import type { View } from "./data/types.ts";
-import type { MessageKey } from "./i18n/messages/index.ts";
 import type { SurfaceNavEntry } from "./surface-types.ts";
 
 export const APP_KEY = "events";
 
-/** The sidebar section heading when this app is blended into Adminium. */
-export const APP_LABEL_KEY: MessageKey = "chrome.brand";
+/** The app's name in the sidebar: the venue product's own. */
+export const APP_LABEL_KEY = "Waveform";
 
-type Entry = SurfaceNavEntry<View> & { labelKey: MessageKey };
+/** The controller's screens (`app/wave.ts`), by name. */
+export type AudienceView = "home" | "event" | "checkout" | "going" | "signin" | "tickets" | "friend" | "offer" | "confirm" | "404";
+export type BoxView = "today" | "events" | "editor" | "sales" | "orders" | "refunds" | "guests" | "waits" | "codes" | "msgs" | "pc" | "settings" | "door";
+export type View = AudienceView | BoxView;
 
-/**
- * The NAVIGABLE screens — the ones that get a path, a sidebar row and a URL.
- *
- * Order is the sidebar order, and it matches `Shell.tsx`'s own lists because
- * both now read this one. Icons are lucide NAMES in kebab-case, never imported
- * components: this module is read by the Vite config to emit `surface.json`,
- * and pulling the icon package into a build script would be both slow and
- * pointless.
- */
+type Entry = SurfaceNavEntry<View> & { labelKey: string };
+
 export const SURFACE_NAV = [
-  {
-    id: "sales",
-    path: "sales",
-    view: "sales",
-    side: "staff",
-    icon: "bar-chart-3",
-    labelKey: "chrome.nav.sales",
-  },
-  {
-    id: "attendees",
-    path: "attendees",
-    view: "attendees",
-    side: "staff",
-    icon: "users",
-    labelKey: "chrome.nav.attendees",
-  },
-  {
-    id: "door",
-    path: "door",
-    view: "door",
-    side: "staff",
-    icon: "door-open",
-    labelKey: "chrome.nav.door",
-  },
-  /*
-   * The attendee side's entry screen takes the EMPTY path: a mapped domain
-   * serves this app at `/`, and browsing what is on is what someone arriving
-   * there came to do. Giving it `home` as well would make two URLs for one
-   * screen.
-   */
-  { id: "events", path: "", view: "home", side: "customer", labelKey: "chrome.nav.events" },
-  {
-    id: "mytickets",
-    path: "my-tickets",
-    view: "mytickets",
-    side: "customer",
-    labelKey: "chrome.nav.mytickets",
-  },
+  { id: "today", path: "", view: "today", side: "staff", icon: "house", labelKey: "Today" },
+  { id: "events", path: "events", view: "events", side: "staff", icon: "calendar-range", labelKey: "Events" },
+  { id: "orders", path: "orders", view: "orders", side: "staff", icon: "receipt-text", labelKey: "Orders" },
+  { id: "refunds", path: "refunds", view: "refunds", side: "staff", icon: "undo-2", labelKey: "Refund requests" },
+  { id: "guests", path: "guests", view: "guests", side: "staff", icon: "list-checks", labelKey: "Guest lists" },
+  { id: "waits", path: "waitlists", view: "waits", side: "staff", icon: "list-ordered", labelKey: "Waitlists" },
+  { id: "codes", path: "codes", view: "codes", side: "staff", icon: "ticket-percent", labelKey: "Codes" },
+  { id: "msgs", path: "messages", view: "msgs", side: "staff", icon: "send", labelKey: "Messages" },
+  { id: "door", path: "door", view: "door", side: "staff", icon: "scan-line", labelKey: "Door" },
+  { id: "settings", path: "settings", view: "settings", side: "staff", icon: "settings", labelKey: "Settings" },
+  { id: "whats-on", path: "", view: "home", side: "customer", icon: "calendar-days", labelKey: "What's on" },
+  { id: "my-tickets", path: "my-tickets", view: "tickets", side: "customer", icon: "wallet", labelKey: "My tickets" },
 ] as const satisfies readonly Entry[];
 
-/**
- * Screens a side RENDERS but does not navigate to directly.
- *
- * They are declared because `App.tsx` derives its `SCREENS` records from nav +
- * extras, so leaving one out drops it from the bundle rather than silently
- * rendering the wrong thing. They get no path: a checkout without a basket is
- * not a page anyone can link to, and inventing one here would promise a deep
- * link the store cannot honour.
- */
+/** Screens each side draws that are not sidebar items (opened from another screen or a link). */
 export const SURFACE_EXTRAS = {
-  staff: ["notfound"],
-  customer: ["event", "checkout", "confirm", "notfound"],
+  staff: ["editor", "sales", "pc"],
+  customer: ["event", "checkout", "going", "signin", "friend", "offer", "confirm", "404"],
 } as const satisfies Record<"staff" | "customer", readonly View[]>;
 
-/**
- * Where the demo's seeded venue is written: the venue's own words, which the
- * sample bundle the demo's Adminium loads carries. The surface gate reads its
- * literals to prove the demo build still has them.
- */
+/** The staff side's own modules: no customer build may contain one (the surface gate reads this list). */
+export const SURFACE_STAFF_ONLY = ["src/view/StaffView.tsx", "src/view/DoorView.tsx", "src/app/box.ts", "src/app/door.ts", "src/app/vals/box.ts", "src/data/adminiumStaff.ts"];
+
+/** The demo's seeded words: no surface build may contain them. */
 export const SURFACE_DEMO_DATA = "src/sample/words.ts";
 
-/**
- * Every view a side renders, as a TYPE — nav entries plus extras.
- *
- * A type and not a test, deliberately. `App.tsx` must keep its two `SCREENS`
- * records as separate object LITERALS: `SURFACE_SIDE` folds to a literal at
- * build time, and that is what lets Rollup eliminate the branch not taken —
- * and with it every screen component only that branch referenced. Building one
- * record by filtering an array at runtime would be tidier and would put the
- * whole organizer app inside the PUBLIC attendee bundle.
- */
-export type StaffView =
-  | Extract<(typeof SURFACE_NAV)[number], { side: "staff" }>["view"]
-  | (typeof SURFACE_EXTRAS)["staff"][number];
-
-export type CustomerView =
-  | Extract<(typeof SURFACE_NAV)[number], { side: "customer" }>["view"]
-  | (typeof SURFACE_EXTRAS)["customer"][number];
+export type StaffView = Extract<(typeof SURFACE_NAV)[number], { side: "staff" }>["view"] | (typeof SURFACE_EXTRAS)["staff"][number];
+export type CustomerView = Extract<(typeof SURFACE_NAV)[number], { side: "customer" }>["view"] | (typeof SURFACE_EXTRAS)["customer"][number];
