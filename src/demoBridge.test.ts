@@ -112,7 +112,7 @@ describe("the state the card reads", () => {
     const box = boxOf(app);
     app.setState({ bx: "orders" });
     expect(state().overlay).toBe(false);
-    box.set({ drawer: "o-1" });
+    box.set({ drawer: 1 });
     expect(state().overlay).toBe(true);
     box.set({ drawer: null });
     app.setState({ bx: "editor" });
