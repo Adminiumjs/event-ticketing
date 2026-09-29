@@ -21,7 +21,7 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@adminiumjs/public-client": "^0.2.2",
+    "@adminiumjs/public-client": "^0.3.6",
     "jsqr": "^1.4.0",
     "lucide-react": "^0.462.0",
     "react": "^19.0.0",
