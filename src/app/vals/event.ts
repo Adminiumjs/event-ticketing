@@ -260,6 +260,8 @@ function panelVals(app: WaveApp, w: World, r: Reading): V {
       app.setState({ panelOpen: false });
       app.refocus();
     },
+    /** On a phone the open panel is a modal sheet over a scrim: a dialog that takes the keyboard. */
+    modal: nar && s.panelOpen,
     wrap: nar
       ? s.panelOpen
         ? "position:absolute; inset-inline:0; inset-block-end:0; z-index:110; max-height:88%; overflow-y:auto;"

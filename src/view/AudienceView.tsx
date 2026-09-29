@@ -1012,7 +1012,7 @@ export function AudienceView({ v }: { v: any }) {
               </div>
               {" "}
               <aside aria-label={tr("Tickets")} style={st(v.pn.wrap)}>
-                <div id="panel" style={st(v.pn.box)}>
+                <div id="panel" {...(v.pn.modal === true ? { role: "dialog", "aria-modal": true, "aria-label": tr("Tickets") } : {})} style={st(v.pn.box)}>
                   {v.narrow ? (
                     <>
                       <div style={st("display:flex; justify-content:center; padding-block-end:4px;")}>
@@ -2339,10 +2339,10 @@ export function AudienceView({ v }: { v: any }) {
                     {tr("My tickets")}
                   </h1>
                   {" "}
-                  <div role="tablist" aria-label={tr("When")} style={st("display:flex; gap:3px; padding:3px; border-radius:12px; background:var(--surface-2); border:1px solid var(--border);")}>
+                  <div role="tablist" aria-label={tr("When")} onKeyDown={(e) => roving(e, "[role=tab]", { pick: (el) => el.click() })} style={st("display:flex; gap:3px; padding:3px; border-radius:12px; background:var(--surface-2); border:1px solid var(--border);")}>
                     {(v.mt.tabs ?? []).map((t: any, i_t: number) => (
                       <Fragment key={t.id ?? i_t}>
-                        <button role="tab" aria-selected={t.on} onClick={t.go} style={st(t.style)}>
+                        <button role="tab" aria-selected={t.on} tabIndex={t.on ? 0 : -1} onClick={t.go} style={st(t.style)}>
                           {t.label}
                         </button>
                       </Fragment>

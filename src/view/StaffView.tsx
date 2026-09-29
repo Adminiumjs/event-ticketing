@@ -155,15 +155,15 @@ export function StaffView({ v }: { v: any }) {
                       </button>
                     </div>
                     {" "}
-                    <div role="tablist" aria-label={tr("Event")} className="wv-hide" style={st("display:flex; gap:2px; overflow-x:auto; border-block-end:1px solid var(--border);")}>
+                    <nav aria-label={tr("Event")} className="wv-hide" style={st("display:flex; gap:2px; overflow-x:auto; border-block-end:1px solid var(--border);")}>
                       {(v.eh.tabs ?? []).map((t: any, i_t: number) => (
                         <Fragment key={t.id ?? i_t}>
-                          <button role="tab" aria-selected={t.on} onClick={t.go} style={st(t.style)}>
+                          <button aria-current={t.on ? "page" : undefined} onClick={t.go} style={st(t.style)}>
                             {t.label}
                           </button>
                         </Fragment>
                       ))}
-                    </div>
+                    </nav>
                   </div>
                 </>
               ) : null}
