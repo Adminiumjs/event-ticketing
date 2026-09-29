@@ -16,7 +16,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 
-import { createSessionTransport, rateLimitWait, SessionPortError, sessionPort } from "./sessionSource.ts";
+import { createSessionTransport, NoAnswerError, rateLimitWait, SessionPortError, sessionPort } from "./sessionSource.ts";
 
 interface Call {
   url: string;
@@ -374,5 +374,64 @@ describe("a request refused for rate (429)", () => {
     expect(rateLimitWait("3600")).toBe(30_000);
     expect(rateLimitWait("soon")).toBe(5_000);
     expect(rateLimitWait(null)).toBe(5_000);
+  });
+});
+
+describe("a request given a deadline (the door's)", () => {
+  const STAFF = { tableOfRef: MAP, connectionId: "conn-1", staff: { csrfToken: "csrf-abc" } };
+
+  it("is given up when nothing answers in time, as no answer — not as Adminium's refusal", async () => {
+    let signal: AbortSignal | undefined;
+    const fetchImpl = ((_: unknown, init?: RequestInit) => {
+      signal = init?.signal ?? undefined;
+      return new Promise<Response>(() => undefined);
+    }) as unknown as typeof fetch;
+    const t = createSessionTransport({ ...STAFF, fetchImpl });
+    const started = Date.now();
+    await expect(t.get("/api/v1/data/conn-1/check_ins", { deadlineMs: 40 })).rejects.toBeInstanceOf(NoAnswerError);
+    await expect(t.mutate("/api/v1/data/conn-1/check_ins", "POST", { values: {} }, { deadlineMs: 40 })).rejects.toBeInstanceOf(NoAnswerError);
+    expect(Date.now() - started).toBeLessThan(2_000);
+    // The request itself is cancelled, not left to hang.
+    expect(signal?.aborted).toBe(true);
+  });
+
+  it("never waits out a rate limit: the refusal comes back at once, and the caller keeps the work", async () => {
+    const waits: number[] = [];
+    let asked = 0;
+    const fetchImpl = (async () => {
+      asked += 1;
+      return new Response(JSON.stringify({ error: { code: "RATE_LIMITED" } }), { status: 429, headers: { "retry-after": "20" } });
+    }) as unknown as typeof fetch;
+    const t = createSessionTransport({ ...STAFF, fetchImpl, sleep: async (ms) => void waits.push(ms) });
+    await expect(t.get("/api/v1/data/conn-1/tickets", { deadlineMs: 6_000 })).rejects.toMatchObject({ status: 429 });
+    expect([asked, waits]).toEqual([1, []]);
+  });
+
+  it("answers as before when it comes in time", async () => {
+    const { fetchImpl } = harness({ "/api/v1/data/conn-1/devices": { data: [{ id: 1 }] } });
+    const t = createSessionTransport({ ...STAFF, fetchImpl });
+    await expect(t.get("/api/v1/data/conn-1/devices", { deadlineMs: 1_000 })).resolves.toEqual({ data: [{ id: 1 }] });
+  });
+});
+
+describe("a session that ended", () => {
+  const ended = (status: number, code: string) =>
+    (async () => new Response(JSON.stringify({ error: { code, message: "no" } }), { status })) as unknown as typeof fetch;
+
+  it("is told to whoever listens, on a read or a write, with Adminium's own code", async () => {
+    const t = createSessionTransport({ tableOfRef: MAP, connectionId: "conn-1", staff: { csrfToken: "csrf-abc" }, fetchImpl: ended(401, "SESSION_EXPIRED") });
+    const heard: string[] = [];
+    t.onSessionEnded((code) => heard.push(code));
+    await expect(t.get("/api/v1/data/conn-1/orders")).rejects.toMatchObject({ status: 401, code: "SESSION_EXPIRED" });
+    await expect(t.mutate("/api/v1/data/conn-1/orders", "POST", { values: {} })).rejects.toMatchObject({ status: 401 });
+    expect(heard).toEqual(["SESSION_EXPIRED", "SESSION_EXPIRED"]);
+  });
+
+  it("is not a role's refusal: a 403 says nothing of the session", async () => {
+    const t = createSessionTransport({ tableOfRef: MAP, connectionId: "conn-1", staff: { csrfToken: "csrf-abc" }, fetchImpl: ended(403, "TABLE_FORBIDDEN") });
+    const heard: string[] = [];
+    t.onSessionEnded((code) => heard.push(code));
+    await expect(t.get("/api/v1/data/conn-1/waitlist")).rejects.toMatchObject({ status: 403 });
+    expect(heard).toEqual([]);
   });
 });
