@@ -195,8 +195,8 @@ describe("the door takes a ticket's money, not payments of another kind", () => 
     expect(door.permissions.filter((p) => /:(payments|refunds):(create|update|delete)$/.test(p))).toEqual([]);
   });
 
-  it("moves an order only to the door or to paid", () => {
-    expect((door.limits?.["orders"] as Json)["writableValues"]).toEqual({ status: ["door", "paid"], channel: ["door"] });
+  it("moves an order only to the door or to paid, and says it was paid by card or cash", () => {
+    expect((door.limits?.["orders"] as Json)["writableValues"]).toEqual({ status: ["door", "paid"], channel: ["door"], paid_method: ["card", "cash"] });
   });
 
   it("works from the door screen only", () => {
