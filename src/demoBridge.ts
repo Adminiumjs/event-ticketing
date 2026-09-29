@@ -3,7 +3,7 @@
  * picks a side and a screen, sets the language and the theme, moves the
  * clock; this answers with the venue's state after every change — which
  * screen, which side, the clock as the card should print it, and whether a
- * sheet, menu or the ticket on the phone covers the page (the card hides then).
+ * layer covers the page (the card hides then).
  *
  * Only the demo build contains this file (`DEMO` folds it away), and only a
  * page framed by the website's own origin speaks it.
@@ -39,10 +39,18 @@ export function currentScreen(app: WaveApp): string {
   return s.scr;
 }
 
-/** Whether a sheet, a menu, the ticket panel or the ticket on the phone covers the page. */
+/**
+ * Whether a layer covers the page: a sheet, a menu, the ticket panel, the
+ * ticket on the phone — or, at the box office, an order's drawer, the
+ * editor's full preview, or a verdict at the door.
+ */
 export function overlayOpen(app: WaveApp): boolean {
   const s = app.state;
-  return s.sheet !== null || s.dm !== null || s.acctOpen || s.panelOpen;
+  if (s.sheet !== null || s.dm !== null || s.acctOpen || s.panelOpen) return true;
+  if (app.persona !== "box") return false;
+  if ((s.box?.drawer ?? null) !== null) return true;
+  if (s.bx === "editor" && s.box?.edFull === true) return true;
+  return s.bx === "door" && (s.door?.verdict ?? null) !== null;
 }
 
 export function stateMessage(app: WaveApp, clock: DemoClock): DemoMessage {

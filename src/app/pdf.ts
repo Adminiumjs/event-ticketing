@@ -2,19 +2,25 @@
  * A ticket as a one-page PDF, drawn in the browser as the design draws it:
  * the venue's band, the show's lines, the ticket's QR code and its code.
  * Built by hand (no PDF library): the standard fonts carry Latin text only,
- * so a line the reader's language writes in another script falls back to
- * its English words — the code and the QR read the same in every language.
+ * so a line the reader's language writes in another script is drawn with the
+ * same line built in English (`readable`) — the whole line, its date, times,
+ * age rule and status with it, never a shorter one — and the code and the QR
+ * read the same in every language.
  */
 import { qrMatrix } from "@adminiumjs/public-client/qr";
 
+import { locale, setLocale } from "../i18n/tr.ts";
+
 const WIN: Record<string, number> = { "—": 151, "–": 150, "·": 183, "•": 149, "’": 146, "‘": 145, "“": 147, "”": 148, "…": 133, "€": 128 };
 
-/** Whether a line can be written in the standard fonts' encoding. */
-export const latin = (s: string): boolean => [...s].every((ch) => ch.charCodeAt(0) < 256 || ch in WIN);
+const MARKS = /[\u2066-\u2069]/g;
+
+/** Whether a line can be written in the standard fonts' encoding (the direction marks around figures are never drawn). */
+export const latin = (s: string): boolean => [...s.replace(MARKS, "")].every((ch) => ch.charCodeAt(0) < 256 || ch in WIN);
 
 function esc(s: string): string {
   let r = "";
-  for (const ch of s.replace(/[⁦-⁩]/g, "")) {
+  for (const ch of s.replace(MARKS, "")) {
     const c = ch.charCodeAt(0);
     if (ch === "(" || ch === ")" || ch === "\\") r += `\\${ch}`;
     else if (c < 128) r += ch;
@@ -27,6 +33,27 @@ function esc(s: string): string {
 
 /** One line of the page: text, size, font (F1 regular, F2 bold, F3 mono) and grey. */
 export type PdfLine = [string, number, "F1" | "F2" | "F3", string?];
+
+/**
+ * The page's lines as the standard fonts can draw them: `build` runs in the
+ * reader's language, and again in English; each line the fonts cannot draw
+ * in the reader's words is the English line in its place (same position,
+ * same content). A line whose own data is in another script (a name) is
+ * drawn as it is either way.
+ */
+export function readable(build: () => PdfLine[]): PdfLine[] {
+  const own = build();
+  if (own.every(([t]) => latin(t))) return own;
+  const was = locale();
+  let english: PdfLine[];
+  try {
+    setLocale("en-US");
+    english = build();
+  } finally {
+    setLocale(was);
+  }
+  return own.map((l, i) => (latin(l[0]) ? l : (english[i] ?? l)));
+}
 
 export function ticketPdf(head: { venue: string; address: string }, lines: PdfLine[], code: string, foot: string): string {
   const W = 420;

@@ -203,6 +203,8 @@ export function DoorView({ d, s, bo }: { d: any; s: any; bo: any }) {
           </div>
         ) : null}
         {" "}
+        {/* The screen's heading once check-in is open (or there is no show): the show, for a screen reader and for focus. */}
+        {d.before ? null : <h1 className="wv-sr">{d.title}</h1>}
         {d.open ? (
           <>
             <div role="tablist" aria-label={tr("Door")} onKeyDown={d.tabKey} style={st(`display:grid; grid-template-columns:${d.tabCols}; border-block-end:1px solid var(--border);`)}>

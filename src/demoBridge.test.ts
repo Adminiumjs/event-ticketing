@@ -8,6 +8,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DemoAdminium } from "./demo/adminium.ts";
 import { WaveApp } from "./app/wave.ts";
+import { boxOf } from "./app/box.ts";
+import { doorOf } from "./app/door.ts";
 import { DEMO_APP_KEY, DEMO_SCREENS } from "./demo-card.ts";
 import { applyDemoMessage, startDemoBridge, stateMessage } from "./demoBridge.ts";
 import type { DemoMessage } from "./demo-types.ts";
@@ -102,6 +104,28 @@ describe("the state the card reads", () => {
     app.closeSheet();
     app.setState({ acctOpen: true });
     expect(state().overlay).toBe(true);
+  });
+
+  it("hides the card over the order drawer, the editor's full preview and a door verdict", async () => {
+    const { app, state } = await open();
+    app.setPersona("box");
+    const box = boxOf(app);
+    app.setState({ bx: "orders" });
+    expect(state().overlay).toBe(false);
+    box.set({ drawer: 1 });
+    expect(state().overlay).toBe(true);
+    box.set({ drawer: null });
+    app.setState({ bx: "editor" });
+    box.set({ edFull: true });
+    expect(state().overlay).toBe(true);
+    box.set({ edFull: false });
+    expect(state().overlay).toBe(false);
+    app.setState({ bx: "door" });
+    const door = doorOf(app);
+    door.set({ verdict: { k: "info", word: "COLLECT", amount: "$24.00", name: "Mia Hart", type: "Standard", id: "", line: [], collect: null, from: "pad" } as never });
+    expect(state().overlay).toBe(true);
+    door.set({ verdict: null });
+    expect(state().overlay).toBe(false);
   });
 });
 

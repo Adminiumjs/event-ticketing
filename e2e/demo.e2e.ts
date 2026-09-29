@@ -1,7 +1,9 @@
 /**
- * The demo, opened as the website serves it: the first screen is still, and
- * axe finds nothing serious on it. Each screen of the audience site, the box
- * office and the door is added here as it is built, in every variant.
+ * A smoke pass: the demo opens as the website serves it, in every variant,
+ * and its first screen settles. No axe sweep runs yet — `check()` in
+ * `browser.ts` (axe, the reading direction, overflow) is what the screens of
+ * the audience site, the box office and the door will each go through as they
+ * are added here.
  */
 import { expect, test } from "@playwright/test";
 

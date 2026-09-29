@@ -4,9 +4,11 @@
  * instant is an ISO string or epoch ms; money is in the connection's
  * currency. Times are 24-hour, as the venue's tickets and door read them.
  *
- * A figure or a date is one left-to-right run wherever it sits (`iso`): in
- * Arabic, the currency mark and the number are never reordered. Arabic keeps
- * the Latin digits the design draws.
+ * A figure is one left-to-right run wherever it sits (`iso`): in Arabic, the
+ * currency mark and the number are never reordered. A date or a span that
+ * carries words ("28 يوليو", "3 س 30 د") is one run in the direction of its
+ * own first letter (`fsi`), so an Arabic span that starts with a digit still
+ * reads right to left. Arabic keeps the Latin digits the design draws.
  */
 import { locale, tr } from "../i18n/tr.ts";
 import { venueDay, wallTime, type Ymd } from "../lib/venueTime.ts";
@@ -70,7 +72,7 @@ export function fD(v: unknown): string {
   const t = ms(v);
   if (t === null) return "";
   const f = df("wdm", { weekday: "short", day: "numeric", month: "short" });
-  if (locale() !== "en-US") return iso(f.format(t));
+  if (locale() !== "en-US") return fsi(f.format(t));
   const parts = f.formatToParts(t);
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
   return iso(`${get("weekday")} ${get("day")} ${get("month")}`);
@@ -80,7 +82,7 @@ export function fDM(v: unknown): string {
   const t = ms(v);
   if (t === null) return "";
   const f = df("dm", { day: "numeric", month: "short" });
-  if (locale() !== "en-US") return iso(f.format(t));
+  if (locale() !== "en-US") return fsi(f.format(t));
   const parts = f.formatToParts(t);
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
   return iso(`${get("day")} ${get("month")}`);
@@ -125,15 +127,19 @@ export const sameDay = (a: unknown, b: unknown): boolean => {
   return x !== null && y !== null && dayKey(x) === dayKey(y);
 };
 
-/** A span of time as the design counts it: "3 h 30 m", "1 d 17 h", "12 m". */
+/**
+ * A span of time as the design counts it: "3 h 30 m", "1 d 17 h", "12 m" —
+ * one run in the direction of its own words (the Arabic "3 س 30 د" starts
+ * with a digit, and a left-to-right run would put the minutes first).
+ */
 export function dur(span: number): string {
-  if (span <= 0) return iso(tr("{m} m", { m: 0 }));
+  if (span <= 0) return fsi(tr("{m} m", { m: 0 }));
   const d = Math.floor(span / 86_400_000);
   const h = Math.floor((span % 86_400_000) / 3_600_000);
   const m = Math.floor((span % 3_600_000) / 60_000);
-  if (d > 0) return iso(tr("{d} d {h} h", { d, h }));
-  if (h > 0) return iso(tr("{h} h {m} m", { h, m }));
-  return iso(tr("{m} m", { m }));
+  if (d > 0) return fsi(tr("{d} d {h} h", { d, h }));
+  if (h > 0) return fsi(tr("{h} h {m} m", { h, m }));
+  return fsi(tr("{m} m", { m }));
 }
 
 /** Counted words, whole phrases in the reader's language. */
