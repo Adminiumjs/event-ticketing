@@ -910,7 +910,9 @@ export class Box {
         await this.port.remove("devices", id);
         gone = gone.filter((x) => x !== id);
       }
-      await this.port.update("settings", w.settingsRow.id, d.settings);
+      // A venue with no settings row yet (the sample removed, nothing saved since): the first save makes it.
+      if (w.settingsRow.id === 0) await this.port.create("settings", d.settings);
+      else await this.port.update("settings", w.settingsRow.id, d.settings);
       for (const r of rooms) {
         const values = { name: r["name"], capacity: Number(r["capacity"]), note: r["note"] ?? null };
         if (r.id > 0) await this.port.update("rooms", r.id, values);

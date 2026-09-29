@@ -720,3 +720,19 @@ describe("a save of a show's draft", () => {
     expect(mergeDraft(base, mine, cur)).toEqual({ conflict: ["doors_at"] });
   });
 });
+
+describe("settings on a venue with no settings row", () => {
+  it("makes the row on the first save (the sample removed, nothing saved since)", async () => {
+    const { demo, box, go } = await open("settings");
+    const row = demo.world.all("settings")[0]!;
+    demo.world.remove("settings", row.id);
+    box.refresh();
+    await go("settings");
+    expect(box.world()!.settingsRow.id).toBe(0);
+    box.set({ set: { settings: { venue_name: "The Loft", address: "2 Mill Street", contact_email: "hello@loft.example" }, rooms: [], devices: [], gone: [] } });
+    await box.saveSettings();
+    const made = demo.world.all("settings");
+    expect(made).toHaveLength(1);
+    expect(made[0]!["venue_name"]).toBe("The Loft");
+  });
+});
