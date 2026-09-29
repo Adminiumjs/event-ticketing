@@ -6353,6 +6353,12 @@
               {
                 "to": "refund_asked",
                 "requires": {
+                  "where": [
+                    {
+                      "column": "order_status",
+                      "eq": "paid"
+                    }
+                  ],
                   "time": {
                     "before": {
                       "column": "refund_until",
@@ -6886,6 +6892,29 @@
               "copy": {
                 "via": "event_id",
                 "from": "doors_at",
+                "mode": "always",
+                "follow": true
+              }
+            }
+          },
+          {
+            "ref": "waitlist_on",
+            "type": "bool",
+            "default": false,
+            "label": {
+              "en-US": "Waitlist when sold out",
+              "de-DE": "Warteliste bei Ausverkauf",
+              "fr-FR": "Liste d'attente si complet",
+              "da-DK": "Venteliste ved udsolgt",
+              "cs-CZ": "Čekací listina po vyprodání",
+              "ar-EG": "قائمة انتظار عند نفاد التذاكر",
+              "zh-CN": "售罄后开放候补",
+              "zh-TW": "售完後開放候補"
+            },
+            "rules": {
+              "copy": {
+                "via": "event_id",
+                "from": "waitlist_on",
                 "mode": "always",
                 "follow": true
               }
@@ -15424,8 +15453,6 @@
         "paid_at",
         "paid_method",
         "cancelled_at",
-        "answers",
-        "access_note",
         "opt_in",
         "kept_at"
       ],
@@ -15491,15 +15518,12 @@
         "admits_day3",
         "code",
         "holder_name",
-        "holder_email",
         "pending_name",
-        "pending_email",
         "offer_until",
         "sent_at",
         "accepted_at",
         "refund_asked_at",
-        "times_in",
-        "answers"
+        "times_in"
       ],
       "writable": [
         "status",
@@ -15541,8 +15565,7 @@
       },
       "withhold": {
         "columns": [
-          "code",
-          "holder_email"
+          "code"
         ],
         "unlessHolder": "holder_customer_id",
         "when": {
@@ -15589,15 +15612,12 @@
         "admits_day3",
         "code",
         "holder_name",
-        "holder_email",
         "pending_name",
-        "pending_email",
         "offer_until",
         "sent_at",
         "accepted_at",
         "refund_asked_at",
-        "times_in",
-        "answers"
+        "times_in"
       ],
       "writable": [
         "holder_name",
@@ -15630,8 +15650,7 @@
       },
       "withhold": {
         "columns": [
-          "code",
-          "holder_email"
+          "code"
         ],
         "unlessHolder": "holder_customer_id",
         "when": {
@@ -15678,22 +15697,23 @@
         "admits_day3",
         "code",
         "holder_name",
-        "holder_email",
         "pending_name",
-        "pending_email",
         "offer_until",
         "sent_at",
         "accepted_at",
         "refund_asked_at",
-        "times_in",
-        "answers"
+        "times_in"
       ],
       "writable": [
-        "status"
+        "status",
+        "cancel_cause"
       ],
       "writableValues": {
         "status": [
           "returned"
+        ],
+        "cancel_cause": [
+          "buyer"
         ]
       },
       "writableWhen": {
@@ -15701,13 +15721,32 @@
           "valid"
         ],
         "order_status": [
-          "offered"
-        ]
+          "offered",
+          "door"
+        ],
+        "holder_customer_id": [
+          null
+        ],
+        "collected": [
+          null,
+          0
+        ],
+        "times_in": [
+          null,
+          0
+        ],
+        "waitlist_on": [
+          true
+        ],
+        "event_id": {
+          "before": {
+            "column": "doors_at"
+          }
+        }
       },
       "withhold": {
         "columns": [
-          "code",
-          "holder_email"
+          "code"
         ],
         "unlessHolder": "holder_customer_id",
         "when": {
@@ -15754,15 +15793,12 @@
         "admits_day3",
         "code",
         "holder_name",
-        "holder_email",
         "pending_name",
-        "pending_email",
         "offer_until",
         "sent_at",
         "accepted_at",
         "refund_asked_at",
-        "times_in",
-        "answers"
+        "times_in"
       ],
       "writable": [
         "status"
@@ -15782,6 +15818,20 @@
         "order_status": [
           "door"
         ],
+        "holder_customer_id": [
+          null
+        ],
+        "collected": [
+          null,
+          0
+        ],
+        "times_in": [
+          null,
+          0
+        ],
+        "waitlist_on": [
+          false
+        ],
         "event_id": {
           "before": {
             "column": "doors_at"
@@ -15790,8 +15840,7 @@
       },
       "withhold": {
         "columns": [
-          "code",
-          "holder_email"
+          "code"
         ],
         "unlessHolder": "holder_customer_id",
         "when": {
@@ -15929,7 +15978,8 @@
         "getting_there",
         "accessibility",
         "policies",
-        "faq"
+        "faq",
+        "remind_lead_hours"
       ]
     },
     {
@@ -15968,6 +16018,7 @@
         "about",
         "image",
         "poster_style",
+        "poster_hue",
         "on_sale_at",
         "refund_until",
         "refund_text",
@@ -16458,8 +16509,6 @@
         "paid_at",
         "paid_method",
         "cancelled_at",
-        "answers",
-        "access_note",
         "opt_in",
         "kept_at"
       ],
@@ -16526,15 +16575,12 @@
         "admits_day3",
         "code",
         "holder_name",
-        "holder_email",
         "pending_name",
-        "pending_email",
         "offer_until",
         "sent_at",
         "accepted_at",
         "refund_asked_at",
-        "times_in",
-        "answers"
+        "times_in"
       ],
       "writable": [
         "status",
@@ -16576,8 +16622,7 @@
       },
       "withhold": {
         "columns": [
-          "code",
-          "holder_email"
+          "code"
         ],
         "unlessHolder": "holder_customer_id",
         "when": {
@@ -16625,15 +16670,12 @@
         "admits_day3",
         "code",
         "holder_name",
-        "holder_email",
         "pending_name",
-        "pending_email",
         "offer_until",
         "sent_at",
         "accepted_at",
         "refund_asked_at",
-        "times_in",
-        "answers"
+        "times_in"
       ],
       "writable": [
         "holder_name",
@@ -16666,8 +16708,7 @@
       },
       "withhold": {
         "columns": [
-          "code",
-          "holder_email"
+          "code"
         ],
         "unlessHolder": "holder_customer_id",
         "when": {
@@ -16715,22 +16756,23 @@
         "admits_day3",
         "code",
         "holder_name",
-        "holder_email",
         "pending_name",
-        "pending_email",
         "offer_until",
         "sent_at",
         "accepted_at",
         "refund_asked_at",
-        "times_in",
-        "answers"
+        "times_in"
       ],
       "writable": [
-        "status"
+        "status",
+        "cancel_cause"
       ],
       "writableValues": {
         "status": [
           "returned"
+        ],
+        "cancel_cause": [
+          "buyer"
         ]
       },
       "writableWhen": {
@@ -16738,13 +16780,32 @@
           "valid"
         ],
         "order_status": [
-          "offered"
-        ]
+          "offered",
+          "door"
+        ],
+        "holder_customer_id": [
+          null
+        ],
+        "collected": [
+          null,
+          0
+        ],
+        "times_in": [
+          null,
+          0
+        ],
+        "waitlist_on": [
+          true
+        ],
+        "event_id": {
+          "before": {
+            "column": "doors_at"
+          }
+        }
       },
       "withhold": {
         "columns": [
-          "code",
-          "holder_email"
+          "code"
         ],
         "unlessHolder": "holder_customer_id",
         "when": {
@@ -16792,15 +16853,12 @@
         "admits_day3",
         "code",
         "holder_name",
-        "holder_email",
         "pending_name",
-        "pending_email",
         "offer_until",
         "sent_at",
         "accepted_at",
         "refund_asked_at",
-        "times_in",
-        "answers"
+        "times_in"
       ],
       "writable": [
         "status"
@@ -16820,6 +16878,20 @@
         "order_status": [
           "door"
         ],
+        "holder_customer_id": [
+          null
+        ],
+        "collected": [
+          null,
+          0
+        ],
+        "times_in": [
+          null,
+          0
+        ],
+        "waitlist_on": [
+          false
+        ],
         "event_id": {
           "before": {
             "column": "doors_at"
@@ -16828,8 +16900,7 @@
       },
       "withhold": {
         "columns": [
-          "code",
-          "holder_email"
+          "code"
         ],
         "unlessHolder": "holder_customer_id",
         "when": {

@@ -1381,6 +1381,12 @@ export const MANIFEST_RULES = {
           {
             "to": "refund_asked",
             "requires": {
+              "where": [
+                {
+                  "column": "order_status",
+                  "eq": "paid"
+                }
+              ],
               "time": {
                 "before": {
                   "column": "refund_until",
@@ -1633,8 +1639,6 @@ export const MANIFEST_RULES = {
         "paid_at",
         "paid_method",
         "cancelled_at",
-        "answers",
-        "access_note",
         "opt_in",
         "kept_at"
       ],
@@ -1700,15 +1704,12 @@ export const MANIFEST_RULES = {
         "admits_day3",
         "code",
         "holder_name",
-        "holder_email",
         "pending_name",
-        "pending_email",
         "offer_until",
         "sent_at",
         "accepted_at",
         "refund_asked_at",
-        "times_in",
-        "answers"
+        "times_in"
       ],
       "writable": [
         "status",
@@ -1750,8 +1751,7 @@ export const MANIFEST_RULES = {
       },
       "withhold": {
         "columns": [
-          "code",
-          "holder_email"
+          "code"
         ],
         "unlessHolder": "holder_customer_id",
         "when": {
@@ -1798,15 +1798,12 @@ export const MANIFEST_RULES = {
         "admits_day3",
         "code",
         "holder_name",
-        "holder_email",
         "pending_name",
-        "pending_email",
         "offer_until",
         "sent_at",
         "accepted_at",
         "refund_asked_at",
-        "times_in",
-        "answers"
+        "times_in"
       ],
       "writable": [
         "holder_name",
@@ -1839,8 +1836,7 @@ export const MANIFEST_RULES = {
       },
       "withhold": {
         "columns": [
-          "code",
-          "holder_email"
+          "code"
         ],
         "unlessHolder": "holder_customer_id",
         "when": {
@@ -1887,22 +1883,23 @@ export const MANIFEST_RULES = {
         "admits_day3",
         "code",
         "holder_name",
-        "holder_email",
         "pending_name",
-        "pending_email",
         "offer_until",
         "sent_at",
         "accepted_at",
         "refund_asked_at",
-        "times_in",
-        "answers"
+        "times_in"
       ],
       "writable": [
-        "status"
+        "status",
+        "cancel_cause"
       ],
       "writableValues": {
         "status": [
           "returned"
+        ],
+        "cancel_cause": [
+          "buyer"
         ]
       },
       "writableWhen": {
@@ -1910,13 +1907,32 @@ export const MANIFEST_RULES = {
           "valid"
         ],
         "order_status": [
-          "offered"
-        ]
+          "offered",
+          "door"
+        ],
+        "holder_customer_id": [
+          null
+        ],
+        "collected": [
+          null,
+          0
+        ],
+        "times_in": [
+          null,
+          0
+        ],
+        "waitlist_on": [
+          true
+        ],
+        "event_id": {
+          "before": {
+            "column": "doors_at"
+          }
+        }
       },
       "withhold": {
         "columns": [
-          "code",
-          "holder_email"
+          "code"
         ],
         "unlessHolder": "holder_customer_id",
         "when": {
@@ -1963,15 +1979,12 @@ export const MANIFEST_RULES = {
         "admits_day3",
         "code",
         "holder_name",
-        "holder_email",
         "pending_name",
-        "pending_email",
         "offer_until",
         "sent_at",
         "accepted_at",
         "refund_asked_at",
-        "times_in",
-        "answers"
+        "times_in"
       ],
       "writable": [
         "status"
@@ -1991,6 +2004,20 @@ export const MANIFEST_RULES = {
         "order_status": [
           "door"
         ],
+        "holder_customer_id": [
+          null
+        ],
+        "collected": [
+          null,
+          0
+        ],
+        "times_in": [
+          null,
+          0
+        ],
+        "waitlist_on": [
+          false
+        ],
         "event_id": {
           "before": {
             "column": "doors_at"
@@ -1999,8 +2026,7 @@ export const MANIFEST_RULES = {
       },
       "withhold": {
         "columns": [
-          "code",
-          "holder_email"
+          "code"
         ],
         "unlessHolder": "holder_customer_id",
         "when": {
@@ -2138,7 +2164,8 @@ export const MANIFEST_RULES = {
         "getting_there",
         "accessibility",
         "policies",
-        "faq"
+        "faq",
+        "remind_lead_hours"
       ]
     },
     {
@@ -2177,6 +2204,7 @@ export const MANIFEST_RULES = {
         "about",
         "image",
         "poster_style",
+        "poster_hue",
         "on_sale_at",
         "refund_until",
         "refund_text",
@@ -2667,8 +2695,6 @@ export const MANIFEST_RULES = {
         "paid_at",
         "paid_method",
         "cancelled_at",
-        "answers",
-        "access_note",
         "opt_in",
         "kept_at"
       ],
@@ -2735,15 +2761,12 @@ export const MANIFEST_RULES = {
         "admits_day3",
         "code",
         "holder_name",
-        "holder_email",
         "pending_name",
-        "pending_email",
         "offer_until",
         "sent_at",
         "accepted_at",
         "refund_asked_at",
-        "times_in",
-        "answers"
+        "times_in"
       ],
       "writable": [
         "status",
@@ -2785,8 +2808,7 @@ export const MANIFEST_RULES = {
       },
       "withhold": {
         "columns": [
-          "code",
-          "holder_email"
+          "code"
         ],
         "unlessHolder": "holder_customer_id",
         "when": {
@@ -2834,15 +2856,12 @@ export const MANIFEST_RULES = {
         "admits_day3",
         "code",
         "holder_name",
-        "holder_email",
         "pending_name",
-        "pending_email",
         "offer_until",
         "sent_at",
         "accepted_at",
         "refund_asked_at",
-        "times_in",
-        "answers"
+        "times_in"
       ],
       "writable": [
         "holder_name",
@@ -2875,8 +2894,7 @@ export const MANIFEST_RULES = {
       },
       "withhold": {
         "columns": [
-          "code",
-          "holder_email"
+          "code"
         ],
         "unlessHolder": "holder_customer_id",
         "when": {
@@ -2924,22 +2942,23 @@ export const MANIFEST_RULES = {
         "admits_day3",
         "code",
         "holder_name",
-        "holder_email",
         "pending_name",
-        "pending_email",
         "offer_until",
         "sent_at",
         "accepted_at",
         "refund_asked_at",
-        "times_in",
-        "answers"
+        "times_in"
       ],
       "writable": [
-        "status"
+        "status",
+        "cancel_cause"
       ],
       "writableValues": {
         "status": [
           "returned"
+        ],
+        "cancel_cause": [
+          "buyer"
         ]
       },
       "writableWhen": {
@@ -2947,13 +2966,32 @@ export const MANIFEST_RULES = {
           "valid"
         ],
         "order_status": [
-          "offered"
-        ]
+          "offered",
+          "door"
+        ],
+        "holder_customer_id": [
+          null
+        ],
+        "collected": [
+          null,
+          0
+        ],
+        "times_in": [
+          null,
+          0
+        ],
+        "waitlist_on": [
+          true
+        ],
+        "event_id": {
+          "before": {
+            "column": "doors_at"
+          }
+        }
       },
       "withhold": {
         "columns": [
-          "code",
-          "holder_email"
+          "code"
         ],
         "unlessHolder": "holder_customer_id",
         "when": {
@@ -3001,15 +3039,12 @@ export const MANIFEST_RULES = {
         "admits_day3",
         "code",
         "holder_name",
-        "holder_email",
         "pending_name",
-        "pending_email",
         "offer_until",
         "sent_at",
         "accepted_at",
         "refund_asked_at",
-        "times_in",
-        "answers"
+        "times_in"
       ],
       "writable": [
         "status"
@@ -3029,6 +3064,20 @@ export const MANIFEST_RULES = {
         "order_status": [
           "door"
         ],
+        "holder_customer_id": [
+          null
+        ],
+        "collected": [
+          null,
+          0
+        ],
+        "times_in": [
+          null,
+          0
+        ],
+        "waitlist_on": [
+          false
+        ],
         "event_id": {
           "before": {
             "column": "doors_at"
@@ -3037,8 +3086,7 @@ export const MANIFEST_RULES = {
       },
       "withhold": {
         "columns": [
-          "code",
-          "holder_email"
+          "code"
         ],
         "unlessHolder": "holder_customer_id",
         "when": {

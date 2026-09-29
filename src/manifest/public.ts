@@ -26,7 +26,7 @@
  */
 import { LIVE_ORDER, setting } from "./tables.ts";
 
-/** What a buyer sees of their order. */
+/** What a buyer sees of their order (its answers and access note are written, never read back). */
 export const ORDER_SELECT = [
   "id",
   "number",
@@ -55,17 +55,19 @@ export const ORDER_SELECT = [
   "paid_at",
   "paid_method",
   "cancelled_at",
-  "answers",
-  "access_note",
   "opt_in",
   "kept_at",
 ];
 
 /** What a create answers: nothing personal goes back to an endpoint anyone may call. */
-const PERSONAL_ORDER = ["buyer_name", "email", "answers", "access_note"];
+const PERSONAL_ORDER = ["buyer_name", "email"];
 const CREATED_SELECT = ORDER_SELECT.filter((c) => !PERSONAL_ORDER.includes(c));
 
-/** What a buyer sees of each ticket; the code only when they hold it. */
+/**
+ * What a buyer sees of each ticket; the code only when they hold it. The answers, and the address a ticket was
+ * sent on to, are written by the buyer's pages and never read back: they stay out of every read, so an order's
+ * forwarded link carries none of them.
+ */
 export const TICKET_SELECT = [
   "id",
   "order_id",
@@ -83,15 +85,12 @@ export const TICKET_SELECT = [
   "admits_day3",
   "code",
   "holder_name",
-  "holder_email",
   "pending_name",
-  "pending_email",
   "offer_until",
   "sent_at",
   "accepted_at",
   "refund_asked_at",
   "times_in",
-  "answers",
 ];
 
 /** An order's states in which its tickets can be named: held in a checkout, or live. */
@@ -101,11 +100,11 @@ const NAMED = ["held", "confirming", "offered", "door", "no_charge", "paid", "aw
 const UNPAID = ["held", "confirming", "offered", "awaiting_transfer", "overdue", "released"];
 
 /**
- * A friend's code and address stay with the friend; the buyer sees "Sent to Kai Renner". And no ticket shows
- * a code before its order is paid or confirmed to pay at the door.
+ * A friend's code stays with the friend (their address is never read at all); the buyer sees "Sent to Kai Renner".
+ * And no ticket shows a code before its order is paid or confirmed to pay at the door.
  */
 const WITHHOLD = {
-  columns: ["code", "holder_email"],
+  columns: ["code"],
   unlessHolder: "holder_customer_id",
   when: { where: [{ column: "order_status", in: UNPAID }] },
 };
@@ -137,6 +136,7 @@ export const SETTINGS_SELECT = [
   "accessibility",
   "policies",
   "faq",
+  "remind_lead_hours",
 ];
 const BANK_SELECT = ["bank_account_name", "bank_name", "bank_account_number", "bank_routing"];
 
@@ -157,6 +157,7 @@ const EVENT_SELECT = [
   "about",
   "image",
   "poster_style",
+  "poster_hue",
   "on_sale_at",
   "refund_until",
   "refund_text",
@@ -215,11 +216,21 @@ function orderEntry(keyed: Record<string, unknown>, who: Record<string, unknown>
   };
 }
 
+/** A ticket nobody else holds: a friend who accepted it has it now, with a code of their own. */
+const NOBODY_ELSE = { holder_customer_id: [null] };
+
+/**
+ * A pay-at-the-door ticket its buyer may still cancel: before doors, and only while the door has taken no
+ * money for it and not let it in.
+ */
+const UNTOUCHED_AT_DOOR = { status: ["valid"], order_status: ["door"], ...NOBODY_ELSE, collected: [null, 0], times_in: [null, 0] };
+const BEFORE_DOORS = { event_id: { before: { column: "doors_at" } } };
+
 /** An order's tickets: read with the order, and the changes a buyer makes to them. */
 function ticketEntries(keyed: Record<string, unknown>) {
   return [
-    // Send a ticket to a friend or take it back; ask for a refund or withdraw the ask (the refund
-    // window is the ticket's own rule). Only once the order is confirmed, and only while nobody
+    // Send a ticket to a friend or take it back; ask for a refund or withdraw the ask (a paid order's only, inside
+    // the refund window: both the ticket's own rules). Only once the order is confirmed, and only while nobody
     // else holds the ticket.
     {
       table: "tickets",
@@ -229,7 +240,7 @@ function ticketEntries(keyed: Record<string, unknown>) {
       select: TICKET_SELECT,
       writable: ["status", "pending_email", "pending_name"],
       writableValues: { status: ["offered", "valid", "refund_asked"] },
-      writableWhen: { status: ["valid", "offered", "refund_asked"], holder_customer_id: [null], order_status: ["door", "no_charge", "paid"] },
+      writableWhen: { status: ["valid", "offered", "refund_asked"], ...NOBODY_ELSE, order_status: ["door", "no_charge", "paid"] },
       limits: { perValue: { columns: ["pending_email"], n: 5 }, plainText: ["pending_name"] },
       withhold: WITHHOLD,
     },
@@ -242,23 +253,25 @@ function ticketEntries(keyed: Record<string, unknown>) {
       ...WITH_ORDER,
       select: TICKET_SELECT,
       writable: ["holder_name", "answers"],
-      writableWhen: { status: ["valid", "offered", "refund_asked"], holder_customer_id: [null], order_status: NAMED },
+      writableWhen: { status: ["valid", "offered", "refund_asked"], ...NOBODY_ELSE, order_status: NAMED },
       limits: { plainText: ["holder_name"] },
       withhold: WITHHOLD,
     },
-    // A waitlist offer claimed in part: the places not wanted go back for the next in line, before the claim.
+    // A place handed to the show's waitlist: the places of a waitlist offer not wanted, before the claim; and a
+    // pay-at-the-door ticket its buyer cancels on a show that keeps a waitlist (said so: "buyer"), as the box
+    // office's cancel does there — never straight back on sale past the people waiting.
     {
       table: "tickets",
       ...keyed,
       methods: ["PATCH"],
       ...WITH_ORDER,
       select: TICKET_SELECT,
-      writable: ["status"],
-      writableValues: { status: ["returned"] },
-      writableWhen: { status: ["valid"], order_status: ["offered"] },
+      writable: ["status", "cancel_cause"],
+      writableValues: { status: ["returned"], cancel_cause: ["buyer"] },
+      writableWhen: { ...UNTOUCHED_AT_DOOR, order_status: ["offered", "door"], waitlist_on: [true], ...BEFORE_DOORS },
       withhold: WITHHOLD,
     },
-    // Cancel a ticket nothing was paid for, until doors.
+    // Cancel a ticket nothing was paid for, until doors, on a show that keeps no waitlist: back on sale.
     {
       table: "tickets",
       ...keyed,
@@ -268,7 +281,7 @@ function ticketEntries(keyed: Record<string, unknown>) {
       writable: ["status"],
       writableValues: { status: ["cancelled"] },
       defaults: { cancel_cause: "buyer" },
-      writableWhen: { status: ["valid"], order_status: ["door"], event_id: { before: { column: "doors_at" } } },
+      writableWhen: { ...UNTOUCHED_AT_DOOR, waitlist_on: [false], ...BEFORE_DOORS },
       withhold: WITHHOLD,
     },
   ];

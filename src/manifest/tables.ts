@@ -355,10 +355,11 @@ const TICKET_POOL = {
 
 /**
  * A refund is asked for inside the show's refund window, until its refund
- * date (the editor fills it from the refund days). A show with no refund date
- * takes no refund requests.
+ * date (the editor fills it from the refund days), and only of a paid order:
+ * nothing paid, nothing to ask back. A show with no refund date takes no
+ * refund requests.
  */
-const REFUND_ASK = { to: "refund_asked", requires: { time: { before: { column: "refund_until", via: "event_id" } } } };
+const REFUND_ASK = { to: "refund_asked", requires: { where: [{ column: "order_status", eq: "paid" }], time: { before: { column: "refund_until", via: "event_id" } } } };
 
 const TICKET_STATES = {
   column: "status",
@@ -881,6 +882,8 @@ export const TABLES: Table[] = [
       choice("order_cancel_cause", "Why the order was cancelled", CANCEL_CAUSES, { ...opt, rules: copyOf("order_id", "cancel_cause", true) }),
       // The show's doors, kept in step with it: places still back for the waitlist go on sale then.
       at("doors_at", "Doors", { ...opt, rules: copyOf("event_id", "doors_at", true) }),
+      // Whether the show keeps a waitlist, kept in step with it: a buyer's own cancel hands the place to it.
+      bool("waitlist_on", "Waitlist when sold out", false, { rules: copyOf("event_id", "waitlist_on", true) }),
       bool("eve_email", "Remind the evening before", false, { rules: copyOf("event_id", "eve_email", true) }),
       at("eve_at", "The evening before", { ...opt, rules: stamp({ moment: { column: "doors_at", minus: { days: 1 } } }, { columns: ["doors_at"] }) }),
       // A friend holding the ticket gets the show's reminder too: 1 at noon on the day, 2 the evening before.
