@@ -4,7 +4,7 @@
  * states, money and counts are Adminium's; a button shows only where its
  * move can happen.
  */
-import type { Id, ListQuery, Row, Where } from "../../data/wire.ts";
+import { yes, type Id, type ListQuery, type Row, type Where } from "../../data/wire.ts";
 import { tr } from "../../i18n/tr.ts";
 import { LIVE, LIVE_TICKET, plural, type Box } from "../box.ts";
 import type { BoxWorld } from "../boxWorld.ts";
@@ -153,6 +153,7 @@ function ordersVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unkno
       moreOn: total > shown,
       more: () => setOrd({ n: o.n + 50 }),
       newOrder: () => box.newOrder(o.ev === "all" ? null : o.ev),
+      newOn: box.can("orders", "create"),
       csv: () => app.openSheet("bxExport", { fmt: "csv", n: total }),
     },
   };
@@ -171,8 +172,8 @@ function drawerVals(app: WaveApp, box: Box, w: BoxWorld): V {
   const now = app.now;
   const show = w.byId.get(order["event_id"] as Id);
   const tickets = box.list("tickets", { where: [{ column: "order_id", eq: id }], sort: [{ column: "id" }] })?.rows ?? [];
-  const payments = (box.list("payments", { where: [{ column: "order_id", eq: id }], sort: [{ column: "recorded_at" }] })?.rows ?? []).filter((p) => p["voided"] !== true);
-  const refunds = (box.list("refunds", { where: [{ column: "order_id", eq: id }], sort: [{ column: "recorded_at" }] })?.rows ?? []).filter((p) => p["voided"] !== true);
+  const payments = (box.list("payments", { where: [{ column: "order_id", eq: id }], sort: [{ column: "recorded_at" }] })?.rows ?? []).filter((p) => !yes(p["voided"]));
+  const refunds = (box.list("refunds", { where: [{ column: "order_id", eq: id }], sort: [{ column: "recorded_at" }] })?.rows ?? []).filter((p) => !yes(p["voided"]));
   const collections = (box.list("door_collections", { where: [{ column: "order_id", eq: id }], sort: [{ column: "taken_at" }] })?.rows ?? []).filter((c) => c["state"] === "taken");
   const checkIns = tickets.length === 0 ? [] : (box.list("check_ins", { where: [{ column: "ticket_id", in: tickets.map((t) => t.id) }] })?.rows ?? []);
   const mails = box.list("messages", { where: [{ column: "order_id", eq: id }], sort: [{ column: "created_at" }] })?.rows ?? [];
@@ -306,7 +307,11 @@ function drawerVals(app: WaveApp, box: Box, w: BoxWorld): V {
       : []),
     ...(status === "overdue" ? [act("rl", tr("Release now"), "undo-2", () => app.openSheet("bxRelease", { o: id }), true)] : []),
     act("nt", tr("Add a note"), "sticky-note", () => app.openSheet("bxNote", { o: id, area: "" })),
-  ];
+  ].filter((a) => {
+    // Only what the person's role may do: a button whose write would be refused is left out.
+    const need = ACT_NEEDS[a.id];
+    return need === undefined || box.can(need[0], need[1]);
+  });
 
   const answers = w.settings.questionsOn ? answerRows(order, tickets, w) : [];
   const due = ms(order["pay_by"]);
@@ -646,7 +651,7 @@ function codeVals(app: WaveApp, box: Box, w: BoxWorld): V {
     const mine = uses.filter((o) => o["code_id"] === c.id);
     const used = mine.length;
     const max = c["max_uses"] === null || c["max_uses"] === undefined ? null : Number(c["max_uses"]);
-    const on = c["active"] === true;
+    const on = yes(c["active"]);
     const code = String(c["code"]);
     const byShow = new Map<Id, number>();
     for (const o of mine) byShow.set(o["event_id"] as Id, (byShow.get(o["event_id"] as Id) ?? 0) + 1);
@@ -671,7 +676,7 @@ function codeVals(app: WaveApp, box: Box, w: BoxWorld): V {
       editLabel: tr("Edit {code}", { code }),
     };
   });
-  return { cd: { rows, empty: rows.length === 0, create: () => app.openSheet("bxCode", codeSheetState(null, app.zone)) } };
+  return { cd: { rows, empty: rows.length === 0, createOn: box.can("codes", "create"), create: () => app.openSheet("bxCode", codeSheetState(null, app.zone)) } };
 }
 
 /** A code's sheet, filled from the code (or empty for a new one). */
@@ -693,3 +698,17 @@ export function codeSheetState(c: Row | null, zone: string): Record<string, unkn
   };
 }
 
+/** What each of the drawer's buttons writes: the table, and what is done to it. */
+const ACT_NEEDS: Record<string, [string, "create" | "update"]> = {
+  rs: ["messages", "create"],
+  rm: ["messages", "create"],
+  rc: ["messages", "create"],
+  nm: ["tickets", "update"],
+  mp: ["payments", "create"],
+  rf: ["refunds", "create"],
+  cx: ["tickets", "update"],
+  ap: ["tickets", "update"],
+  dc: ["tickets", "update"],
+  rl: ["orders", "update"],
+  nt: ["orders", "update"],
+};

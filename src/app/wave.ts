@@ -250,8 +250,16 @@ export class WaveApp {
   /** After a write, or the clock moving: ask everything again, keeping what is on screen until the answers come. */
   refresh(prefix = ""): void {
     if (prefix === "") this.askedAt = Date.now();
+    this.refreshWhere((key) => key.startsWith(prefix));
+  }
+  /**
+   * After a write: only the answers it can have changed asked again (the ones `which` picks), keeping
+   * what is on screen until they come. Each signed-in person has 300 requests a minute across all their
+   * tabs: a write re-asks what it touched, never the whole screen.
+   */
+  refreshWhere(which: (key: string) => boolean): void {
     for (const [key, c] of [...this.cache]) {
-      if (!key.startsWith(prefix)) continue;
+      if (!which(key)) continue;
       if (!c.loading && c.value !== undefined) this.stale.set(key, c.value);
       this.cache.delete(key);
     }

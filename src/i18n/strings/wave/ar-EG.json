@@ -1382,5 +1382,20 @@
  "{who} is cancelled and {amount} becomes due back. {buyer} is told.": "تُلغى {who} ويصبح {amount} مستحق الرد. يُبلَّغ {buyer} بذلك.",
  "{who} are cancelled and {amount} becomes due back. {buyer} is told.": "تُلغى {who} ويصبح {amount} مستحق الرد. يُبلَّغ {buyer} بذلك.",
  "Receipt downloaded": "تم تنزيل الإيصال",
- "The receipt couldn't be made just now. Try again in a minute.": "تعذّر إنشاء الإيصال الآن. حاول مرة أخرى بعد دقيقة."
+ "The receipt couldn't be made just now. Try again in a minute.": "تعذّر إنشاء الإيصال الآن. حاول مرة أخرى بعد دقيقة.",
+ "Nothing to offer right now: the places back are already held or taken.": "لا شيء لعرضه الآن: الأماكن المُعادة محجوزة أو مأخوذة بالفعل.",
+ "That offer has already ended.": "انتهى هذا العرض بالفعل.",
+ "That order was let go when it failed, so nothing was made. Press Create again to make it afresh.": "أُفرج عن هذا الطلب عند فشله، فلم يُنشأ شيء. اضغط «أنشئ الطلب» مرة أخرى لإنشائه من جديد.",
+ "The price changed to {total}. Check it with them, then press Create again.": "تغيّر السعر إلى {total}. تحقّق منه معهم، ثم اضغط «أنشئ الطلب» مرة أخرى.",
+ "Too many requests from this sign-in just now. Wait a minute, then try again — nothing was written.": "طلبات كثيرة جدًا من تسجيل الدخول هذا الآن. انتظر دقيقة ثم حاول مرة أخرى — لم يُكتب شيء.",
+ "There are too many rows to read at once here.": "هناك صفوف كثيرة جدًا لقراءتها دفعة واحدة هنا.",
+ "Save the show first, then add its poster.": "احفظ الفعالية أولًا، ثم أضف ملصقها.",
+ "This show isn't there any more.": "لم تعد هذه الفعالية موجودة.",
+ "Someone else changed the same parts of this show since you opened it. Discard your changes to see theirs, then make yours again.": "غيّر شخص آخر الأجزاء نفسها من هذه الفعالية منذ فتحتها. تجاهل تغييراتك لترى تغييراته، ثم أعد إجراء تغييراتك.",
+ "Cancelling orders: {done} of {total}. Keep this page open.": "جارٍ إلغاء الطلبات: {done} من {total}. أبقِ هذه الصفحة مفتوحة.",
+ "Sending the cancellation emails: {done} of {total}. Keep this page open.": "جارٍ إرسال رسائل الإلغاء: {done} من {total}. أبقِ هذه الصفحة مفتوحة.",
+ "{name} is cancelled, but cancelling stopped part-way: {orders} still to cancel. Finish it — nobody is told twice.": "{name} أُلغي، لكن الإلغاء توقف في منتصفه: ما زال {orders} بحاجة إلى الإلغاء. أكمله — لن يُبلَّغ أحد مرتين.",
+ "{name} is cancelled, but not everyone has been told yet. Finish it — nobody is told twice.": "{name} أُلغي، لكن لم يُبلَّغ الجميع بعد. أكمله — لن يُبلَّغ أحد مرتين.",
+ "Finish cancelling": "أكمل الإلغاء",
+ "Tell ticket holders": "إبلاغ حاملي التذاكر"
 }

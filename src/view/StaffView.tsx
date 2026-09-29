@@ -423,10 +423,14 @@ export function StaffView({ v }: { v: any }) {
                       <h1 style={st(`${v.bo.h1}flex:1;`)}>
                         {tr("Events")}
                       </h1>
-                      <button className="wv-btn" onClick={v.el.create} style={st(`${v.s.btnP}min-height:40px;`)}>
-                        <Icon name={"plus"} style={st("width:16px;height:16px;")} />
-                        {tr("New event")}
-                      </button>
+                      {v.el.createOn ? (
+                        <>
+                          <button className="wv-btn" onClick={v.el.create} style={st(`${v.s.btnP}min-height:40px;`)}>
+                            <Icon name={"plus"} style={st("width:16px;height:16px;")} />
+                            {tr("New event")}
+                          </button>
+                        </>
+                      ) : null}
                     </div>
                     {" "}
                     <div role="group" aria-label={tr("Filter events")} className="wv-hide" style={st("display:flex; gap:6px; overflow-x:auto;")}>
@@ -528,6 +532,13 @@ export function StaffView({ v }: { v: any }) {
                       </table>
                     </div>
                   </div>
+                  {v.el.moreOn ? (
+                    <>
+                      <button className="wv-gi" onClick={v.el.more} style={st(`${v.s.btnS}align-self:flex-start;`)}>
+                        {tr("Show 50 more")}
+                      </button>
+                    </>
+                  ) : null}
                 </>
               ) : null}
               {" "}
@@ -1615,10 +1626,14 @@ export function StaffView({ v }: { v: any }) {
                         <Icon name={"download"} style={st("width:14px;height:14px;")} />
                         {tr("Export")}
                       </button>
-                      <button className="wv-btn" onClick={v.or.newOrder} style={st(`${v.s.btnP}min-height:36px; font-size:13px;`)}>
-                        <Icon name={"plus"} style={st("width:14px;height:14px;")} />
-                        {tr("New order")}
-                      </button>
+                      {v.or.newOn ? (
+                        <>
+                          <button className="wv-btn" onClick={v.or.newOrder} style={st(`${v.s.btnP}min-height:36px; font-size:13px;`)}>
+                            <Icon name={"plus"} style={st("width:14px;height:14px;")} />
+                            {tr("New order")}
+                          </button>
+                        </>
+                      ) : null}
                     </div>
                     {" "}
                     <div role="group" aria-label={tr("Status")} className="wv-hide" style={st("display:flex; gap:6px; overflow-x:auto;")}>
@@ -2133,10 +2148,14 @@ export function StaffView({ v }: { v: any }) {
                       <h1 style={st(`${v.bo.h1}flex:1;`)}>
                         {tr("Codes")}
                       </h1>
-                      <button className="wv-btn" onClick={v.cd.create} style={st(`${v.s.btnP}min-height:40px;`)}>
-                        <Icon name={"plus"} style={st("width:16px;height:16px;")} />
-                        {tr("New code")}
-                      </button>
+                      {v.cd.createOn ? (
+                        <>
+                          <button className="wv-btn" onClick={v.cd.create} style={st(`${v.s.btnP}min-height:40px;`)}>
+                            <Icon name={"plus"} style={st("width:16px;height:16px;")} />
+                            {tr("New code")}
+                          </button>
+                        </>
+                      ) : null}
                     </div>
                     {" "}
                     <div style={st(`${v.bo.card}overflow-x:auto;`)}>
@@ -2469,6 +2488,31 @@ export function StaffView({ v }: { v: any }) {
               {v.bo.s.pc ? (
                 <>
                   <div className="wv-screen" style={st(v.bo.page)}>
+                    {v.pc.runOn ? (
+                      <>
+                        <section role="status" aria-live="polite" style={st(`${v.bo.sec}flex-direction:row; align-items:center; flex-wrap:wrap; gap:12px;`)}>
+                          <Icon name={"loader"} style={st("width:18px;height:18px;color:var(--info);")} />
+                          <span style={st("flex:1; min-width:240px; font-size:14.5px; font-weight:800; line-height:1.5;")}>
+                            {v.pc.runTxt}
+                          </span>
+                        </section>
+                      </>
+                    ) : null}
+                    {" "}
+                    {v.pc.finishOn ? (
+                      <>
+                        <section aria-label={tr("Cancelled")} style={st(`${v.bo.sec}flex-direction:row; align-items:center; flex-wrap:wrap; gap:12px;`)}>
+                          <Icon name={"triangle-alert"} style={st("width:18px;height:18px;color:var(--danger);")} />
+                          <span style={st("flex:1; min-width:240px; font-size:14.5px; font-weight:800; line-height:1.5;")}>
+                            {v.pc.finishTxt}
+                          </span>
+                          <button className="wv-btn" onClick={v.pc.finish} style={st(`${v.s.btnP}min-height:40px; background:var(--danger); color:#fff;`)}>
+                            {tr("Finish cancelling")}
+                          </button>
+                        </section>
+                      </>
+                    ) : null}
+                    {" "}
                     {v.pc.doneOn ? (
                       <>
                         <section aria-label={tr("Postponed")} style={st(`${v.bo.sec}flex-direction:row; align-items:center; flex-wrap:wrap; gap:12px;`)}>
@@ -2480,6 +2524,13 @@ export function StaffView({ v }: { v: any }) {
                             <>
                               <button className="wv-btn" onClick={v.pc.review} style={st(`${v.s.btnP}min-height:40px;`)}>
                                 {tr("Review and send")}
+                              </button>
+                            </>
+                          ) : null}
+                          {v.pc.doneWriteOn ? (
+                            <>
+                              <button className="wv-btn" onClick={v.pc.write} style={st(`${v.s.btnP}min-height:40px;`)}>
+                                {tr("Tell ticket holders")}
                               </button>
                             </>
                           ) : null}

@@ -6,11 +6,11 @@
  * show with its days, types, acts and questions.
  */
 import type { EventChildren } from "../../data/ports.ts";
-import type { Id } from "../../data/wire.ts";
+import { yes, type Id } from "../../data/wire.ts";
 import { tr } from "../../i18n/tr.ts";
 import { hsh, poster } from "../art.ts";
-import { plural, type Box } from "../box.ts";
-import type { BoxShow, BoxWorld } from "../boxWorld.ts";
+import { BoxRefusal, plural, type Box } from "../box.ts";
+import { boxWorldOf, type BoxShow, type BoxWorld } from "../boxWorld.ts";
 import { fD, fT, money, ms, num, venueZone } from "../fmt.ts";
 import type { WaveApp } from "../wave.ts";
 import type { V } from "./base.ts";
@@ -105,6 +105,19 @@ export interface Draft {
   /** As saved: the show's start and first doors (a festival's start keeps its distance from its gates). */
   savedTimes: { start: number; doors: number } | null;
   posterError: string | null;
+  /**
+   * The show as it was saved when this draft was taken, in the shape a save sends: a save sends only what
+   * changed since, onto the show as it is by then (a colleague's change meanwhile stays). Null for a new show.
+   */
+  base: SaveRows | null;
+  /** Which read of the venue the draft was taken from (a draft nobody touched is taken again from a newer one). */
+  gen: number;
+}
+
+/** The show's row and its children's, as one write sends them. */
+export interface SaveRows {
+  values: Record<string, unknown>;
+  children: EventChildren;
 }
 
 const STYLES = ["dots", "rings", "stripes", "grain", "glyph"];
@@ -128,8 +141,7 @@ export const slugOf = (name: string): string =>
     .slice(0, 72);
 
 /** The draft of a saved show, with what is sold and held of each type (Adminium's counts). */
-export function draftOf(box: Box, show: BoxShow): Draft {
-  const w = box.world()!;
+export function draftOf(box: Box, show: BoxShow, w: BoxWorld = box.world()!): Draft {
   const sold = box.sold(show);
   const rows = w.typeRows.filter((t) => t["event_id"] === show.id);
   const multi = show.days.length > 1;
@@ -190,7 +202,7 @@ export function draftOf(box: Box, show: BoxShow): Draft {
         text: String(q["text"] ?? ""),
         kind: q["kind"] === "choice" || q["kind"] === "yes_no" ? q["kind"] : "text",
         per: q["per"] === "order" ? "order" : "ticket",
-        required: q["required"] === true,
+        required: yes(q["required"]),
         options: String(q["options"] ?? "")
           .split("\n")
           .map((x) => x.trim())
@@ -211,6 +223,8 @@ export function draftOf(box: Box, show: BoxShow): Draft {
     savedRefund: show.refundText === null && show.refundUntil !== null ? { until: show.refundUntil, start: show.start } : null,
     savedTimes: { start: show.start, doors: show.doors },
     posterError: null,
+    base: null,
+    gen: box.gen,
   };
 }
 
@@ -220,8 +234,8 @@ export function newDraft(box: Box): Draft {
   const s = w.settingsRow;
   const date = dateOf(box.app.now + 30 * 86_400_000);
   const room = w.rooms.find((r) => r.kind !== "both") ?? w.rooms[0];
-  const door = s["door_on"] !== false;
-  const transfer = s["transfer_on"] !== false;
+  const door = s["door_on"] === null || s["door_on"] === undefined || yes(s["door_on"]);
+  const transfer = s["transfer_on"] === null || s["transfer_on"] === undefined || yes(s["transfer_on"]);
   return {
     id: null,
     slug: null,
@@ -279,16 +293,17 @@ export function newDraft(box: Box): Draft {
     savedRefund: null,
     savedTimes: null,
     posterError: null,
+    base: null,
+    gen: box.gen,
   };
 }
 
 // ── what the draft saves as ──────────────────────────────────────────────────
 
 /** The show's row and its children's, as one write sends them. */
-export function rowsOf(box: Box, d: Draft, zone: string): { values: Record<string, unknown>; children: EventChildren } {
-  const w = box.world()!;
+export function rowsOf(box: Box, d: Draft, zone: string, w: BoxWorld = box.world()!): SaveRows {
   const multi = d.days !== null && d.days.length > 1;
-  const days: DraftDay[] = multi ? d.days! : [{ k: "d1", id: d.days?.[0]?.id ?? existingDay(box, d.id), date: d.date, gates: d.doors, last: "", curfew: d.curfew }];
+  const days: DraftDay[] = multi ? d.days! : [{ k: "d1", id: d.days?.[0]?.id ?? existingDay(w, d.id), date: d.date, gates: d.doors, last: "", curfew: d.curfew }];
   const dayRows = days.map((x, i) => {
     const doors = at(x.date, x.gates, zone)!;
     let curfew = at(x.date, multi ? x.curfew || addMinutes(x.last, 30) : x.curfew, zone)!;
@@ -390,7 +405,84 @@ export function rowsOf(box: Box, d: Draft, zone: string): { values: Record<strin
   return { values, children };
 }
 
-const existingDay = (box: Box, id: Id | null): Id | null => (id === null ? null : (box.world()?.byId.get(id)?.days[0]?.id ?? null));
+const existingDay = (w: BoxWorld, id: Id | null): Id | null => (id === null ? null : (w.byId.get(id)?.days[0]?.id ?? null));
+
+// ── what a save sends ────────────────────────────────────────────────────────
+
+const same = (a: unknown, b: unknown): boolean => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+/**
+ * What a save of a draft sends, onto the show as it is now: the show's own values this draft changed (and
+ * only those), and each list as it stands now with this draft's own changes on it — rows it added, fields it
+ * changed, rows it removed (only those). Anything a colleague changed meanwhile stays; where both changed
+ * the same thing, nothing is sent and the conflict is named.
+ */
+export function mergeDraft(base: SaveRows, mine: SaveRows, cur: SaveRows): SaveRows | { conflict: string[] } {
+  const conflict: string[] = [];
+  const values: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(mine.values)) {
+    if (same(v, base.values[k])) continue;
+    if (!same(cur.values[k], base.values[k]) && !same(cur.values[k], v)) conflict.push(k);
+    values[k] = v;
+  }
+  const children = {} as EventChildren;
+  for (const table of Object.keys(mine.children) as (keyof EventChildren)[]) {
+    const idOf = (r: Record<string, unknown>) => (r["id"] === undefined || r["id"] === null ? null : (r["id"] as Id));
+    const byId = (rows: Record<string, unknown>[]) => new Map(rows.filter((r) => idOf(r) !== null).map((r) => [idOf(r)!, r]));
+    const was = byId(base.children[table]);
+    const now = byId(cur.children[table]);
+    const mineById = byId(mine.children[table]);
+    const out: Record<string, unknown>[] = [];
+    for (const row of cur.children[table]) {
+      const id = idOf(row)!;
+      const b = was.get(id);
+      const m = mineById.get(id);
+      // Taken out by this draft: left out, so it goes.
+      if (b !== undefined && m === undefined) {
+        if (!same(row, b)) conflict.push(`${table}.${String(id)}`);
+        continue;
+      }
+      if (b === undefined || m === undefined) {
+        out.push(row);
+        continue;
+      }
+      const merged: Record<string, unknown> = { ...row };
+      for (const [f, v] of Object.entries(m)) {
+        if (same(v, b[f])) continue;
+        if (!same(row[f], b[f]) && !same(row[f], v)) conflict.push(`${table}.${String(id)}.${f}`);
+        merged[f] = v;
+      }
+      out.push(merged);
+    }
+    // Changed here but gone there: someone removed what this draft changed.
+    for (const [id, m] of mineById) if (!now.has(id) && was.has(id) && !same(m, was.get(id))) conflict.push(`${table}.${String(id)}`);
+    for (const row of mine.children[table]) if (idOf(row) === null) out.push(row);
+    children[table] = out;
+  }
+  return conflict.length > 0 ? { conflict } : { values, children };
+}
+
+/** The show's rows as they are now (read afresh), in the shape a save sends. */
+async function savedRows(box: Box, id: Id, zone: string): Promise<SaveRows | null> {
+  const w = box.world();
+  if (w === null) return null;
+  const read = async (table: string, column: string) => (await box.port.list(table, { where: [{ column, eq: id }], limit: 500 })).rows;
+  const [events, days, types, acts, questions] = await Promise.all([read("events", "id"), read("event_days", "event_id"), read("ticket_types", "event_id"), read("acts", "event_id"), read("questions", "event_id")]);
+  const fresh = boxWorldOf({ settings: [w.settingsRow], rooms: w.roomRows, events, event_days: days, acts, ticket_types: types, questions });
+  const show = fresh.byId.get(id);
+  return show === undefined ? null : rowsOf(box, draftOf(box, show, fresh), zone, fresh);
+}
+
+/** What saving the draft sends: the whole show when it is new, else its changes onto the show as it is now. */
+export async function rowsToSave(box: Box, d: Draft, zone: string): Promise<SaveRows> {
+  const mine = rowsOf(box, d, zone);
+  if (d.id === null || d.base === null) return mine;
+  const cur = await savedRows(box, d.id, zone);
+  if (cur === null) throw new BoxRefusal(tr("This show isn't there any more."));
+  const merged = mergeDraft(d.base, mine, cur);
+  if ("conflict" in merged) throw new BoxRefusal(tr("Someone else changed the same parts of this show since you opened it. Discard your changes to see theirs, then make yours again."));
+  return merged;
+}
 const addMinutes = (time: string, m: number): string => {
   if (time === "") return "";
   const t = (hm(time) + m) % (24 * 60);
@@ -484,12 +576,17 @@ export function editorVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string
   const s = box.s;
   const zone = app.zone || venueZone();
   let d = s.ed as Draft | null;
+  // A draft nobody has changed is taken again from a newer read of the show (never kept from an old one).
+  if (d !== null && !s.edDirty && d.id !== null && d.gen !== box.gen) d = null;
   if (d === null) {
     const show = s.bev === null ? null : (w.byId.get(s.bev) ?? null);
     if (show !== null && box.sold(show) === null) return blank;
     d = show === null ? newDraft(box) : draftOf(box, show);
+    // As saved now: what a save compares its changes with.
+    if (show !== null) d = { ...d, base: rowsOf(box, d, zone) };
+    const taken = d;
     // First look: kept as the draft (not a change yet).
-    queueMicrotask(() => box.set({ ed: d, edDirty: s.edDirty && show === null }));
+    queueMicrotask(() => box.set({ ed: taken, edDirty: s.edDirty && show === null }));
   }
   const draft: Draft = d;
   const nar = app.narrow();
@@ -857,7 +954,7 @@ export function editorVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string
           focusLater(errs.first!);
           return;
         }
-        void box.saveEvent(draft, rowsOf(box, draft, zone));
+        void box.saveEvent(draft, () => rowsToSave(box, draft, zone));
       },
     },
   };

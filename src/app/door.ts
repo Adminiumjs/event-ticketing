@@ -311,7 +311,7 @@ export class Door {
   next(): { show: BoxShow; day: Day } | null {
     const w = this.box.world();
     if (w === null) return null;
-    const end = this.box.venueDayStart(this.app.now) + 86_400_000;
+    const end = this.box.venueDayEnd(this.app.now);
     let best: { show: BoxShow; day: Day } | null = null;
     for (const show of w.shows) {
       if (show.status !== "published") continue;
@@ -384,7 +384,7 @@ export class Door {
     const dev = this.device();
     try {
       const row = await this.port.checkIn(ticket.id, t.day.id, dev?.id ?? null);
-      this.box.refresh();
+      this.box.refresh(["check_ins"]);
       this.remember({ key: `${String(ticket.id)}:${String(t.day.id)}`, checkInId: row.id, ticketId: ticket.id, code: String(ticket["code"] ?? ""), name, type, at: ms(row["scanned_at"]) ?? this.app.now, made: Date.now(), paid, undone: false, queued: false });
       const typeLine = paid === null ? type : paid.method === "card" ? tr("{type} · paid by card", { type }) : tr("{type} · paid in cash", { type });
       this.show({ k: "pos", word: tr("Let in"), amount: "", name, type: typeLine, id: idChip(t.show.age), line: [], collect: null, from, made: Date.now() });
@@ -397,7 +397,7 @@ export class Door {
         return;
       }
       if (paid !== null) this.remember({ key: `${String(ticket.id)}:${String(t.day.id)}`, checkInId: null, ticketId: ticket.id, code: String(ticket["code"] ?? ""), name, type, at: this.app.now, made: Date.now(), paid, undone: true, queued: false });
-      this.box.refresh();
+      this.box.refresh(paid !== null ? ["check_ins", "door_collections"] : ["check_ins"]);
       const v = await this.refused(t, ticket, order, error.code, error.params, from);
       this.show(v);
     }
@@ -612,7 +612,7 @@ export class Door {
         this.app.toast(isApiError(error) ? refusalOf(error) : tr("That didn't go through — check the connection and try again."), "circle-alert");
         return;
       }
-      this.box.refresh();
+      this.box.refresh(["check_ins"]);
       this.set((s) => ({ recent: gone(s.recent, r) }));
     } else return;
     this.app.toast(r.paid !== null ? tr("Undone — {name} is not checked in. The payment stays.", { name: r.name }) : tr("Undone — {name} is not checked in", { name: r.name }), "undo-2");
@@ -650,7 +650,7 @@ export class Door {
     } finally {
       this.guestBusy.delete(g.id);
     }
-    this.box.refresh();
+    this.box.refresh(["guest_list"]);
     if (next === 0) this.app.toast(tr("Undone — {name} is not in", { name }), "undo-2");
     else this.app.toast(tot > 1 ? tr("{name} — {n} of {total} in", { name, n: next, total: tot }) : tr("{name} — in", { name }), "check");
   }
@@ -719,10 +719,10 @@ export class Door {
           this.keep(t, tk, tr("Door sale"), null);
         }
       }
-      this.box.refresh();
+      this.box.refresh(["orders", "payments", "check_ins"]);
       this.app.toast(tr("{n} × {type} sold and checked in · {total}", { n: qty, type: type.short, total: money(total) }), "check");
     } catch (error) {
-      this.box.refresh();
+      this.box.refresh(["orders", "payments", "check_ins"]);
       if (!isApiError(error)) this.lose();
       this.app.toast(isApiError(error) ? (this.box.placesWords(error, t.show.id) ?? refusalOf(error)) : tr("That didn't go through — check the connection and try again."), "circle-alert");
     } finally {
@@ -881,7 +881,7 @@ export class Door {
       this.set({ lost: false });
       this.stopRetry();
     }
-    this.box.refresh();
+    if (synced + clashes.length > 0) this.box.refresh(["check_ins", "door_collections"]);
     if (synced + clashes.length === 0) return;
     const said = tr("Back online — {n} check-in synced|Back online — {n} check-ins synced", { n: synced });
     this.app.toast(clashes.length === 0 ? said : `${said} · ${tr("{n} clash|{n} clashes", { n: clashes.length })}`, "wifi");
