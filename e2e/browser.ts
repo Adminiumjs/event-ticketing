@@ -13,6 +13,8 @@ import { join } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
+import { DEMO_BASE } from "../playwright.config.ts";
+
 export type Variant = "light" | "dark" | "arabic" | "phone" | "tablet";
 export const VARIANTS: readonly Variant[] = ["light", "dark", "arabic", "phone"];
 
@@ -89,4 +91,64 @@ export async function check(page: Page, project: string, screen: string, variant
   const blocking = result.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect.soft(blocking, `${screen} (${variant}): ${JSON.stringify(blocking, null, 1)}`).toEqual([]);
   return result;
+}
+
+/** The demo's address in a variant: its side, and the language and theme the demo reads at start. */
+export function demoUrl(side: "audience" | "box", variant: Variant): string {
+  const params = new URLSearchParams();
+  if (side === "box") params.set("side", "box");
+  params.set("lang", variant === "arabic" ? "ar-EG" : "en-US");
+  params.set("theme", variant === "dark" ? "dark" : "light");
+  return `${DEMO_BASE}?${params.toString()}`;
+}
+
+/** The demo's own handles (`main.tsx` puts them on the window in the demo build only). */
+export interface WaveHandles {
+  app: {
+    persona: "audience" | "box";
+    now: number;
+    state: Record<string, unknown> & { scr: string; bx: string };
+    setState(p: Record<string, unknown>): void;
+    goTickets(): void;
+    idle(): Promise<void>;
+    arrive(path: string, hash: string): Promise<void>;
+    buyer: { openByLink(token: string): Promise<void> };
+  };
+  demo: { world: { all(table: string): Record<string, unknown>[] } };
+  card: { go(screen: string): void; play(shortcut: string): Promise<void>; send(message: Record<string, unknown>): void };
+}
+
+/** Waits for the demo venue to have started and drawn its first screen. */
+export async function ready(page: Page): Promise<void> {
+  await page.waitForFunction(() => (window as unknown as { __wave?: unknown }).__wave !== undefined);
+  await expect(page.locator("main, [role=main]").first()).toBeVisible();
+}
+
+type Handles = { __wave: WaveHandles };
+
+/** Puts the demo on a card screen, as the card's `go` does, and waits for the venue's answers. */
+export async function goTo(page: Page, screen: string): Promise<void> {
+  await page.evaluate(async (s) => {
+    const h = (window as unknown as Handles).__wave;
+    h.card.go(s);
+    await h.app.idle();
+  }, screen);
+}
+
+/** Plays one of the card's shortcuts to its end. */
+export async function play(page: Page, shortcut: string): Promise<void> {
+  await page.evaluate(async (s) => {
+    const h = (window as unknown as Handles).__wave;
+    await h.card.play(s);
+    await h.app.idle();
+  }, shortcut);
+}
+
+/** Which card screen the demo says is showing (the bridge's own answer). */
+export async function showing(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const { app } = (window as unknown as Handles).__wave;
+    if (app.persona === "box") return app.state.bx;
+    return app.state["dm"] !== null ? "doormode" : app.state.scr;
+  });
 }

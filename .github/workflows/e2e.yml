@@ -39,7 +39,7 @@ jobs:
 
       - name: The browser pass
         env:
-          E2E_DEMO_PORT: "8661"
+          E2E_DEMO_PORT: "8663"
         run: npm run e2e
 
       - name: Keep the report

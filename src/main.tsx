@@ -86,11 +86,12 @@ function showStartupFailure(mount: HTMLElement, detail: string, code: string | n
  * opens the box office.
  */
 async function bootDemo(mount: HTMLElement): Promise<void> {
-  const [{ DemoAdminium }, { WaveApp }, { WaveRoot }, { startDemoBridge }] = await Promise.all([
+  const [{ DemoAdminium }, { WaveApp }, { WaveRoot }, { startDemoBridge, goToScreen, applyDemoMessage }, { runShortcut }] = await Promise.all([
     import("./demo/adminium.ts"),
     import("./app/wave.ts"),
     import("./app/WaveRoot.tsx"),
     import("./demoBridge.ts"),
+    import("./demoShortcuts.ts"),
   ]);
   const demo = new DemoAdminium();
   const params = new URLSearchParams(window.location.search);
@@ -100,7 +101,13 @@ async function bootDemo(mount: HTMLElement): Promise<void> {
   const frame = params.get("frame") === "phone" ? "phone" : "auto";
   const app = new WaveApp({ audience: demo.audience, boxOffice: demo.boxOffice, door: demo.door }, persona, { lang, theme, frame });
   app.demo = { onClock: (fn) => demo.onClock(fn), doorDevice: "Door 1", nextScan: (dayId) => demo.nextInQueue(dayId) };
-  (window as unknown as { __wave?: unknown }).__wave = { app, demo };
+  // The browser pass drives the demo as the card does: a screen, a shortcut, a card message.
+  const card = {
+    go: (screen: string) => goToScreen(app, screen),
+    play: (shortcut: string) => runShortcut(shortcut, app, demo),
+    send: (message: Parameters<typeof applyDemoMessage>[0]) => applyDemoMessage(message, app, demo),
+  };
+  (window as unknown as { __wave?: unknown }).__wave = { app, demo, card };
   await app.start();
   const { pathUnderBase, surfaceBase } = await import("./urlSync.ts");
   await app.arrive(pathUnderBase(window.location.pathname, surfaceBase(window.location.pathname, import.meta.env.BASE_URL)), window.location.hash);

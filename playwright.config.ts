@@ -3,15 +3,16 @@
  *
  *   demo   the website's demo build, served as the website serves it
  *          (`/demo/event-ticketing/app/`), on a preview port (`E2E_DEMO_PORT`,
- *          default 8661), in light, dark, Arabic and on a phone. Today a smoke
- *          pass: the demo opens in each; the screens, their states and an axe
- *          sweep (`e2e/browser.ts` `check`) are added as the pass grows.
+ *          default 8663): every screen of the demo card on both sides in
+ *          light, dark, Arabic and on a phone; every shortcut's moment; the
+ *          clock row; the card's protocol through a framing page. Each screen
+ *          is shot and swept by axe (`e2e/browser.ts` `check`).
  *
  * The files are named `*.e2e.ts` so the unit suite (vitest) never collects them.
  */
 import { defineConfig } from "@playwright/test";
 
-const PORT = Number(process.env["E2E_DEMO_PORT"] ?? 8661);
+const PORT = Number(process.env["E2E_DEMO_PORT"] ?? 8663);
 export const DEMO_BASE = "/demo/event-ticketing/app/";
 
 export default defineConfig({
