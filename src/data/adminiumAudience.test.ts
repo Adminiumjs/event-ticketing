@@ -55,6 +55,41 @@ function fakeServer(answer: (method: string, path: string) => { status: number; 
 }
 const refusalOf = (error: unknown) => (error instanceof ApiError ? [error.status, error.code] : error);
 
+describe("send it again, through the order's own link", () => {
+  const config = { baseUrl: "http://venue.test", publishableKey: "pk_customer", publicKeys: { link: "pk_link" } };
+  const opened = (newLink: { status: number; body: unknown }) =>
+    fakeServer((method, path) => {
+      if (method === "POST" && path === "/api/v1/public/claim/token") return { status: 200, body: { data: { session: "link-session", level: "verified", expiresAt: Date.now() + 1_800_000 } } };
+      if (method === "GET" && path === "/api/v1/public/records/events_orders_claimed") return { status: 200, body: { data: [{ id: "42", status: "confirming", buyer_name: "Ana Ruiz" }] } };
+      if (method === "POST" && path === "/api/v1/public/records/events_orders_claimed/42/new-link") return newLink;
+      return { status: 404, body: { error: { code: "PUBLIC_REF_NOT_FOUND", message: "no" } } };
+    });
+
+  it("asks Adminium for a new confirm link of the order the link opened, with the link's own key and session", async () => {
+    const server = opened({ status: 202, body: { data: {} } });
+    const door = new AdminiumAudience(config, { fetch: server.fetchImpl, storage: null });
+    await door.openOrder("A".repeat(16));
+    await door.confirmAgain();
+    expect(server.asked.at(-1)).toEqual({ method: "POST", path: "/api/v1/public/records/events_orders_claimed/42/new-link", auth: "Bearer pk_link", session: "link-session" });
+  });
+
+  it("hands on Adminium's refusal as it is: over today's limit, email not going", async () => {
+    for (const [status, code] of [[409, "PUBLIC_LIMIT_REACHED"], [503, "PUBLIC_CODE_UNAVAILABLE"]] as const) {
+      const server = opened({ status, body: { error: { code, message: "no" } } });
+      const door = new AdminiumAudience(config, { fetch: server.fetchImpl, storage: null });
+      await door.openOrder("A".repeat(16));
+      expect(await door.confirmAgain().then(() => null, refusalOf)).toEqual([status, code]);
+    }
+  });
+
+  it("asks nothing when no order was opened by its link", async () => {
+    const server = opened({ status: 202, body: { data: {} } });
+    const door = new AdminiumAudience(config, { fetch: server.fetchImpl, storage: null });
+    expect(await door.confirmAgain().then(() => null, refusalOf)).toEqual([404, "PUBLIC_REF_NOT_FOUND"]);
+    expect(server.asked).toEqual([]);
+  });
+});
+
 describe("the signed-in person's own account row", () => {
   it("is who is signed in; a fault reading it is a fault, never a stand-in", async () => {
     const { storage, store } = tab();

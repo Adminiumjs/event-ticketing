@@ -330,6 +330,15 @@ export class AdminiumAudience implements AudiencePort {
     });
   }
 
+  confirmAgain(): Promise<void> {
+    return answer(async () => {
+      const link = this.client("link");
+      if (!link.isClaimed() || this.openedId === null) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
+      // Through the order's own link, which keeps working: only the confirm link is made again.
+      await link.newLink(this.refs.linkOrder, String(this.openedId));
+    });
+  }
+
   openConfirm(token: string): Promise<Row> {
     return answer(async () => {
       await this.open("confirm", token);

@@ -1368,6 +1368,24 @@ export function AudienceView({ v }: { v: any }) {
                       </div>
                     </>
                   ) : null}
+                  {v.co.nameAskOn ? (
+                    <>
+                      <label style={st("display:flex; flex-direction:column; gap:6px;")}>
+                        <span style={st(v.s.lbl)}>
+                          {tr("Name on the order")}
+                        </span>
+                        <input id="f-name" className="wv-fld" autoComplete="name" value={v.co.bName ?? ""} onChange={v.co.onBName} readOnly={v.co.detailsOff} aria-invalid={v.co.eNameOn} aria-describedby="e-name" style={st(v.co.fName)} />
+                        {v.co.eNameOn ? (
+                          <>
+                            <span id="e-name" style={st(v.s.err)}>
+                              <Icon name={"circle-alert"} style={st("width:14px;height:14px;flex-shrink:0;")} />
+                              {v.co.eName}
+                            </span>
+                          </>
+                        ) : null}
+                      </label>
+                    </>
+                  ) : null}
                   {" "}
                   {v.co.guest ? (
                     <>
@@ -1734,7 +1752,26 @@ export function AudienceView({ v }: { v: any }) {
                         {trx("Press the button in that email by {time} — until then your tickets are held for you.", { time: <span style={st("font-family:var(--mono);")}>{v.co.confirmBy}</span> })}
                       </p>
                       {" "}
+                      {v.co.againSayOn ? (
+                        <>
+                          <p role={v.co.againWarn ? "alert" : "status"} style={st(`${v.s.hint}margin:0; display:flex; gap:8px; align-items:flex-start;${v.co.againWarn ? " color:var(--warn);" : ""}`)}>
+                            <Icon name={v.co.againWarn ? "circle-alert" : "mail"} style={st("width:15px;height:15px;flex-shrink:0;margin-block-start:2px;")} />
+                            <span>
+                              {v.co.againSay}
+                            </span>
+                          </p>
+                        </>
+                      ) : null}
+                      {" "}
                       <div style={st("display:flex; gap:8px; flex-wrap:wrap; align-items:center;")}>
+                        {v.co.againOn ? (
+                          <>
+                            <button type="button" className="wv-gi" onClick={v.co.sendAgain} disabled={v.co.againOff} style={st(v.s.btnT)}>
+                              <Icon name={"rotate-cw"} style={st("width:15px;height:15px;")} />
+                              {v.co.againTxt}
+                            </button>
+                          </>
+                        ) : null}
                         {v.co.otherPayOn ? (
                           <>
                             <button type="button" className="wv-gi" onClick={v.co.otherPay} style={st(v.s.btnT)}>

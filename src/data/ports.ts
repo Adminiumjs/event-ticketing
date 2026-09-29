@@ -66,6 +66,14 @@ export interface AudiencePort {
   choose(status: "door" | "confirming" | "no_charge" | "let_go", keep?: number, orderId?: Id): Promise<Row>;
   /** The emailed confirm link: the transfer checkout goes on to waiting for the transfer. */
   confirmTransfer(token: string): Promise<Row>;
+  /**
+   * "Send it again": the confirm email of the order the link opened, made again with a new confirm link (the
+   * one in the earlier email opens nothing from then on). Adminium answers a second ask within the minute as
+   * the first, sending nothing new; `PUBLIC_LIMIT_REACHED` once as many as it sends in a day went (to this
+   * order, or to its address), `PUBLIC_CODE_UNAVAILABLE` while it cannot send one, `PUBLIC_WRITE_REFUSED` once
+   * the order no longer waits for its confirm.
+   */
+  confirmAgain(): Promise<void>;
 
   /**
    * The venue's bank details, for a transfer: read through the door the page came by (the order's own link,

@@ -17,6 +17,7 @@ import { normalizeCode, randomCode } from "./codes.ts";
 import { holds, type Engine, type Writer } from "./engine.ts";
 import type { Table } from "./world.ts";
 import { MANIFEST_RULES } from "./rules.ts";
+import { linkFreeText } from "./plainText.ts";
 
 type Withhold = { columns: string[]; unlessHolder?: string; when: { where: Parameters<typeof holds>[1][] } };
 type Entry = {
@@ -37,6 +38,10 @@ type Entry = {
   writableWhen?: Record<string, unknown>;
   defaults?: Record<string, unknown>;
   children?: Record<string, { select?: string[] }>;
+  requires?: string[];
+  anonymous?: { plainText?: string[] };
+  limits?: { plainText?: string[] };
+  newLink?: { column: string; kind: string; when?: { where: Parameters<typeof holds>[1][] } };
 };
 const ENTRIES = MANIFEST_RULES.publicAccess as unknown as Entry[];
 /** The manifest's own public entry, found as a test finds it: the demo reads and writes through it, as the server does. */
@@ -97,6 +102,22 @@ const same = (value: unknown, v: unknown): boolean => {
 };
 
 const copy = (row: Row): Row => ({ ...row });
+const filled = (value: unknown): boolean => value !== null && value !== undefined && !(typeof value === "string" && value.trim() === "");
+/** A name the entry holds to plain text that is not only a name: refused as the public door refuses it. */
+function judgePlain(columns: readonly string[] | undefined, values: Record<string, unknown>, only?: "sent"): void {
+  for (const column of columns ?? []) {
+    if (only === "sent" && !Object.prototype.hasOwnProperty.call(values, column)) continue;
+    if (!linkFreeText(values[column])) throw new ApiError(400, "PUBLIC_WRITE_REFUSED", { column });
+  }
+}
+/** "Send it again": at most so many a day for one order and for one address, and one a minute for one order. */
+const AGAIN_PER_DAY = 5;
+const AGAIN_QUIET_MS = 60_000;
+/** An address as the count reads it: lower case, a `+tag` dropped. */
+const mailboxOf = (address: string): string => {
+  const [local = "", domain = ""] = address.trim().toLowerCase().split("@");
+  return `${local.replace(/\+.*$/, "")}@${domain}`;
+};
 const LIVE_ORDER = ["door", "awaiting_transfer", "overdue", "no_charge", "paid"];
 /** The orders a signed-in person sees: every one that was ever confirmed, and an offer made to them. */
 const LIVE_OR_PAST = [...LIVE_ORDER, "offered", "released", "cancelled", "not_collected"];
@@ -159,6 +180,8 @@ export class DemoAudience implements AudiencePort {
   private signed: { customer: Id; at: number } | null = null;
   /** The sign-in links and codes the demo "emailed", by address. */
   readonly mail = new Map<string, { code: string; token: string; until: number; tries: number }>();
+  /** Each "Send it again" asked, by order and by address: when. */
+  private agains = new Map<string, number[]>();
   /** The demo card's one-shot faults: the next sign-in email fails, or the next person check does. */
   failNext: "mail-down" | "too-many" | "check" | null = null;
 
@@ -203,12 +226,20 @@ export class DemoAudience implements AudiencePort {
     return codes.map((c) => w.get("ticket_types", c["unlocks_type_id"] as Id)!).filter((t) => t["event_id"] === eventId).map((t) => shown(t, READ.codeTypes));
   }
 
-  private orderValues(body: OrderBody): Record<string, unknown> {
+  private orderValues(body: OrderBody, dry = false): Record<string, unknown> {
     const event = this.engine.world.get("events", body.values["event_id"] as Id);
     if (event === undefined || event["status"] !== "published") throw new ApiError(400, "PUBLIC_WRITE_REFUSED", { column: "event_id", reason: "unknown" });
     // The room the page sends is the show's own.
     if (body.values["room_id"] !== undefined && body.values["room_id"] !== event["room_id"]) throw new ApiError(400, "PUBLIC_WRITE_REFUSED", { column: "room_id", reason: "disagrees" });
-    return { ...body.values, room_id: event["room_id"], channel: "online" };
+    const values: Record<string, unknown> = { ...body.values, room_id: event["room_id"], channel: "online" };
+    // Signed in, a name left empty is the account's own, judged as a typed one would be.
+    const account = this.signed === null ? undefined : this.engine.world.get("customers", this.signed.customer);
+    if (account !== undefined && !filled(values["buyer_name"]) && filled(account["name"])) values["buyer_name"] = account["name"];
+    // A dry run prices what is chosen: the details it has not asked for yet are not missing.
+    const need = dry ? undefined : (READ.buy.requires ?? []).find((column) => !filled(values[column]));
+    if (need !== undefined) throw new ApiError(400, "PUBLIC_WRITE_REFUSED", { column: need, reason: "required" });
+    judgePlain(READ.buy.anonymous?.plainText, values);
+    return values;
   }
 
   async prove(): Promise<boolean> {
@@ -225,7 +256,7 @@ export class DemoAudience implements AudiencePort {
     let reply: QuoteReply | null = null;
     try {
       engine.transaction(() => {
-        const made = engine.create("orders", this.orderValues(body), this.writer, { table: "tickets", via: "order_id", rows: body.tickets.map((t) => ({ ...t })) });
+        const made = engine.create("orders", this.orderValues(body, true), this.writer, { table: "tickets", via: "order_id", rows: body.tickets.map((t) => ({ ...t })) });
         reply = { data: shown(made.row, READ.buy), tickets: made.children.map((t) => this.child(t)) };
         throw new DryRun();
       });
@@ -385,6 +416,7 @@ export class DemoAudience implements AudiencePort {
     for (const [column, allowed] of Object.entries(e.writableValues ?? {})) {
       if (values[column] !== undefined && !allowed.includes(values[column])) throw new ApiError(400, "PUBLIC_WRITE_REFUSED", { column, reason: "value" });
     }
+    judgePlain(e.limits?.plainText, values, "sent");
     const written = this.engine.update("tickets", ticketId, { ...(e.defaults ?? {}), ...values }, this.writer);
     return this.asBuyer(written, this.readerOf(ticket["order_id"] as Id));
   }
@@ -426,6 +458,7 @@ export class DemoAudience implements AudiencePort {
   async acceptTicket(token: string, name: string): Promise<Row> {
     const ticket = this.engine.world.all("tickets").find((t) => t["link_token"] === token);
     if (ticket === undefined || ticket["status"] !== "offered") throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
+    judgePlain(READ.ticket.limits?.plainText, { holder_name: name });
     const engine = this.engine;
     return engine.transaction(() => {
       const friend = identity(engine, String(ticket["pending_email"]), name);
@@ -459,6 +492,37 @@ export class DemoAudience implements AudiencePort {
     const own = order !== undefined && (order.id === this.openedOrder || (this.signed !== null && order["customer_id"] === this.signed.customer));
     if (!own) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
     return shown(this.engine.update("orders", orderId, { kept_at: new Date(this.engine.now).toISOString() }, this.writer), READ.myOrders);
+  }
+
+  /**
+   * "Send it again" from the order's own link, as Adminium does it: only while the order holds what the entry
+   * names; a new confirm code (the old one opens nothing) and the confirm email with it, to the order's own
+   * address; a second ask within the minute sends nothing new; so many a day for the order and for its
+   * address, then `PUBLIC_LIMIT_REACHED`; `PUBLIC_CODE_UNAVAILABLE` while email cannot go.
+   */
+  async confirmAgain(): Promise<void> {
+    const again = READ.linkOrder.newLink;
+    const order = this.opened();
+    if (again === undefined) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
+    if (!(again.when?.where ?? []).every((c) => holds(order, c)) || !filled(order[again.column])) throw new ApiError(409, "PUBLIC_WRITE_REFUSED");
+    const address = String(order["email"] ?? "");
+    if (this.failNext === "mail-down" || address === "") {
+      if (this.failNext === "mail-down") this.failNext = null;
+      throw new ApiError(503, "PUBLIC_CODE_UNAVAILABLE");
+    }
+    const now = this.engine.now;
+    const byRow = `row:${String(order.id)}`;
+    const byMailbox = `to:${mailboxOf(address)}`;
+    const recent = (subject: string, since: number) => (this.agains.get(subject) ?? []).filter((at) => at > since).length;
+    if (recent(byRow, now - AGAIN_QUIET_MS) > 0) return;
+    if (recent(byRow, now - 86_400_000) >= AGAIN_PER_DAY || recent(byMailbox, now - 86_400_000) >= AGAIN_PER_DAY) throw new ApiError(409, "PUBLIC_LIMIT_REACHED");
+    for (const subject of [byRow, byMailbox]) this.agains.set(subject, [...(this.agains.get(subject) ?? []), now]);
+    const engine = this.engine;
+    engine.transaction(() => {
+      const code = randomCode(16);
+      engine.update("orders", order.id, { [again.column]: code }, SERVER);
+      engine.create("messages", { kind: again.kind, status: "queued", order_id: order.id, event_id: order["event_id"] ?? null, to_address: address, language: order["language"] ?? "en-US", repeat_key: code }, SERVER);
+    });
   }
 
   async openConfirm(token: string): Promise<Row> {
