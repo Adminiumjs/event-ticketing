@@ -1497,6 +1497,107 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         }, 900_000);
       });
 
+      // "Send it again" on a transfer's confirm email, asked through the order's own link, and a signed-in buyer's
+      // account name judged where the order fills it in. On a show and orders of this block's own.
+      describe("send it again", () => {
+        /** A show of this block's own, published, weeks off (a transfer is open): one Standard at $20. */
+        const againShow = async (slug: string) => {
+          const box = await staffPort(ADMIN);
+          const room = (await box.rows("rooms"))[0]!;
+          const at = (h: number) => new Date(venueAt("2026-09-24T19:30") + h * 3_600_000).toISOString();
+          const show = await box.create("events", { slug: `${slug}-${engine}`, name: `Again ${slug}`, room_id: room.id, doors_at: at(0), starts_at: at(1), curfew_at: at(4), ends_at: at(4) });
+          await box.create("event_days", { event_id: show.id, day: 1, doors_at: at(0), curfew_at: at(4) });
+          const type = await box.create("ticket_types", { event_id: show.id, name: "Standard", price: 20, capacity: 50, pay_door: true, pay_transfer: true });
+          await box.update("events", show.id, { status: "published" });
+          return { box, show, type };
+        };
+
+        it("makes the confirm link again from the order's own link: the old code dead, a new email; once a minute, five a day; only while the order waits", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const { box, show, type } = await againShow("send-again");
+          const email = `ana.again.${engine}@waveform.dev`;
+          const buyer = await audience();
+          const body = { values: { event_id: show.id, room_id: show["room_id"], buyer_name: "Ana Ruiz", email, language: "en-US" }, tickets: [{ ticket_type_id: type.id }] };
+          const total = Number((await buyer.quote(body)).data["total"]);
+          const made = await buyer.buy({ ...body, expect: { total } }, key("again"));
+          await buyer.nameTicket(made.tickets[0]!.id, "Ana Ruiz");
+          expect((await buyer.choose("confirming"))["status"]).toBe("confirming");
+          const tokenNow = async () => String((await box.list("orders", { where: [{ column: "id", eq: made.data.id }] })).rows[0]!["confirm_token"]);
+          const confirmMails = async () => (await box.list("messages", { where: [{ column: "order_id", eq: made.data.id }, { column: "kind", eq: "transfer-confirm" }], limit: 50 })).rows;
+          await until(async () => ((await confirmMails()).length === 1 ? true : undefined), "the first confirm email", 60_000);
+          const first = await tokenNow();
+
+          // 202: a new confirm code, the old one opens nothing at once; the new one only in the email, to the order's address.
+          await buyer.confirmAgain();
+          const second = await tokenNow();
+          expect(second).not.toBe(first);
+          expect(await refusal(async () => (await audience()).openConfirm(first))).toMatchObject({ code: "PUBLIC_REF_NOT_FOUND" });
+          expect((await confirmMails()).length).toBe(2);
+          const mail = await until(
+            async () => ((await (await fetch(`${server.sink}/messages`)).json()) as { to: string[]; text: string }[]).find((m) => m.to.includes(email) && m.text.includes(second)),
+            "the confirm email sent again, with the new link",
+            150_000,
+          );
+          expect(mail.text).not.toContain(first);
+          // A second press within the minute: answered the same, nothing new made or sent.
+          await buyer.confirmAgain();
+          expect([await tokenNow(), (await confirmMails()).length]).toEqual([second, 2]);
+
+          // Five a day for one order: the server's clock a minute on between asks; the sixth is refused, nothing sent.
+          let clock = Date.parse((await box.config()).now!);
+          for (let i = 0; i < 4; i += 1) {
+            clock += 61_000;
+            await server.moveClock(clock);
+            await buyer.confirmAgain();
+          }
+          expect((await confirmMails()).length).toBe(6);
+          const fifth = await tokenNow();
+          clock += 61_000;
+          await server.moveClock(clock);
+          expect(await refusal(() => buyer.confirmAgain())).toMatchObject({ status: 409, code: "PUBLIC_LIMIT_REACHED" });
+          expect([await tokenNow(), (await confirmMails()).length]).toEqual([fifth, 6]);
+
+          // The newest link confirms the order; then it no longer waits, and a send-again is refused.
+          expect((await (await audience()).confirmTransfer(fifth))["status"]).toBe("awaiting_transfer");
+          expect(await refusal(() => buyer.confirmAgain())).toMatchObject({ status: 409, code: "PUBLIC_WRITE_REFUSED" });
+          // An order confirmed to pay at the door is refused the same.
+          const other = await audience();
+          const doorBody = { ...body, values: { ...body.values, email: `jo.again.${engine}@waveform.dev`, buyer_name: "Jo Petrak" } };
+          await other.buy({ ...doorBody, expect: { total } }, key("again-door"));
+          await other.choose("door");
+          expect(await refusal(() => other.confirmAgain())).toMatchObject({ status: 409, code: "PUBLIC_WRITE_REFUSED" });
+        }, 300_000);
+
+        it("judges a signed-in buyer's account name where the order fills it in, and on the account's own change", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const { box, show, type } = await againShow("plain-name");
+          const email = `mia.plain.${engine}@waveform.dev`;
+          // On file from an order of hers, under her own name.
+          const guest = await audience();
+          const first = { values: { event_id: show.id, room_id: show["room_id"], buyer_name: "Mia Okada", email, language: "en-US" }, tickets: [{ ticket_type_id: type.id }] };
+          await guest.buy({ ...first, expect: { total: Number((await guest.quote(first)).data["total"]) } }, key("plain-first"));
+          await guest.choose("door");
+          const sent = new Map<string, string>();
+          const buyer = await signInAs(email, sent);
+          const account = (await box.list("customers", { where: [{ column: "email", eq: email }] })).rows[0]!;
+          await box.update("customers", account.id, { name: "Mia okada.com" });
+          const body = { values: { event_id: show.id, room_id: show["room_id"], buyer_name: "", email, language: "en-US" }, tickets: [{ ticket_type_id: type.id }] };
+          const typed = { ...body, values: { ...body.values, buyer_name: "Mia Okada" } };
+          const total = Number((await buyer.quote(typed)).data["total"]);
+          // The name the order would take from the account: refused on the order's own name, which the checkout shows.
+          expect(await refusal(() => buyer.buy({ ...body, expect: { total } }, key("plain-account")))).toMatchObject({ status: 400, code: "PUBLIC_WRITE_REFUSED", params: { column: "buyer_name" } });
+          // A name typed instead goes on the order.
+          const made = await buyer.buy({ ...typed, expect: { total } }, key("plain-typed"));
+          expect((await box.list("orders", { where: [{ column: "id", eq: made.data.id }] })).rows[0]!["buyer_name"]).toBe("Mia Okada");
+          // The account's own change of its name is judged the same.
+          const k = await keys();
+          const session = sent.get(k.customer)!;
+          const refs = publicRefs(real);
+          const changed = await publicCall("customer", session, `/api/v1/public/records/${refs.account}/${String(account.id)}`, { method: "PATCH", body: { values: { name: "Mia at okada.com" } } });
+          expect([changed.status, (changed.body as { error?: { code?: string; params?: { column?: string } } }).error?.code, (changed.body as { error?: { params?: { column?: string } } }).error?.params?.column]).toEqual([400, "PUBLIC_WRITE_REFUSED", "name"]);
+        }, 300_000);
+      });
+
       it("removes the sample", async (ctx) => {
         needsWrites(() => ctx.skip());
         const plan = ok(await staff.post<{ tables: { count: number }[]; kept: { ref: string; label: string }[] }>("/api/v1/apps/events/sample-data/remove-plan"));
