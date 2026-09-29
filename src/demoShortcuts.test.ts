@@ -3,7 +3,7 @@
  * what the demo's Adminium then holds. And the card's `demo.json`, as the
  * website would read it, in all eight languages.
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { buildDemoJson } from "../demo-emit.ts";
 import { boxOf } from "./app/box.ts";
@@ -17,6 +17,11 @@ import { demoJsonIssues } from "./demo-types.ts";
 import { prepareScreen, runShortcut } from "./demoShortcuts.ts";
 import { currentScreen, goToScreen } from "./demoBridge.ts";
 import { DEMO_CARD_MESSAGES } from "./i18n/strings/card.ts";
+
+// The demo engine answers from memory, so its awaits never leave the microtask queue: a whole file of
+// cases would hold the worker's event loop for over a minute on a CI runner, and vitest's own messages
+// to the worker then time out ("Timeout calling onTaskUpdate"). One macrotask between cases lets them through.
+afterEach(() => new Promise<void>((done) => setTimeout(done, 0)));
 
 vi.setConfig({ testTimeout: 60_000 });
 

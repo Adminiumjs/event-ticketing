@@ -5,7 +5,7 @@
  * show's refunds show the sample's own figures, and its buttons land where
  * the plan says. Values only — the browser pass draws them.
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DemoAdminium } from "../demo/adminium.ts";
 import { DemoBoxOffice } from "../demo/sides.ts";
@@ -17,6 +17,11 @@ import { fT } from "./fmt.ts";
 import { mergeDraft, type SaveRows } from "./vals/editor.ts";
 import { renderVals } from "./vals/base.ts";
 import { WaveApp } from "./wave.ts";
+
+// The demo engine answers from memory, so its awaits never leave the microtask queue: a whole file of
+// cases would hold the worker's event loop for over a minute on a CI runner, and vitest's own messages
+// to the worker then time out ("Timeout calling onTaskUpdate"). One macrotask between cases lets them through.
+afterEach(() => new Promise<void>((done) => setTimeout(done, 0)));
 
 // A day's move re-settles the whole venue: slow on a busy machine.
 vi.setConfig({ testTimeout: 60_000 });

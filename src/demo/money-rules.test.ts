@@ -4,10 +4,15 @@
  * out of date or over 100 %, a type's least in one order and its own size,
  * and the emails a payment or a refund sends.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { ApiError, type Id, type Row } from "../data/wire.ts";
 import { DemoAdminium } from "./adminium.ts";
+
+// The demo engine answers from memory, so its awaits never leave the microtask queue: a whole file of
+// cases would hold the worker's event loop for over a minute on a CI runner, and vitest's own messages
+// to the worker then time out ("Timeout calling onTaskUpdate"). One macrotask between cases lets them through.
+afterEach(() => new Promise<void>((done) => setTimeout(done, 0)));
 
 async function refused(run: () => Promise<unknown>): Promise<{ status: number; code: string; params: Record<string, unknown> }> {
   try {

@@ -4,12 +4,17 @@
  * draws come out of the rows and rules, and a buyer's steps land where the
  * design says. Values only — the browser pass draws them.
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DemoAdminium } from "../demo/adminium.ts";
 import { ApiError, type Id } from "../data/wire.ts";
 import { renderVals } from "./vals/base.ts";
 import { WaveApp } from "./wave.ts";
+
+// The demo engine answers from memory, so its awaits never leave the microtask queue: a whole file of
+// cases would hold the worker's event loop for over a minute on a CI runner, and vitest's own messages
+// to the worker then time out ("Timeout calling onTaskUpdate"). One macrotask between cases lets them through.
+afterEach(() => new Promise<void>((done) => setTimeout(done, 0)));
 
 type V = Record<string, unknown>;
 const bidi = (s: unknown) => String(s).replace(/[⁦-⁩]/g, "");
