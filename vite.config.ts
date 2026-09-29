@@ -65,7 +65,11 @@ const define = Object.fromEntries(
 const ADMINIUM_DEV_API = process.env.ADMINIUM_DEV_API ?? "http://127.0.0.1:4600";
 
 const server = {
-  proxy: { "/api": { target: ADMINIUM_DEV_API, changeOrigin: false } },
+  proxy: {
+    "/api": { target: ADMINIUM_DEV_API, changeOrigin: false },
+    // A hosted side's start (`surface-config.json`) is Adminium's to serve, under the surface's base.
+    "^/apps/[^/]+/(staff|customer)/surface-config\\.json$": { target: ADMINIUM_DEV_API, changeOrigin: false },
+  },
 };
 
 export default defineConfig({

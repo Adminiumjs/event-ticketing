@@ -313,11 +313,11 @@ export const EMAIL_DE: EmailWords = {
   },
   "broadcast": {
     "name": "Eine Nachricht zu deiner Show",
-    "subject": "{{order.event.name}}: eine Nachricht von {{appName}}",
+    "subject": "{{broadcast.subject}}",
     "preheader": "Zu deinen Tickets für {{order.event.name}}",
     "heading": "Zu {{order.event.name}}",
     "paras": [
-      "Eine Nachricht der Kasse zu {{order.event.name}}."
+      "{{broadcast.body}}"
     ],
     "button": "Meine Bestellung ansehen",
     "foot": "Du hast Tickets für diese Show · Bestellung {{order.number}}."
@@ -627,11 +627,11 @@ export const EMAIL_FR: EmailWords = {
   },
   "broadcast": {
     "name": "Un message sur votre spectacle",
-    "subject": "{{order.event.name}} : un message de {{appName}}",
+    "subject": "{{broadcast.subject}}",
     "preheader": "À propos de vos billets pour {{order.event.name}}",
     "heading": "À propos de {{order.event.name}}",
     "paras": [
-      "Un message de la billetterie à propos de {{order.event.name}}."
+      "{{broadcast.body}}"
     ],
     "button": "Voir ma commande",
     "foot": "Vous avez des billets pour ce spectacle · commande {{order.number}}."
@@ -941,11 +941,11 @@ export const EMAIL_DA: EmailWords = {
   },
   "broadcast": {
     "name": "En besked om dit arrangement",
-    "subject": "{{order.event.name}}: en besked fra {{appName}}",
+    "subject": "{{broadcast.subject}}",
     "preheader": "Om dine billetter til {{order.event.name}}",
     "heading": "Om {{order.event.name}}",
     "paras": [
-      "En besked fra billetlugen om {{order.event.name}}."
+      "{{broadcast.body}}"
     ],
     "button": "Se min ordre",
     "foot": "Du har billetter til dette arrangement · ordre {{order.number}}."
@@ -1255,11 +1255,11 @@ export const EMAIL_CS: EmailWords = {
   },
   "broadcast": {
     "name": "Zpráva k vaší akci",
-    "subject": "{{order.event.name}}: zpráva od {{appName}}",
+    "subject": "{{broadcast.subject}}",
     "preheader": "K vašim vstupenkám na {{order.event.name}}",
     "heading": "K akci {{order.event.name}}",
     "paras": [
-      "Zpráva z pokladny k akci {{order.event.name}}."
+      "{{broadcast.body}}"
     ],
     "button": "Zobrazit objednávku",
     "foot": "Máte vstupenky na tuto akci · objednávka {{order.number}}."
@@ -1569,11 +1569,11 @@ export const EMAIL_AR: EmailWords = {
   },
   "broadcast": {
     "name": "رسالة بخصوص حفلك",
-    "subject": "{{order.event.name}}: رسالة من {{appName}}",
+    "subject": "{{broadcast.subject}}",
     "preheader": "بخصوص تذاكرك لحضور {{order.event.name}}",
     "heading": "بخصوص {{order.event.name}}",
     "paras": [
-      "رسالة من شباك التذاكر بخصوص {{order.event.name}}."
+      "{{broadcast.body}}"
     ],
     "button": "عرض طلبي",
     "foot": "لديك تذاكر لهذا الحفل · الطلب {{order.number}}."
@@ -1883,11 +1883,11 @@ export const EMAIL_ZH_CN: EmailWords = {
   },
   "broadcast": {
     "name": "关于你的演出的消息",
-    "subject": "{{order.event.name}}：来自 {{appName}} 的消息",
+    "subject": "{{broadcast.subject}}",
     "preheader": "关于你的 {{order.event.name}} 门票",
     "heading": "关于 {{order.event.name}}",
     "paras": [
-      "售票处发来一条关于 {{order.event.name}} 的消息。"
+      "{{broadcast.body}}"
     ],
     "button": "查看我的订单",
     "foot": "你有这场演出的门票 · 订单 {{order.number}}。"
@@ -2197,11 +2197,11 @@ export const EMAIL_ZH_TW: EmailWords = {
   },
   "broadcast": {
     "name": "演出相關訊息",
-    "subject": "{{order.event.name}}：來自 {{appName}} 的訊息",
+    "subject": "{{broadcast.subject}}",
     "preheader": "關於你的 {{order.event.name}} 票券",
     "heading": "關於 {{order.event.name}}",
     "paras": [
-      "售票處傳來關於 {{order.event.name}} 的訊息。"
+      "{{broadcast.body}}"
     ],
     "button": "查看我的訂單",
     "foot": "你持有這場演出的票 · 訂單 {{order.number}}。"

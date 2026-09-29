@@ -12,7 +12,8 @@
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { gzipSync } from "node:zlib";
@@ -184,6 +185,8 @@ export function appBundle(options: { built?: boolean } = {}): Bundle & { key: st
 export interface Server {
   base: string;
   sink: string;
+  /** The server's clock moved on to `at` (never back); the timed moves then come due as its scheduler runs. */
+  moveClock(at: number): Promise<void>;
   /** What the server has said so far (its log), for a failure to show. */
   log(): string;
   stop(): Promise<void>;
@@ -201,6 +204,8 @@ export const PORTS_PER_ENGINE = 3;
  * `database` names the Postgres/MySQL database the run owns (dropped and made again at boot).
  */
 export async function boot(engine: Engine, port: number, now: number, options: { database?: string } = {}): Promise<Server> {
+  const clockFile = join(tmpdir(), `events-contract-clock-${engine}-${String(port)}-${String(process.pid)}.json`);
+  rmSync(clockFile, { force: true });
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     E2E_ENGINE: engine,
@@ -211,6 +216,7 @@ export async function boot(engine: Engine, port: number, now: number, options: {
     // Its own database, so a contract never meets another run's rows (`CONTRACT_DB_SUFFIX` keeps two checkouts' runs apart).
     E2E_DATABASE: options.database ?? `events_contract_${engine}${process.env["CONTRACT_DB_SUFFIX"] ?? ""}`,
     CONTRACT_NOW: String(now),
+    CONTRACT_CLOCK_FILE: clockFile,
     NODE_OPTIONS: `${process.env["NODE_OPTIONS"] ?? ""} --import=${pathToFileURL(fileURLToPath(new URL("./clock.mjs", import.meta.url))).href}`.trim(),
   };
   const child: ChildProcess = spawn(process.execPath, [E2E_SERVER], { cwd: join(ADMINIUM_REPO, "apps", "e2e"), env, stdio: ["ignore", "pipe", "pipe"] });
@@ -237,6 +243,11 @@ export async function boot(engine: Engine, port: number, now: number, options: {
     base,
     sink: `http://127.0.0.1:${String(port + 2)}`,
     log: () => log,
+    moveClock: async (at: number) => {
+      writeFileSync(clockFile, JSON.stringify({ at, real: Date.now() }));
+      // The server reads the file a few times a second.
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    },
     stop: () =>
       new Promise<void>((resolve) => {
         if (child.exitCode !== null) return resolve();

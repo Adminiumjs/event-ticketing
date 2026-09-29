@@ -589,15 +589,26 @@ export class Box {
     this.set((s) => ({ msg: { ...s.msg, subj: null, body: null, waiting: null } }));
   }
 
-  /** A test of the message, to the signed-in person's own address. */
-  async testMessage(show: BoxShow, subject: string, body: string): Promise<void> {
+  /**
+   * A test of the message, to the signed-in person's own address. The message's words live on the message
+   * itself (its email reads them from there), so a test keeps it as a message waiting to be sent: Send then
+   * sends that one.
+   */
+  async testMessage(show: BoxShow, values: Record<string, unknown>): Promise<void> {
     const me = this.me();
     if (me?.email === undefined || me.email === null) return;
-    await this.write(
-      () => this.port.mail("broadcast", [{ event_id: show.id, to_address: me.email, subject_override: subject, body_override: body }]),
+    const waiting = this.s.msg.waiting;
+    let id = waiting;
+    const ok = await this.write(
+      async () => {
+        const saved = waiting === null ? await this.port.broadcast({ ...values, event_id: show.id, people: 0, order_count: 0 }, [], false) : await this.port.update("broadcasts", waiting, values);
+        id = saved.id;
+        await this.port.mail("broadcast", [{ event_id: show.id, broadcast_id: saved.id, to_address: me.email }]);
+      },
       tr("Test sent to {email}", { email: me.email ?? "" }),
       "mail",
     );
+    if (ok && id !== null) this.set((s) => ({ msg: { ...s.msg, waiting: id } }));
   }
 
   /**
@@ -650,7 +661,7 @@ export class Box {
         const orders = await this.port.list("orders", { where: [{ column: "event_id", eq: show.id }, { column: "cancel_cause", eq: "show" }], limit: 5000 });
         const ids = orders.rows.map((o) => o.id);
         const held = ids.length === 0 ? { rows: [] as Row[] } : await this.port.list("messages", { where: [{ column: "order_id", in: ids }, { column: "status", eq: "held" }], limit: 10_000 });
-        for (const m of held.rows) await this.port.update("messages", m.id, { status: "queued", subject_override: message.subject, body_override: message.body, approved_by: this.me()?.name ?? null });
+        for (const m of held.rows) await this.port.update("messages", m.id, { status: "queued", subject_override: message.subject, body_override: message.body });
         const people = new Set(orders.rows.map((o) => String(o["email"] ?? "").toLowerCase()).filter((e) => e !== "")).size;
         await this.port.broadcast({ event_id: show.id, audience: "everyone", template: "cancelled", subject: message.subject, body: message.body, people, order_count: orders.rows.length }, [], true);
       },

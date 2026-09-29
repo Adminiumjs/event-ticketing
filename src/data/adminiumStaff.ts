@@ -143,6 +143,10 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
    * is sent once more with a fresh token.
    */
   private async mutate<T>(path: string, method: "POST" | "PATCH" | "DELETE", body?: unknown): Promise<T> {
+    // The session's CSRF token is captured when the transport first finds its connection: a door phone's
+    // first act can be a write (a scan), so it is found before one.
+    this.found ??= this.t.connection();
+    await this.found;
     try {
       return await this.t.mutate<T>(path, method, body);
     } catch (error) {
@@ -170,6 +174,7 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
     return Number.isNaN(said) ? Date.now() : said + (Date.now() - this.loadedAt);
   }
   private readonly loadedAt = Date.now();
+  private found: Promise<string> | null = null;
 
   // ── who, and the venue ────────────────────────────────────────────────────
 
@@ -282,18 +287,16 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
 
   mail(kind: string, rows: Record<string, unknown>[]): Promise<void> {
     return answer(async () => {
-      const approvedBy = this.cfg.user?.name ?? null;
-      for (const row of rows) await this.insert("messages", { kind, approved_by: approvedBy, ...row });
+      for (const row of rows) await this.insert("messages", { kind, ...row });
     });
   }
 
   /** The emails of a message to a show's buyers, one an order: written after the message, a few at a time. */
   private async queueBroadcast(b: Row, to: Record<string, unknown>[]): Promise<void> {
     const kind = b["template"] === "moved" ? "moved" : "broadcast";
-    const approvedBy = this.cfg.user?.name ?? null;
     for (let i = 0; i < to.length; i += 8) {
       await Promise.all(
-        to.slice(i, i + 8).map((row) => this.insert("messages", { kind, event_id: b["event_id"], broadcast_id: b.id, subject_override: b["subject"], body_override: b["body"], approved_by: approvedBy, ...row })),
+        to.slice(i, i + 8).map((row) => this.insert("messages", { kind, event_id: b["event_id"], broadcast_id: b.id, ...row })),
       );
     }
   }
@@ -421,7 +424,11 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
       const returned = (await this.list("tickets", { where: [{ column: "event_id", eq: eventId }, { column: "status", eq: "returned" }], limit: 2000 })).rows;
       const offeredOrders = (await this.list("orders", { where: [{ column: "event_id", eq: eventId }, { column: "status", eq: "offered" }], limit: 500 })).rows;
       const offeredAlready = offeredOrders.length === 0 ? 0 : await this.count("tickets", [{ column: "order_id", in: offeredOrders.map((o) => o.id) }]);
-      let left = returned.length - offeredAlready;
+      // Never more than the places free for the box office: a claim that kept its places could not hand the
+      // waitlist's back, so the returned tickets can outnumber them.
+      const pools = await this.counts(eventId);
+      const free = Math.min(...pools.filter((p) => p.ticket_type_id === null || p.ticket_type_id === returned[0]?.["ticket_type_id"]).map((p) => p.left));
+      let left = Math.min(returned.length - offeredAlready, Number.isFinite(free) ? free : 0);
       const type = returned[0]?.["ticket_type_id"] as Id | undefined;
       const queue = (await this.list("waitlist", { where: [{ column: "event_id", eq: eventId }, { column: "status", eq: "waiting" }], sort: [{ column: "joined_at" }], limit: 500 })).rows;
       const offers: Row[] = [];

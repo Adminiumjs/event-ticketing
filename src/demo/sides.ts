@@ -613,7 +613,7 @@ export class DemoBoxOffice implements BoxOfficePort {
     for (const row of to) {
       this.engine.create(
         "messages",
-        { kind, status: "queued", event_id: b["event_id"], broadcast_id: b.id, subject_override: b["subject"], body_override: b["body"], approved_by: this.person.name, ...row },
+        { kind, status: "queued", event_id: b["event_id"], broadcast_id: b.id, approved_by: this.person.name, ...row },
         this.writer,
       );
     }

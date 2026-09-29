@@ -321,10 +321,11 @@ export const EMAIL_EN: EmailWords = {
   },
   broadcast: {
     name: "A message about your show",
-    subject: "{{order.event.name}}: a message from {{appName}}",
+    // The box office's own words, as written on the message.
+    subject: "{{broadcast.subject}}",
     preheader: "About your tickets for {{order.event.name}}",
     heading: "About {{order.event.name}}",
-    paras: ["A message from the box office about {{order.event.name}}."],
+    paras: ["{{broadcast.body}}"],
     button: "See my order",
     foot: HAVE,
   },

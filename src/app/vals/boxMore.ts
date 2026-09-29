@@ -143,7 +143,7 @@ function msgVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unknown>
       countTxt: who === undefined ? "…" : tr("{who} will get this", { who: countTxt }),
       sendOff: who === undefined || who.orders === 0 || subj.trim() === "" || body.trim() === "",
       sendLabel: who === undefined ? tr("Send") : plural(who.people, "Send to {n} person", "Send to {n} people"),
-      test: () => void box.testMessage(show, subj, body),
+      test: () => void box.testMessage(show, { audience: m.to, ticket_type_id: m.to === "type" ? (m.typeId ?? show.types[0]?.id ?? null) : null, template: tpl, subject: subj, body }),
       autoTxt: !tonightOn ? tr('"See you tonight" is switched off in Settings.') : eve ? tr('"See you tomorrow" goes by itself at 18:00 the evening before.') : tr('"See you tonight" goes by itself at noon on the show day.'),
       send: () =>
         app.openSheet("bxMsg", {

@@ -24898,6 +24898,8 @@
         "zh-TW": "演出相關訊息"
       },
       "vars": [
+        "broadcast.body",
+        "broadcast.subject",
         "manage_url",
         "order.event.name",
         "order.link_token",
@@ -24907,7 +24909,7 @@
       ],
       "locales": {
         "en-US": {
-          "subject": "{{order.event.name}}: a message from {{appName}}",
+          "subject": "{{broadcast.subject}}",
           "preheader": "About your tickets for {{order.event.name}}",
           "blocks": [
             {
@@ -24922,7 +24924,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "A message from the box office about {{order.event.name}}."
+                  "{{broadcast.body}}"
                 ]
               }
             },
@@ -24938,7 +24940,7 @@
           "footer": "You have tickets for this show · order {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
         },
         "de-DE": {
-          "subject": "{{order.event.name}}: eine Nachricht von {{appName}}",
+          "subject": "{{broadcast.subject}}",
           "preheader": "Zu deinen Tickets für {{order.event.name}}",
           "blocks": [
             {
@@ -24953,7 +24955,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Eine Nachricht der Kasse zu {{order.event.name}}."
+                  "{{broadcast.body}}"
                 ]
               }
             },
@@ -24969,7 +24971,7 @@
           "footer": "Du hast Tickets für diese Show · Bestellung {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
         },
         "fr-FR": {
-          "subject": "{{order.event.name}} : un message de {{appName}}",
+          "subject": "{{broadcast.subject}}",
           "preheader": "À propos de vos billets pour {{order.event.name}}",
           "blocks": [
             {
@@ -24984,7 +24986,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Un message de la billetterie à propos de {{order.event.name}}."
+                  "{{broadcast.body}}"
                 ]
               }
             },
@@ -25000,7 +25002,7 @@
           "footer": "Vous avez des billets pour ce spectacle · commande {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
         },
         "da-DK": {
-          "subject": "{{order.event.name}}: en besked fra {{appName}}",
+          "subject": "{{broadcast.subject}}",
           "preheader": "Om dine billetter til {{order.event.name}}",
           "blocks": [
             {
@@ -25015,7 +25017,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "En besked fra billetlugen om {{order.event.name}}."
+                  "{{broadcast.body}}"
                 ]
               }
             },
@@ -25031,7 +25033,7 @@
           "footer": "Du har billetter til dette arrangement · ordre {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
         },
         "cs-CZ": {
-          "subject": "{{order.event.name}}: zpráva od {{appName}}",
+          "subject": "{{broadcast.subject}}",
           "preheader": "K vašim vstupenkám na {{order.event.name}}",
           "blocks": [
             {
@@ -25046,7 +25048,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "Zpráva z pokladny k akci {{order.event.name}}."
+                  "{{broadcast.body}}"
                 ]
               }
             },
@@ -25062,7 +25064,7 @@
           "footer": "Máte vstupenky na tuto akci · objednávka {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
         },
         "ar-EG": {
-          "subject": "{{order.event.name}}: رسالة من {{appName}}",
+          "subject": "{{broadcast.subject}}",
           "preheader": "بخصوص تذاكرك لحضور {{order.event.name}}",
           "blocks": [
             {
@@ -25077,7 +25079,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "رسالة من شباك التذاكر بخصوص {{order.event.name}}."
+                  "{{broadcast.body}}"
                 ]
               }
             },
@@ -25093,7 +25095,7 @@
           "footer": "لديك تذاكر لهذا الحفل · الطلب {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
         },
         "zh-CN": {
-          "subject": "{{order.event.name}}：来自 {{appName}} 的消息",
+          "subject": "{{broadcast.subject}}",
           "preheader": "关于你的 {{order.event.name}} 门票",
           "blocks": [
             {
@@ -25108,7 +25110,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "售票处发来一条关于 {{order.event.name}} 的消息。"
+                  "{{broadcast.body}}"
                 ]
               }
             },
@@ -25124,7 +25126,7 @@
           "footer": "你有这场演出的门票 · 订单 {{order.number}}。 {{appName}} · {{practice.address}} · {{practice.contact_email}}"
         },
         "zh-TW": {
-          "subject": "{{order.event.name}}：來自 {{appName}} 的訊息",
+          "subject": "{{broadcast.subject}}",
           "preheader": "關於你的 {{order.event.name}} 票券",
           "blocks": [
             {
@@ -25139,7 +25141,7 @@
               "id": "body",
               "data": {
                 "paras": [
-                  "售票處傳來關於 {{order.event.name}} 的訊息。"
+                  "{{broadcast.body}}"
                 ]
               }
             },
