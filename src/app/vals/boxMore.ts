@@ -55,7 +55,7 @@ export function tplText(tpl: Tpl, show: BoxShow, w: BoxWorld, moved: { newTxt: s
   }
 }
 
-const TPL_WORDS = (): Record<Tpl, string> => ({ doors: tr("Doors time changed"), set_times: tr("Set times are up"), moved: tr("Postponed"), cancelled: tr("Cancelled"), other: tr("Something else") });
+const TPL_WORDS = (): Record<Tpl, string> => ({ doors: tr("Doors time changed"), set_times: tr("Set times are up"), moved: tr("Postponed"), cancelled: tr("Called off"), other: tr("Something else") });
 const CTA = (): Record<Tpl, string> => ({ doors: tr("Show my tickets"), set_times: tr("See the night"), moved: tr("Keep or refund my tickets"), cancelled: tr("See my order"), other: tr("See my order") });
 const people = (n: number) => plural(n, "{n} person", "{n} people");
 

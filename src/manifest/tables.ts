@@ -598,14 +598,14 @@ export const TABLES: Table[] = [
       worked("sell_limit", "On sale at most", {
         formula: { if: [{ gt: ["types_open", 0] }, ROOM_LEFT, { min: [ROOM_LEFT, { coalesce: ["types_capacity", 0] }] }] },
       }),
-      choice("status", "Status", { draft: "Draft", published: "Published", cancelled: "Cancelled" }, {
+      choice("status", "Status", { draft: "Draft", published: "Published", cancelled: "Called off" }, {
         default: "draft",
         tones: { draft: "neutral", published: "pos", cancelled: "danger" },
       }),
       at("published_at", "Announced", { ...opt, rules: stamp("now", onStatus("published")) }),
       at("was_starts_at", "Was on", opt),
       at("postponed_at", "Postponed", { ...opt, rules: stamp("now", { column: "was_starts_at", filled: true }) }),
-      at("cancelled_at", "Cancelled", { ...opt, rules: stamp("now", onStatus("cancelled")) }),
+      at("cancelled_at", "Called off", { ...opt, rules: stamp("now", onStatus("cancelled")) }),
       // How many of its ticket types need a code: the page asks for a code only then.
       worked("code_types", "Types behind a code", { rollup: { from: "ticket_types", via: "event_id", count: true, where: { column: "visibility", eq: "code" } } }),
       // The show's money, from its orders.
@@ -630,7 +630,7 @@ export const TABLES: Table[] = [
       id,
       fk("event_id", "events", "Show"),
       // The show's own state, kept on the row: the public sees a show's parts only once the show is announced.
-      choice("event_status", "Show's status", { draft: "Draft", published: "Published", cancelled: "Cancelled" }, { ...opt, rules: copyOf("event_id", "status", true) }),
+      choice("event_status", "Show's status", { draft: "Draft", published: "Published", cancelled: "Called off" }, { ...opt, rules: copyOf("event_id", "status", true) }),
       int("day", "Day", { default: 1, rules: { validation: { min: 1, max: 3 } } }),
       at("doors_at", "Doors"),
       at("last_entry_at", "Last entry", opt),
@@ -646,7 +646,7 @@ export const TABLES: Table[] = [
       id,
       fk("event_id", "events", "Show"),
       // The show's own state, kept on the row: the public sees a show's parts only once the show is announced.
-      choice("event_status", "Show's status", { draft: "Draft", published: "Published", cancelled: "Cancelled" }, { ...opt, rules: copyOf("event_id", "status", true) }),
+      choice("event_status", "Show's status", { draft: "Draft", published: "Published", cancelled: "Called off" }, { ...opt, rules: copyOf("event_id", "status", true) }),
       text("name", 120, "Name"),
       fk("room_id", "rooms", "Room", opt),
       int("day", "Day", { default: 1, rules: { validation: { min: 1, max: 3 } } }),
@@ -665,7 +665,7 @@ export const TABLES: Table[] = [
       id,
       fk("event_id", "events", "Show", { index: true }),
       // The show's own state, kept on the row: the public sees a show's parts only once the show is announced.
-      choice("event_status", "Show's status", { draft: "Draft", published: "Published", cancelled: "Cancelled" }, { ...opt, rules: copyOf("event_id", "status", true) }),
+      choice("event_status", "Show's status", { draft: "Draft", published: "Published", cancelled: "Called off" }, { ...opt, rules: copyOf("event_id", "status", true) }),
       text("name", 80, "Name"),
       choice("kind", "Kind", TICKET_KINDS, { default: "standard" }),
       text("description", 300, "Description", opt),
@@ -714,7 +714,7 @@ export const TABLES: Table[] = [
     columns: [
       id,
       text("email", 254, "Email", { ...opt, unique: true, semantic: "email", rules: { normalize: "email", validation: { format: "email" } } }),
-      text("name", 120, "Name", opt),
+      text("name", 120, "Full name", opt),
       bool("opt_in", "News from the venue", false),
       at("forgotten_at", "Details deleted", opt),
       at("created_at", "First order", { ...opt, rules: stamp("now", onCreate) }),
@@ -729,7 +729,7 @@ export const TABLES: Table[] = [
       id,
       fk("event_id", "events", "Show"),
       // The show's own state, kept on the row: the public sees a show's parts only once the show is announced.
-      choice("event_status", "Show's status", { draft: "Draft", published: "Published", cancelled: "Cancelled" }, { ...opt, rules: copyOf("event_id", "status", true) }),
+      choice("event_status", "Show's status", { draft: "Draft", published: "Published", cancelled: "Called off" }, { ...opt, rules: copyOf("event_id", "status", true) }),
       text("text", 300, "Question"),
       choice("kind", "Answer", { text: "Words", choice: "A choice", yes_no: "Yes or no" }, { default: "text" }),
       text("options", 1000, "Choices, one a line", opt),
@@ -981,7 +981,7 @@ export const TABLES: Table[] = [
       }),
       worked("kind_match", "Code applies", { formula: KIND_MATCH }),
       money("discount", "Discount", { formula: DISCOUNT }),
-      money("due", "Due", { formula: { sub: [{ coalesce: ["price", 0] }, { coalesce: ["discount", 0] }] } }),
+      money("due", "To pay", { formula: { sub: [{ coalesce: ["price", 0] }, { coalesce: ["discount", 0] }] } }),
       money("live_price", "Price while live", { formula: live("price") }),
       money("live_discount", "Discount while live", { formula: live("discount") }),
       worked("live_one", "Live", { formula: { if: [{ or: LIVE_TICKET.map((s) => eq("status", s)) }, 1, 0] } }),
@@ -1137,10 +1137,10 @@ export const TABLES: Table[] = [
     columns: [
       id,
       fk("event_id", "events", "Show", { index: true }),
-      text("name", 120, "Name", { semantic: "name" }),
+      text("name", 120, "Full name", { semantic: "name" }),
       int("plus", "Plus", { default: 0, rules: { validation: { min: 0, max: 2 } } }),
       worked("people", "People", { formula: { add: [1, { coalesce: ["plus", 0] }] } }),
-      text("on_behalf", 80, "For", opt),
+      text("on_behalf", 80, "On behalf of", opt),
       text("note", 240, "Note", opt),
       int("arrived", "Arrived", { default: 0, rules: { validation: { min: 0, max: 3 } } }),
       choice("status", "At the door", { not_in: "Not in", in: "In" }, { default: "not_in", tones: { not_in: "neutral", in: "pos" } }),
@@ -1195,7 +1195,7 @@ export const TABLES: Table[] = [
       text("target", 16, "For", { default: "sale", rules: { normalize: "trim" } }),
       at("type_sales_start", "Presale opens", { ...opt, rules: copyOf("ticket_type_id", "sales_start") }),
       at("on_sale_at", "On sale", { ...opt, rules: copyOf("event_id", "on_sale_at", true) }),
-      at("created_at", "Asked", { ...opt, rules: stamp("now", onCreate) }),
+      at("created_at", "Asked on", { ...opt, rules: stamp("now", onCreate) }),
       at("sent_at", "Sent", opt),
     ],
   },
@@ -1216,7 +1216,7 @@ export const TABLES: Table[] = [
         set_times: "Set times are up",
         doors: "Doors time changed",
         moved: "Postponed",
-        cancelled: "Cancelled",
+        cancelled: "Called off",
         other: "Something else",
       }, { default: "other" }),
       text("subject", 200, "Subject"),

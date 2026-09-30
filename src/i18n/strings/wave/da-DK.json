@@ -1,6 +1,8 @@
 {
  "Cancelled": "Annulleret",
+ "Called off": "Aflyst",
  "Past": "Tidligere",
+ "Ended": "Afsluttet",
  "Postponed": "Udskudt",
  "Draft": "Kladde",
  "Sold out": "Udsolgt",
@@ -463,7 +465,7 @@
  "New owed at the door": "Nyt skyldigt ved døren",
  "New awaiting transfer": "Nyt, der afventer overførsel",
  "festival": "festival",
- "Cancelled · {amount} still to pay back": "Annulleret · {amount} mangler stadig at blive betalt tilbage",
+ "Called off · {amount} still to pay back": "Aflyst · {amount} mangler stadig at blive betalt tilbage",
  "Postponed or cancelled": "Udskudt eller aflyst",
  "Gig": "Koncert",
  "Club night": "Klubaften",

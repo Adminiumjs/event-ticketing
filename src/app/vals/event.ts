@@ -181,7 +181,7 @@ function panelVals(app: WaveApp, w: World, r: Reading): V {
   const discOn = code?.kind === "discount" && quote !== null && quote.discount > 0;
   const lowestOn = ev.types.filter((_, i) => r.states[i] === "on");
   const fromTxt = ev.cancelled
-    ? tr("Cancelled")
+    ? tr("Called off")
     : r.past
       ? tr("This one's happened")
       : allSold

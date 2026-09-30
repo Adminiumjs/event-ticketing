@@ -118,12 +118,12 @@ describe("Events and Sales", () => {
     const rows = Object.fromEntries((el["rows"] as V[]).map((r) => [String(r["name"]), `${String(r["st"])} | ${bidi(r["soldTxt"])} | ${bidi(r["taken"])} | ${bidi(r["owed"])}`]));
     expect(rows["Neon Circuit"]).toBe("On sale | 388 / 414 | $10,287.00 | $336.00");
     expect(rows["Velvet Hour"]).toBe("Sold out | 118 / 120 · sold out | $2,080.00 | $280.00");
-    expect(rows["Dust Parade"]).toBe("Cancelled | Cancelled · $2,376.00 still to pay back | — | —");
+    expect(rows["Dust Parade"]).toBe("Called off | Called off · $2,376.00 still to pay back | — | —");
     expect(rows["First Listen: Hollow Tide's new record"]).toBe("On sale | 71 / 120 | No charge | —");
     expect(rows["Cinder"]).toBe("On sale | 245 / 440 | $4,409.00 | $1,146.00");
     expect(rows["Waveform Weekender"]).toBe("On sale | 391 / 570 | $23,189.00 | $4,711.00");
     expect(rows["Hollow Tide"]).toBe("Postponed | 247 / 450 | $7,023.00 | $570.00");
-    expect(rows["Paper Moons"]).toBe("Past | 120 / 120 | $1,920.00 | $0.00");
+    expect(rows["Paper Moons"]).toBe("Ended | 120 / 120 | $1,920.00 | $0.00");
   });
 
   it("reads Neon Circuit's Sales, type by type", async () => {

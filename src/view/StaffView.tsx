@@ -1891,7 +1891,7 @@ export function StaffView({ v }: { v: any }) {
                     <form onSubmit={v.gl.add} style={st(`${v.bo.sec}flex-direction:row; flex-wrap:wrap; align-items:flex-end; gap:10px;`)}>
                       <label style={st(`${v.bo.fl}flex:2; min-width:180px;`)}>
                         <span style={st(v.s.lbl)}>
-                          {tr("Name")}
+                          {tr("Full name")}
                         </span>
                         <input id="gl-name" className="wv-fld" value={v.gl.nName ?? ""} onChange={v.gl.onName} aria-invalid={v.gl.nErrOn} aria-describedby="gl-err" style={st(v.bo.fld)} />
                         {v.gl.nErrOn ? (
@@ -1944,7 +1944,7 @@ export function StaffView({ v }: { v: any }) {
                         <thead>
                           <tr>
                             <th style={st(v.bo.th)}>
-                              {tr("Name")}
+                              {tr("Full name")}
                             </th>
                             <th style={st(v.bo.th)}>
                               {tr("Plus")}
@@ -2078,7 +2078,7 @@ export function StaffView({ v }: { v: any }) {
                                 {"#"}
                               </th>
                               <th style={st(v.bo.th)}>
-                                {tr("Name")}
+                                {tr("Full name")}
                               </th>
                               <th style={st(v.bo.th)}>
                                 {tr("Email")}
@@ -2501,7 +2501,7 @@ export function StaffView({ v }: { v: any }) {
                     {" "}
                     {v.pc.finishOn ? (
                       <>
-                        <section aria-label={tr("Cancelled")} style={st(`${v.bo.sec}flex-direction:row; align-items:center; flex-wrap:wrap; gap:12px;`)}>
+                        <section aria-label={tr("Called off")} style={st(`${v.bo.sec}flex-direction:row; align-items:center; flex-wrap:wrap; gap:12px;`)}>
                           <Icon name={"triangle-alert"} style={st("width:18px;height:18px;color:var(--danger);")} />
                           <span style={st("flex:1; min-width:240px; font-size:14.5px; font-weight:800; line-height:1.5;")}>
                             {v.pc.finishTxt}

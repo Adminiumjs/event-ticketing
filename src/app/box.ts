@@ -337,8 +337,8 @@ export class Box {
   }
   /** The show's word on the box office's lists. */
   status(show: BoxShow): { txt: string; k: "danger" | "muted" | "warn" | "info" | "pos"; id: "cancelled" | "past" | "post" | "draft" | "sold" | "soon" | "on" } {
-    if (show.status === "cancelled") return { txt: tr("Cancelled"), k: "danger", id: "cancelled" };
-    if (this.isPast(show)) return { txt: tr("Past"), k: "muted", id: "past" };
+    if (show.status === "cancelled") return { txt: tr("Called off"), k: "danger", id: "cancelled" };
+    if (this.isPast(show)) return { txt: tr("Ended"), k: "muted", id: "past" };
     if (show.postponed) return { txt: tr("Postponed"), k: "warn", id: "post" };
     if (show.status === "draft") return { txt: tr("Draft"), k: "muted", id: "draft" };
     const pub = show.types.filter((t) => t.visibility === "public");

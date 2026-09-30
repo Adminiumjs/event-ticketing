@@ -441,7 +441,7 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
         go: () => set({ n: q }),
         style: `min-height:34px; padding:0 14px; border-radius:9px; border:0; cursor:pointer; font-family:var(--mono); font-size:14px; font-weight:700; background:${n === q ? "var(--surface)" : "transparent"}; color:${n === q ? "var(--fg)" : "var(--fg-muted)"};`,
       })),
-      fields: [fld("wa-name", tr("Name"), "name", "text"), fld("wa-email", tr("Email"), "email", "email")],
+      fields: [fld("wa-name", tr("Full name"), "name", "text"), fld("wa-email", tr("Email"), "email", "email")],
       submitLabel: tr("Add to the waitlist"),
       submit: (e?: { preventDefault: () => void }) => {
         e?.preventDefault();

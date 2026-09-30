@@ -1,6 +1,8 @@
 {
  "Cancelled": "Storniert",
+ "Called off": "Abgesagt",
  "Past": "Vergangen",
+ "Ended": "Vorbei",
  "Postponed": "Verschoben",
  "Draft": "Entwurf",
  "Sold out": "Ausverkauft",
@@ -463,7 +465,7 @@
  "New owed at the door": "Neu am Einlass offen",
  "New awaiting transfer": "Neu mit Überweisung ausstehend",
  "festival": "Festival",
- "Cancelled · {amount} still to pay back": "Abgesagt · {amount} noch zu erstatten",
+ "Called off · {amount} still to pay back": "Abgesagt · {amount} noch zu erstatten",
  "Postponed or cancelled": "Verschoben oder abgesagt",
  "Gig": "Konzert",
  "Club night": "Clubnacht",

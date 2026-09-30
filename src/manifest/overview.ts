@@ -213,7 +213,7 @@ export const OVERVIEW_LAYOUT = {
       "Refund requests",
       {
         limit: 6,
-        columns: [col("holder_name", "Ticket holder"), col("refund_asked_at", "Asked", { logicalType: "timestamptz" })],
+        columns: [col("holder_name", "Ticket holder"), col("refund_asked_at", "Asked on", { logicalType: "timestamptz" })],
         secondary: ["order", "show"],
         viewAllHref: page("tickets", "f.status=eq:refund_asked"),
         binding: list("tickets", {

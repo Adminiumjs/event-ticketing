@@ -618,7 +618,7 @@ function eventsVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unkno
         st: st.txt,
         stStyle: pill(st.k),
         soldTxt: cancelled
-          ? tr("Cancelled · {amount} still to pay back", { amount: money(toPay) })
+          ? tr("Called off · {amount} still to pay back", { amount: money(toPay) })
           : sold === null
             ? "…"
             : `${num(sold.taken)} / ${num(sold.size)}${st.id === "sold" ? ` · ${tr("sold out")}` : ""}`,

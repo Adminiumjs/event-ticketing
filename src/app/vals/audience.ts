@@ -71,7 +71,7 @@ export function lowest(r: Reading): number | null {
 
 export function status(_app: WaveApp, w: World, r: Reading): Status {
   const ev = r.show;
-  if (ev.cancelled) return { txt: tr("Cancelled"), k: "danger", icon: "circle-x" };
+  if (ev.cancelled) return { txt: tr("Called off"), k: "danger", icon: "circle-x" };
   if (r.past) return { txt: tr("This one's happened"), k: "muted", icon: "history" };
   if (ev.was !== null) return { txt: tr("Postponed from {date}", { date: fD(ev.was) }), k: "warn", icon: "calendar-clock" };
   const st = r.states;

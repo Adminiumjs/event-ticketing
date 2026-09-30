@@ -908,7 +908,7 @@
               "de-DE": "Name",
               "fr-FR": "Nom",
               "da-DK": "Navn",
-              "cs-CZ": "Jméno",
+              "cs-CZ": "Název",
               "ar-EG": "الاسم",
               "zh-CN": "名称",
               "zh-TW": "名稱"
@@ -1095,7 +1095,7 @@
               "de-DE": "Name",
               "fr-FR": "Nom",
               "da-DK": "Navn",
-              "cs-CZ": "Jméno",
+              "cs-CZ": "Název",
               "ar-EG": "الاسم",
               "zh-CN": "名称",
               "zh-TW": "名稱"
@@ -1774,12 +1774,12 @@
                     "zh-TW": "已發布"
                   },
                   "cancelled": {
-                    "en-US": "Cancelled",
-                    "de-DE": "Storniert",
+                    "en-US": "Called off",
+                    "de-DE": "Abgesagt",
                     "fr-FR": "Annulé",
-                    "da-DK": "Annulleret",
+                    "da-DK": "Aflyst",
                     "cs-CZ": "Zrušeno",
-                    "ar-EG": "ملغاة",
+                    "ar-EG": "ملغى",
                     "zh-CN": "已取消",
                     "zh-TW": "已取消"
                   }
@@ -1861,12 +1861,12 @@
             "ref": "cancelled_at",
             "type": "timestamptz",
             "label": {
-              "en-US": "Cancelled",
-              "de-DE": "Storniert",
+              "en-US": "Called off",
+              "de-DE": "Abgesagt",
               "fr-FR": "Annulé",
-              "da-DK": "Annulleret",
+              "da-DK": "Aflyst",
               "cs-CZ": "Zrušeno",
-              "ar-EG": "ملغاة",
+              "ar-EG": "ملغى",
               "zh-CN": "已取消",
               "zh-TW": "已取消"
             },
@@ -2242,12 +2242,12 @@
                     "zh-TW": "已發布"
                   },
                   "cancelled": {
-                    "en-US": "Cancelled",
-                    "de-DE": "Storniert",
+                    "en-US": "Called off",
+                    "de-DE": "Abgesagt",
                     "fr-FR": "Annulé",
-                    "da-DK": "Annulleret",
+                    "da-DK": "Aflyst",
                     "cs-CZ": "Zrušeno",
-                    "ar-EG": "ملغاة",
+                    "ar-EG": "ملغى",
                     "zh-CN": "已取消",
                     "zh-TW": "已取消"
                   }
@@ -2414,12 +2414,12 @@
                     "zh-TW": "已發布"
                   },
                   "cancelled": {
-                    "en-US": "Cancelled",
-                    "de-DE": "Storniert",
+                    "en-US": "Called off",
+                    "de-DE": "Abgesagt",
                     "fr-FR": "Annulé",
-                    "da-DK": "Annulleret",
+                    "da-DK": "Aflyst",
                     "cs-CZ": "Zrušeno",
-                    "ar-EG": "ملغاة",
+                    "ar-EG": "ملغى",
                     "zh-CN": "已取消",
                     "zh-TW": "已取消"
                   }
@@ -2436,7 +2436,7 @@
               "de-DE": "Name",
               "fr-FR": "Nom",
               "da-DK": "Navn",
-              "cs-CZ": "Jméno",
+              "cs-CZ": "Název",
               "ar-EG": "الاسم",
               "zh-CN": "名称",
               "zh-TW": "名稱"
@@ -2643,12 +2643,12 @@
                     "zh-TW": "已發布"
                   },
                   "cancelled": {
-                    "en-US": "Cancelled",
-                    "de-DE": "Storniert",
+                    "en-US": "Called off",
+                    "de-DE": "Abgesagt",
                     "fr-FR": "Annulé",
-                    "da-DK": "Annulleret",
+                    "da-DK": "Aflyst",
                     "cs-CZ": "Zrušeno",
-                    "ar-EG": "ملغاة",
+                    "ar-EG": "ملغى",
                     "zh-CN": "已取消",
                     "zh-TW": "已取消"
                   }
@@ -2665,7 +2665,7 @@
               "de-DE": "Name",
               "fr-FR": "Nom",
               "da-DK": "Navn",
-              "cs-CZ": "Jméno",
+              "cs-CZ": "Název",
               "ar-EG": "الاسم",
               "zh-CN": "名称",
               "zh-TW": "名稱"
@@ -3521,14 +3521,14 @@
             "type": "text",
             "maxLength": 120,
             "label": {
-              "en-US": "Name",
-              "de-DE": "Name",
-              "fr-FR": "Nom",
-              "da-DK": "Navn",
-              "cs-CZ": "Jméno",
-              "ar-EG": "الاسم",
-              "zh-CN": "名称",
-              "zh-TW": "名稱"
+              "en-US": "Full name",
+              "de-DE": "Vollständiger Name",
+              "fr-FR": "Nom complet",
+              "da-DK": "Fulde navn",
+              "cs-CZ": "Celé jméno",
+              "ar-EG": "الاسم الكامل",
+              "zh-CN": "全名",
+              "zh-TW": "全名"
             },
             "nullable": true
           },
@@ -3678,12 +3678,12 @@
                     "zh-TW": "已發布"
                   },
                   "cancelled": {
-                    "en-US": "Cancelled",
-                    "de-DE": "Storniert",
+                    "en-US": "Called off",
+                    "de-DE": "Abgesagt",
                     "fr-FR": "Annulé",
-                    "da-DK": "Annulleret",
+                    "da-DK": "Aflyst",
                     "cs-CZ": "Zrušeno",
-                    "ar-EG": "ملغاة",
+                    "ar-EG": "ملغى",
                     "zh-CN": "已取消",
                     "zh-TW": "已取消"
                   }
@@ -3789,11 +3789,11 @@
               "en-US": "Asked",
               "de-DE": "Gefragt",
               "fr-FR": "Demandé",
-              "da-DK": "Anmodet",
-              "cs-CZ": "Vyžádáno",
-              "ar-EG": "طُلب",
-              "zh-CN": "申请时间",
-              "zh-TW": "提出時間"
+              "da-DK": "Stilles",
+              "cs-CZ": "Ptát se",
+              "ar-EG": "يُسأل",
+              "zh-CN": "询问范围",
+              "zh-TW": "詢問方式"
             },
             "default": "ticket",
             "rules": {
@@ -8151,14 +8151,14 @@
             "scale": "currency",
             "nullable": true,
             "label": {
-              "en-US": "Due",
-              "de-DE": "Fällig",
-              "fr-FR": "Échéance",
-              "da-DK": "Forfalder",
-              "cs-CZ": "Splatnost",
-              "ar-EG": "مستحق",
-              "zh-CN": "到期",
-              "zh-TW": "期限"
+              "en-US": "To pay",
+              "de-DE": "Zu zahlen",
+              "fr-FR": "À payer",
+              "da-DK": "At betale",
+              "cs-CZ": "K zaplacení",
+              "ar-EG": "المطلوب دفعه",
+              "zh-CN": "应付",
+              "zh-TW": "應付"
             },
             "rules": {
               "formula": {
@@ -10477,14 +10477,14 @@
             "type": "text",
             "maxLength": 120,
             "label": {
-              "en-US": "Name",
-              "de-DE": "Name",
-              "fr-FR": "Nom",
-              "da-DK": "Navn",
-              "cs-CZ": "Jméno",
-              "ar-EG": "الاسم",
-              "zh-CN": "名称",
-              "zh-TW": "名稱"
+              "en-US": "Full name",
+              "de-DE": "Vollständiger Name",
+              "fr-FR": "Nom complet",
+              "da-DK": "Fulde navn",
+              "cs-CZ": "Celé jméno",
+              "ar-EG": "الاسم الكامل",
+              "zh-CN": "全名",
+              "zh-TW": "全名"
             },
             "semantic": "name"
           },
@@ -10542,14 +10542,14 @@
             "type": "text",
             "maxLength": 80,
             "label": {
-              "en-US": "For",
-              "de-DE": "Für",
-              "fr-FR": "Pour",
-              "da-DK": "Til",
-              "cs-CZ": "Pro",
-              "ar-EG": "لصالح",
-              "zh-CN": "用于",
-              "zh-TW": "適用"
+              "en-US": "On behalf of",
+              "de-DE": "Im Namen von",
+              "fr-FR": "De la part de",
+              "da-DK": "På vegne af",
+              "cs-CZ": "Za koho",
+              "ar-EG": "نيابة عن",
+              "zh-CN": "代表",
+              "zh-TW": "代表"
             },
             "nullable": true
           },
@@ -11233,12 +11233,12 @@
             "ref": "created_at",
             "type": "timestamptz",
             "label": {
-              "en-US": "Asked",
-              "de-DE": "Gefragt",
-              "fr-FR": "Demandé",
-              "da-DK": "Anmodet",
-              "cs-CZ": "Vyžádáno",
-              "ar-EG": "طُلب",
+              "en-US": "Asked on",
+              "de-DE": "Angefragt am",
+              "fr-FR": "Demandé le",
+              "da-DK": "Anmodet den",
+              "cs-CZ": "Vyžádáno dne",
+              "ar-EG": "تاريخ الطلب",
               "zh-CN": "申请时间",
               "zh-TW": "提出時間"
             },
@@ -11452,12 +11452,12 @@
                     "zh-TW": "延期"
                   },
                   "cancelled": {
-                    "en-US": "Cancelled",
-                    "de-DE": "Storniert",
+                    "en-US": "Called off",
+                    "de-DE": "Abgesagt",
                     "fr-FR": "Annulé",
-                    "da-DK": "Annulleret",
+                    "da-DK": "Aflyst",
                     "cs-CZ": "Zrušeno",
-                    "ar-EG": "ملغاة",
+                    "ar-EG": "ملغى",
                     "zh-CN": "已取消",
                     "zh-TW": "已取消"
                   },
@@ -12275,8 +12275,8 @@
               "de-DE": "Fällig",
               "fr-FR": "Échéance",
               "da-DK": "Forfalder",
-              "cs-CZ": "Splatnost",
-              "ar-EG": "مستحق",
+              "cs-CZ": "Naplánováno na",
+              "ar-EG": "موعد الإرسال",
               "zh-CN": "到期",
               "zh-TW": "期限"
             },
@@ -12516,7 +12516,7 @@
               "de-DE": "Name",
               "fr-FR": "Nom",
               "da-DK": "Navn",
-              "cs-CZ": "Jméno",
+              "cs-CZ": "Název",
               "ar-EG": "الاسم",
               "zh-CN": "名称",
               "zh-TW": "名稱"
@@ -13253,7 +13253,7 @@
                   },
                   {
                     "name": "refund_asked_at",
-                    "label": "Asked",
+                    "label": "Asked on",
                     "logicalType": "timestamptz"
                   }
                 ],

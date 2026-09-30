@@ -1,6 +1,8 @@
 {
  "Cancelled": "ملغى",
+ "Called off": "ملغى",
  "Past": "انتهى",
+ "Ended": "انتهى",
  "Postponed": "مؤجَّل",
  "Draft": "مسودة",
  "Sold out": "نفدت التذاكر",
@@ -463,7 +465,7 @@
  "New owed at the door": "مستحق جديد عند الباب",
  "New awaiting transfer": "جديد بانتظار التحويل",
  "festival": "مهرجان",
- "Cancelled · {amount} still to pay back": "ملغى · {amount} لم يُرد بعد",
+ "Called off · {amount} still to pay back": "ملغى · {amount} لم يُرد بعد",
  "Postponed or cancelled": "مؤجَّل أو ملغى",
  "Gig": "حفلة موسيقية",
  "Club night": "ليلة نادٍ",

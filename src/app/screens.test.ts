@@ -49,7 +49,7 @@ describe("What's on at 16:30", () => {
     const { v } = await open();
     const out = await v();
     const row = (list: string) => (out[list] as V[]).map((c) => `${String(c["name"])} | ${bidi(c["status"])} | ${bidi(c["price"])}`);
-    expect(row("week")).toEqual(["Velvet Hour | Sold out — join the waitlist | from $20.00", "Dust Parade | Cancelled | "]);
+    expect(row("week")).toEqual(["Velvet Hour | Sold out — join the waitlist | from $20.00", "Dust Parade | Called off | "]);
     expect(row("coming")).toContain("Hollow Tide | Postponed from Sat 15 Aug | from $30.00");
     expect(row("coming")).toContain("First Listen: Hollow Tide's new record | Just register | No charge");
     expect((out["soon"] as V[]).map((c) => `${String(c["name"])} ${bidi(c["countdown"])} ${bidi(c["status"])}`)).toEqual([
