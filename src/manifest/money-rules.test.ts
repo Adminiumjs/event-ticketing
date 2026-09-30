@@ -39,23 +39,23 @@ describe("a show that is not on sale sells nothing", () => {
     });
   });
 
-  it("copies the show's doors, waitlist and reminder through the show a ticket is SENT with, checked against its type's and its order's", () => {
-    // A copy through a link another copy fills is not made when the ticket is (the copy reads the link as sent):
-    // so the show is sent, and every copy of the show's own columns reads that.
+  it("copies the show's doors, waitlist and reminder through the show its type names, checked against its order's", () => {
+    // A copy through a link another copy fills is made when the ticket is (Adminium 0.3.8): the show is copied
+    // from the type, never sent, and every copy of the show's own columns reads it.
     for (const ref of ["doors_at", "waitlist_on", "eve_email"]) {
       expect((column("tickets", ref)["rules"] as Json)["copy"], ref).toEqual({ via: "show_id", from: ref, mode: "always", follow: true });
     }
     expect(column("tickets", "show_id")).toMatchObject({ type: "fk", references: "events" });
-    expect((column("tickets", "show_id")["rules"] as Json | undefined)?.["copy"]).toBeUndefined();
+    expect((column("tickets", "show_id")["rules"] as Json)["copy"]).toEqual({ via: "ticket_type_id", from: "event_id", mode: "always" });
     expect((column("tickets", "show_no")["rules"] as Json)["copy"]).toEqual({ via: "show_id", from: "id", mode: "always" });
     expect((column("tickets", "type_show_no")["rules"] as Json)["copy"]).toEqual({ via: "ticket_type_id", from: "event_id", mode: "always" });
     expect((column("tickets", "order_show_no")["rules"] as Json)["copy"]).toEqual({ via: "order_id", from: "event_id", mode: "always" });
-    // Every other copy on every table reads a link that is sent, never one another copy fills.
+    // Every other copy on every table reads a link that is sent, never one another copy fills — but the ticket's show.
     for (const t of tables) {
       const cols = t["columns"] as Json[];
       for (const c of cols) {
         const copy = (c["rules"] as Json | undefined)?.["copy"] as Json | undefined;
-        if (copy === undefined) continue;
+        if (copy === undefined || (t["ref"] === "tickets" && copy["via"] === "show_id")) continue;
         const via = cols.find((x) => x["ref"] === copy["via"]);
         expect((via?.["rules"] as Json | undefined)?.["copy"], `${String(t["ref"])}.${String(c["ref"])} copies through ${String(copy["via"])}`).toBeUndefined();
       }

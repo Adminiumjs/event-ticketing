@@ -928,9 +928,9 @@ export const TABLES: Table[] = [
       fk("order_id", "orders", "Order", { index: true }),
       fk("ticket_type_id", "ticket_types", "Ticket type", { index: true }),
       fk("event_id", "events", "Show", { ...opt, rules: copyOf("ticket_type_id", "event_id") }),
-      // The show again, as whoever makes the ticket sends it, so the show's doors, waitlist and reminder are copied
-      // straight from the show when the ticket is made. It must be its type's show and its order's, or no ticket.
-      fk("show_id", "events", "Show as sent", opt),
+      // The show again, copied from the type like `event_id`, so the show's doors, waitlist and reminder are copied
+      // through it when the ticket is made (a copy through a copied link, Adminium 0.3.8). It must be its order's show too.
+      fk("show_id", "events", "Show as sent", { ...opt, rules: copyOf("ticket_type_id", "event_id") }),
       worked("show_no", "Show number", copyOf("show_id", "id")),
       worked("type_show_no", "Type's show number", copyOf("ticket_type_id", "event_id")),
       worked("order_show_no", "Order's show number", copyOf("order_id", "event_id")),

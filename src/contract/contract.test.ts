@@ -263,9 +263,9 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         const standard = types.find((t) => t["event_id"] === neon.id && t["name"] === "Standard")!.id;
         const body = {
           values: { event_id: neon.id, room_id: neon["room_id"], buyer_name: "Lee Tan", email: "lee.tan@waveform.test", language: "en-US", client_key: "c".repeat(43) },
-          children: { tickets: [{ values: { ticket_type_id: standard, show_id: neon.id } }, { values: { ticket_type_id: standard, show_id: neon.id } }] },
+          children: { tickets: [{ values: { ticket_type_id: standard } }, { values: { ticket_type_id: standard } }] },
         };
-        // A ticket sent with another show than its order's (and its type's) is never made, nor priced.
+        // A ticket's show is Adminium's to decide (copied from its type): a guest who sends one is refused, and nothing is priced.
         const cinderId = events.find((e) => e["name"] === "Cinder")!.id;
         const wrongShow = { ...body, children: { tickets: [{ values: { ticket_type_id: standard, show_id: cinderId } }] } };
         expect((await buyer.post(`/api/v1/public/records/${door}/dry-run`, wrongShow)).status).toBeGreaterThanOrEqual(400);
@@ -304,22 +304,13 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         const ordersBefore = (await rows("orders")).length;
         const mixed = await refusal(() => box.newOrder({ values: { event_id: neon.id, buyer_name: "Mixed Up" }, tickets: [{ ticket_type_id: cinderStandard }] }, key("mixed")));
         expect([409, 422]).toContain(mixed?.status);
-        // …and so is a ticket of Neon's own type sent with Cinder as its show, whoever writes it.
-        const rel = String(mixed?.params["relation"] ?? "");
-        expect(rel).toContain("order_id");
-        const sentWrong = await staff.post(data("orders"), {
-          values: { event_id: neon.id, room_id: neon["room_id"], channel: "box_office", buyer_name: "Mixed Up" },
-          children: { [rel]: [{ values: { ticket_type_id: standard, show_id: cinderId } }] },
-        });
-        const said = (r: { status: number; code?: string; details: Record<string, unknown> }) => `${String(r.status)} ${String(r.code)} ${JSON.stringify(r.details)}`;
-        // (A tree is refused first by the checkout's own agreement, show_id to the order's show.)
-        expect(said(sentWrong)).toMatch(/^(409 STATE_MOVE_REFUSED .*"requires":"right_show"|422 VALIDATION_FAILED .*show_id)/);
         expect((await rows("orders")).length).toBe(ordersBefore);
-        // One ticket added to Lee Tan's own Neon order, of Neon's type, sent with Cinder: refused by the ticket's own rule.
-        const ticketsBefore = (await rows("tickets")).length;
-        const added = await staff.post(data("tickets"), { values: { order_id: made.data.id, ticket_type_id: standard, show_id: cinderId } });
-        expect(said(added)).toMatch(/^409 STATE_MOVE_REFUSED .*"requires":"right_show"/);
-        expect((await rows("tickets")).length).toBe(ticketsBefore);
+        // A ticket of Neon's own type sent by staff with Cinder as its show takes its type's show all the same (Adminium 0.3.8).
+        const said = (r: { status: number; code?: string; details: Record<string, unknown> }) => `${String(r.status)} ${String(r.code)} ${JSON.stringify(r.details)}`;
+        const added = await staff.post<{ data: Row }>(data("tickets"), { values: { order_id: made.data.id, ticket_type_id: standard, show_id: cinderId } });
+        expect(added.status, said(added)).toBe(201);
+        const one = (await rows("tickets")).find((t) => t.id === added.body?.data?.id)!;
+        expect(shown(one)).toEqual(expected);
       }, 120_000);
 
       // ── the evening, through the app's own doors (the ports the screens use) ──────────────

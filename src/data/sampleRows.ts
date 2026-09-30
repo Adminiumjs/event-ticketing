@@ -212,6 +212,7 @@ export const RULES: Rules = {
     { table: "orders", column: "eve_email", via: "event_id", parent: "events", from: "eve_email", always: true },
     { table: "orders", column: "ends_at", via: "event_id", parent: "events", from: "ends_at", always: true },
     { table: "tickets", column: "event_id", via: "ticket_type_id", parent: "ticket_types", from: "event_id", always: true },
+    { table: "tickets", column: "show_id", via: "ticket_type_id", parent: "ticket_types", from: "event_id", always: true },
     { table: "tickets", column: "show_no", via: "show_id", parent: "events", from: "id", always: true },
     { table: "tickets", column: "type_show_no", via: "ticket_type_id", parent: "ticket_types", from: "event_id", always: true },
     { table: "tickets", column: "order_show_no", via: "order_id", parent: "orders", from: "event_id", always: true },

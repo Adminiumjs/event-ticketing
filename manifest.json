@@ -18,7 +18,7 @@
     "hospitality"
   ],
   "compatibility": {
-    "minAdminiumVersion": "0.3.6",
+    "minAdminiumVersion": "0.3.8",
     "engines": [
       "sqlite",
       "postgres",
@@ -6728,7 +6728,14 @@
               "zh-CN": "提交时的演出",
               "zh-TW": "送出時的演出"
             },
-            "nullable": true
+            "nullable": true,
+            "rules": {
+              "copy": {
+                "via": "ticket_type_id",
+                "from": "event_id",
+                "mode": "always"
+              }
+            }
           },
           {
             "ref": "show_no",
@@ -16873,13 +16880,12 @@
         "tickets": {
           "via": "order_id",
           "writable": [
-            "show_id",
             "ticket_type_id",
             "holder_name",
             "answers"
           ],
           "requires": [
-            "show_id"
+            "ticket_type_id"
           ],
           "select": [
             "id",
@@ -16899,12 +16905,6 @@
               "path": [
                 "event_id"
               ],
-              "eq": {
-                "parent": "event_id"
-              }
-            },
-            {
-              "column": "show_id",
               "eq": {
                 "parent": "event_id"
               }

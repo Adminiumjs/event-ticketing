@@ -75,13 +75,13 @@ export interface OrderBody {
 }
 
 /**
- * The tickets as a create writes them: each names the order's show
- * (`show_id`). Adminium copies the show's doors, waitlist and reminder switch
- * through it as sent, and refuses a ticket whose type or order is of another
+ * The tickets as a create writes them: each names its type. Adminium takes the
+ * show from the type (`show_id`), copies the show's doors, waitlist and
+ * reminder switch through it, and refuses a ticket whose order is of another
  * show.
  */
 export function ticketRows(body: OrderBody): Record<string, unknown>[] {
-  return body.tickets.map((t) => ({ ...t, show_id: body.values["event_id"] }));
+  return body.tickets.map((t) => ({ ...t }));
 }
 
 /** A create's reply: the order and its tickets; `replayed` for a retry of one already made. */

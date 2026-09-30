@@ -109,7 +109,22 @@ async function attachToHost(app: WaveApp): Promise<void> {
     onPath: (path) => sync.applyPath(path),
   });
   let last = viewOf(app);
+  // A show's own page keeps its own address (`events/{slug}`), as the link to it reads: a reload, or the
+  // address copied from the bar, opens that show. The screens with a menu entry keep theirs (`sync`).
+  let showPath: string | null = null;
   app.subscribe(() => {
+    if (app.persona === "audience") {
+      const s = app.state;
+      const w = app.world();
+      const show = s.scr !== "event" || w === null ? undefined : s.evId !== null ? w.byId.get(s.evId) : s.pendingSlug !== null ? w.bySlug.get(s.pendingSlug) : undefined;
+      const want = show === undefined ? null : `events/${show.slug}`;
+      if (want !== showPath) {
+        showPath = want;
+        const path = want ?? sync.path();
+        window.history.replaceState(window.history.state, "", `${sync.base}${path}${window.location.search}`);
+        bridge?.navigated(path);
+      }
+    }
     const now = viewOf(app);
     if (now === last) return;
     last = now;
