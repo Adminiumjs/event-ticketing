@@ -65,12 +65,18 @@ async function open(opts: { now?: string; person?: { name: string; roles: string
     }
     return renderVals(app)["dd"] as V;
   };
-  // "Tap to scan the next one": the verdict up is closed first.
+  // "Tap to scan the next one": the verdict up is closed first. A verdict closes itself three seconds after
+  // it is shown; on a busy machine that can pass before it is read, so it is held open (a finger on it) until then.
   const scan = async (code: string) => {
     await v();
     if (door.s.verdict !== null && door.s.verdict.collect === null) door.dismiss();
-    await door.scan(code, "find");
-    return (await v())["v"] as V;
+    door.hold(true);
+    try {
+      await door.scan(code, "find");
+      return (await v())["v"] as V;
+    } finally {
+      door.hold(false);
+    }
   };
   const ticket = (code: string): Row => demo.world.all("tickets").find((t) => t["code"] === code)!;
   const order = (no: string): Row => demo.world.all("orders").find((o) => o["number"] === no)!;
