@@ -22,7 +22,7 @@ pay back.
 
 ## What it needs
 
-- Adminium **0.3.6** or later, on SQLite, Postgres or MySQL.
+- Adminium **0.3.8** or later, on SQLite, Postgres or MySQL.
 - Nothing else. **Invoices & Receipts** is offered at install: with it, an
   order paid in full gets its receipt by email, and the buyer can open it from
   their order.
