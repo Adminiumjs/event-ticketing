@@ -108,6 +108,9 @@ export function boxOf(app: WaveApp): Box {
 /** The small tables the box office reads whole. */
 const WHOLE = ["settings", "rooms", "events", "event_days", "acts", "ticket_types", "questions"] as const;
 
+/** A table the person may not read, as the venue's read of it: no rows, and the same array each time. */
+const NO_ROWS: Row[] = [];
+
 /** How many ids one `in` condition carries. */
 const IN_PART = 150;
 
@@ -243,7 +246,10 @@ export class Box {
 
   /** The venue: every show, type, day, act and room (null until Adminium has answered). */
   world(): BoxWorld | null {
-    const got = WHOLE.map((t) => this.rows(t));
+    // Who is asking comes first: a table their role may not read (the door's has no acts and no questions)
+    // is empty to them and never asked for — its refusal would otherwise keep the venue from ever arriving.
+    if (this.me() === undefined && !this.app.failed("box:me")) return this.memo?.w ?? null;
+    const got = WHOLE.map((t) => (this.can(t, "read") ? this.rows(t) : NO_ROWS));
     if (got.some((r) => r === undefined)) return this.memo?.w ?? null;
     if (this.memo !== null && this.memo.key.every((k, i) => k === got[i])) return this.memo.w;
     const [settings, rooms, events, event_days, acts, ticket_types, questions] = got as Row[][];

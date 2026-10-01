@@ -11,6 +11,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+import manifest from "../../manifest.json";
+import type { BoxOfficePort } from "../data/ports.ts";
+import { ApiError } from "../data/wire.ts";
 import { DemoAdminium } from "../demo/adminium.ts";
 import { DemoBoxOffice, DemoDoor } from "../demo/sides.ts";
 import { DoorView } from "../view/DoorView.tsx";
@@ -21,6 +24,43 @@ import { renderVals } from "./vals/base.ts";
 import { WaveApp } from "./wave.ts";
 
 vi.setConfig({ testTimeout: 60_000 });
+
+/** What the manifest's role may do with each table, by short name — what Adminium tells the staff side. */
+function grants(role: string): Record<string, string[]> {
+  const tables: Record<string, string[]> = {};
+  for (const p of manifest.roles.find((r) => r.key === role)!.permissions) {
+    const m = /^table:@([a-z_]+):([a-z]+)$/.exec(p);
+    if (m !== null) (tables[m[1]!] ??= []).push(m[2]!);
+  }
+  return tables;
+}
+
+/**
+ * The demo's box office answering as Adminium does for a role: it says what the role may do, and refuses
+ * a read of a table the role has no grant on. (The demo's own port reads every table for anyone.)
+ */
+function asRole(port: BoxOfficePort, role: string): { port: BoxOfficePort; refused: string[] } {
+  const tables = grants(role);
+  const refused: string[] = [];
+  const read = (table: string) => {
+    if ((tables[table] ?? []).includes("read")) return;
+    refused.push(table);
+    throw new ApiError(403, "TABLE_FORBIDDEN");
+  };
+  const wrapped = new Proxy(port, {
+    get(target, key) {
+      if (key === "me") return async () => ({ ...(await target.me()), tables });
+      if (key === "rows" || key === "list" || key === "count")
+        return async (table: string, ...rest: unknown[]) => {
+          read(table);
+          return (target[key] as (table: string, ...rest: unknown[]) => unknown).call(target, table, ...rest);
+        };
+      const v = Reflect.get(target, key, target) as unknown;
+      return typeof v === "function" ? (v as (...a: unknown[]) => unknown).bind(target) : v;
+    },
+  });
+  return { port: wrapped, refused };
+}
 
 /** The hosted staff build's app: `{ boxOffice, door }` and nothing else. */
 async function hosted(opts: { now?: string; person?: { name: string; roles: string[] } } = {}) {
@@ -79,6 +119,30 @@ describe("the staff side with no audience port", () => {
       expect(title).toMatch(/^Door( · .+)?$/);
       expect(renderToStaticMarkup(<DoorView d={v["dd"]} s={v["s"]} bo={v["bo"]} />)).not.toBe("");
     }
+  });
+
+  it("opens the door for the Door role, which may read neither acts nor questions", async () => {
+    const demo = new DemoAdminium();
+    demo.advanceTo(Date.parse("2026-07-28T20:15:00-04:00"));
+    const person = { name: "Dee", roles: ["door"] };
+    const { port, refused } = asRole(new DemoBoxOffice(demo.engine, person), "door");
+    const app = new WaveApp({ boxOffice: port, door: new DemoDoor(demo.engine, person) }, "box", { lang: "en-US", theme: "dark" });
+    await app.start({ timers: false });
+    app.setState({ bx: "door" });
+    for (let i = 0; i < 10; i += 1) {
+      renderVals(app);
+      await app.idle();
+    }
+    const box = boxOf(app);
+    expect(box.can("acts", "read")).toBe(false);
+    expect(box.can("questions", "read")).toBe(false);
+    // The venue arrives without them, and neither was asked for.
+    expect(box.world()).not.toBeNull();
+    expect(refused.filter((t) => t === "acts" || t === "questions")).toEqual([]);
+    const v = renderVals(app);
+    expect((v["dd"] as { open: boolean }).open).toBe(true);
+    expect(tabTitle(app)).toBe(`Door · ${box.world()!.settings.venueName}`);
+    expect(renderToStaticMarkup(<DoorView d={v["dd"]} s={v["s"]} bo={v["bo"]} />)).toContain("Neon Circuit");
   });
 
   it("has no audience's venue to read, and says so with null", async () => {
