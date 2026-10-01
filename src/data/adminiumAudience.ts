@@ -42,6 +42,8 @@ export interface AudienceOptions {
 type Key = "customer" | "link" | "confirm" | "ticket";
 
 const PAGE = 200;
+/** How many shows one availability ask names. */
+const SHOWS_PER_ASK = 20;
 /** The order states a person's own list shows (a checkout still open or let go is not an order yet). */
 const LIVE_OR_PAST = ["door", "awaiting_transfer", "overdue", "no_charge", "paid", "offered", "released", "cancelled", "not_collected"];
 /** The columns the public door answers as decimal strings, read as numbers here. */
@@ -221,6 +223,24 @@ export class AdminiumAudience implements AudiencePort {
         state: p.state === "on" ? "open" : p.state === "soldout" ? "sold_out" : "not_on_sale",
         ...(p.left === undefined ? {} : { left: p.left }),
       }));
+    });
+  }
+
+  leftAll(eventIds: readonly Id[]): Promise<TypeLeft[]> {
+    return answer(async () => {
+      const out: TypeLeft[] = [];
+      // Twenty shows an ask: an answer holds two hundred rows at most.
+      for (let i = 0; i < eventIds.length; i += SHOWS_PER_ASK) {
+        const got = await this.customer.parentAvailability(this.refs.left, { under: eventIds.slice(i, i + SHOWS_PER_ASK).map(String).join(",") });
+        for (const p of got) {
+          out.push({
+            ticket_type_id: Number(p.id),
+            state: p.state === "on" ? "open" : p.state === "soldout" ? "sold_out" : "not_on_sale",
+            ...(p.left === undefined ? {} : { left: p.left }),
+          });
+        }
+      }
+      return out;
     });
   }
 

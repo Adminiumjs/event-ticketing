@@ -60,6 +60,13 @@ export interface Reading {
 export function reading(app: WaveApp, show: Show): Reading {
   const left = app.left(show);
   const past = app.now > show.curfew;
+  /*
+   * No answer at all about what is left — still on its way, or refused (the
+   * read limit): nothing is offered. A type's own sales window used to stand
+   * in, so a sold-out show read "available" and offered its tickets, which the
+   * hold then refused.
+   */
+  if (left === undefined && !show.cancelled && !past) return { show, left, states: show.types.map(() => "checking" as const), past };
   return { show, left, states: show.types.map((t) => typeState(show, t, left?.get(t.id), app.now)), past };
 }
 
@@ -75,6 +82,7 @@ export function status(_app: WaveApp, w: World, r: Reading): Status {
   if (r.past) return { txt: tr("This one's happened"), k: "muted", icon: "history" };
   if (ev.was !== null) return { txt: tr("Postponed from {date}", { date: fD(ev.was) }), k: "warn", icon: "calendar-clock" };
   const st = r.states;
+  if (st.length > 0 && st.every((x) => x === "checking")) return { txt: tr("Checking what's left"), k: "muted", icon: "clock" };
   if (st.length > 0 && st.every((x) => x === "soldout")) {
     return { txt: w.settings.waitlistOn && ev.waitlistOn ? tr("Sold out — join the waitlist") : tr("Sold out"), k: "danger", icon: "ban" };
   }

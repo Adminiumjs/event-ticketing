@@ -40,6 +40,8 @@ export interface AudiencePort {
   venue(): Promise<Venue>;
   /** What is left of each type of a show (said only when little is). */
   left(eventId: Id): Promise<TypeLeft[]>;
+  /** The same for several shows in one ask (Adminium 0.3.9): each show's types, in one list. Absent from a port that asks one show at a time. */
+  leftAll?(eventIds: readonly Id[]): Promise<TypeLeft[]>;
   /** The types a code unlocks on a show. */
   unlock(eventId: Id, code: string): Promise<Row[]>;
 

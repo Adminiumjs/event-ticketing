@@ -16,7 +16,7 @@ import { ApiError, isApiError, yes, type HistoryEntry, type Id, type ListQuery, 
 import { tr } from "../i18n/tr.ts";
 import { boxWorldOf, type BoxShow, type BoxWorld } from "./boxWorld.ts";
 import { cancelRun, type RunProgress } from "../data/boxSteps.ts";
-import { money, ms } from "./fmt.ts";
+import { fD, money, ms } from "./fmt.ts";
 import { venueDay, wallTime } from "../lib/venueTime.ts";
 import { PreviewPane } from "./preview.tsx";
 import type { Draft } from "./vals/editor.ts";
@@ -936,8 +936,13 @@ export class Box {
   /** A message written earlier and waiting: into Messages, as it was written, to review and send. */
   reviewWaiting(b: Row): void {
     const to = b["audience"] === "type" || b["audience"] === "not_in" ? b["audience"] : "everyone";
+    const show = this.world()?.byId.get(b["event_id"] as Id);
+    const [subj, body] = [String(b["subject"] ?? ""), String(b["body"] ?? "")];
+    // A postponement written before the show moved again names a day the show no longer has: its words
+    // are made again from the show's dates (the composer's own, when it is handed none).
+    const stale = b["template"] === "moved" && show !== undefined && staleMoved(subj, body, fD(show.start));
     this.go("msgs", {
-      msg: { ev: b["event_id"] as Id, to, typeId: (b["ticket_type_id"] as Id | null) ?? null, tpl: String(b["template"] ?? "other"), subj: String(b["subject"] ?? ""), body: String(b["body"] ?? ""), waiting: b.id },
+      msg: { ev: b["event_id"] as Id, to, typeId: (b["ticket_type_id"] as Id | null) ?? null, tpl: String(b["template"] ?? "other"), subj: stale ? null : subj, body: stale ? null : body, waiting: b.id },
     });
   }
 
@@ -1279,3 +1284,8 @@ export function unsentScans(): number {
 
 /** An instant from a stored value, or null. */
 export const at = (v: unknown): number | null => ms(v);
+
+/** Whether a waiting postponement's words name the show's new day nowhere: written for a date it has left. */
+export function staleMoved(subject: string, body: string, day: string): boolean {
+  return day !== "" && !subject.includes(day) && !body.includes(day);
+}

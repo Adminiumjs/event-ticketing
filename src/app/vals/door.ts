@@ -230,7 +230,7 @@ export function doorVals(app: WaveApp, nar: boolean): V {
     };
   });
   const namesIn = guestRows.filter((g) => door.arrivedOf(g) > 0).length;
-  const gTxt = `${tr("{n} of {total} names in|{n} of {total} names in", { n: namesIn, total: guestRows.length })} · ${tr("{n} of {total} person|{n} of {total} people", { n: gIn, total: gPeople })}`;
+  const gTxt = `${tr("{n} of {total} names in|{n} of {total} names in", { n: namesIn, total: guestRows.length })} · ${tr("{n} of {total} people", { n: gIn, total: gPeople })}`;
 
   // Sell: the show's types (a festival's, those that let in today) with what is left for the box office — read,
   // and priced by a dry run, only while the Sell tab is open.
@@ -414,6 +414,9 @@ export function doorVals(app: WaveApp, nar: boolean): V {
   };
 }
 
+/** How many tickets Find lists. */
+export const FOUND_MOST = 12;
+
 /** Find's results: tonight's tickets by name, code or the friend it was offered to, then guests by name. */
 function found(app: WaveApp, door: Door, t: Tonight, q: string, guestRows: Row[], list: { tickets: Row[]; orders: Row[]; checkIns: Row[] } | undefined, online: boolean): V[] {
   const box = door.box;
@@ -425,17 +428,31 @@ function found(app: WaveApp, door: Door, t: Tonight, q: string, guestRows: Row[]
   let ins: Row[];
   if (online) {
     const any = [{ column: "holder_name", like: q }, { column: "pending_name", like: q }, ...(code ? [...new Set([q.replace(/\s/g, ""), q.replace(/[\s-]/g, "")])].map((c) => ({ column: "code", like: c })) : [])];
-    tickets = box.list("tickets", { where: [{ column: "event_id", eq: show.id }], any, sort: [{ column: "id" }], limit: 6 })?.rows ?? [];
+    // One more than is shown, so the list can say there are more.
+    tickets = box.list("tickets", { where: [{ column: "event_id", eq: show.id }], any, sort: [{ column: "id" }], limit: FOUND_MOST + 1 })?.rows ?? [];
     const ids = tickets.map((x) => x["order_id"] as Id);
-    orders = ids.length === 0 ? [] : (box.list("orders", { where: [{ column: "id", in: [...new Set(ids)].sort((a, b) => a - b) }], limit: 6 })?.rows ?? []);
+    orders = ids.length === 0 ? [] : (box.list("orders", { where: [{ column: "id", in: [...new Set(ids)].sort((a, b) => a - b) }], limit: FOUND_MOST + 1 })?.rows ?? []);
     const tids = tickets.map((x) => x.id);
-    ins = tids.length === 0 ? [] : (box.list("check_ins", { where: [{ column: "event_day_id", eq: t.day.id }, { column: "ticket_id", in: [...tids].sort((a, b) => a - b) }], limit: 6 })?.rows ?? []);
+    ins = tids.length === 0 ? [] : (box.list("check_ins", { where: [{ column: "event_day_id", eq: t.day.id }, { column: "ticket_id", in: [...tids].sort((a, b) => a - b) }], limit: FOUND_MOST + 1 })?.rows ?? []);
   } else {
     const f = fold(q);
-    tickets = (list?.tickets ?? []).filter((x) => x["event_id"] === show.id).filter((x) => fold(x["holder_name"]).includes(f) || fold(x["pending_name"]).includes(f) || (code && fold(x["code"]).replace(/-/g, "").includes(f.replace(/-/g, "")))).slice(0, 6);
+    tickets = (list?.tickets ?? []).filter((x) => x["event_id"] === show.id).filter((x) => fold(x["holder_name"]).includes(f) || fold(x["pending_name"]).includes(f) || (code && fold(x["code"]).replace(/-/g, "").includes(f.replace(/-/g, "")))).slice(0, FOUND_MOST + 1);
     orders = list?.orders ?? [];
     ins = list?.checkIns ?? [];
   }
+  /*
+   * Twelve at most, the closest first — a name that IS what was typed, then
+   * one that starts with it — and a last line when more match. It showed six
+   * and stopped: two people holding tickets for tonight were not among six
+   * "Lindqvist", and nothing said the list was cut.
+   */
+  const typed = fold(q);
+  const rank = (x: Row) => {
+    const names = [fold(x["holder_name"]), fold(x["pending_name"])];
+    return names.some((n) => n === typed) ? 0 : names.some((n) => n.startsWith(typed) || n.split(/\s+/).some((part) => part.startsWith(typed))) ? 1 : 2;
+  };
+  const more = tickets.length > FOUND_MOST;
+  tickets = [...tickets].sort((a, b) => rank(a) - rank(b)).slice(0, FOUND_MOST);
   const out: V[] = tickets.map((x) => {
     const o = orders.find((y) => y.id === x["order_id"]);
     const c = ins.find((y) => y["ticket_id"] === x.id);
@@ -452,7 +469,7 @@ function found(app: WaveApp, door: Door, t: Tonight, q: string, guestRows: Row[]
   });
   const f = fold(q);
   for (const g of guestRows) {
-    if (out.length >= 8 || !fold(g["name"]).includes(f)) continue;
+    if (out.length >= FOUND_MOST + 2 || !fold(g["name"]).includes(f)) continue;
     const k = Number(g["arrived"] ?? 0);
     const tot = Number(g["people"] ?? 1);
     const plus = Number(g["plus"] ?? 0);
@@ -466,6 +483,7 @@ function found(app: WaveApp, door: Door, t: Tonight, q: string, guestRows: Row[]
       go: () => door.set({ tab: "guests", q: "" }),
     });
   }
+  if (more) out.push({ id: "more", name: tr("More tickets match — keep typing"), code: "", sub: "", st: "", stStyle: "", go: () => undefined });
   return out;
 }
 

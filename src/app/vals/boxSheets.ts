@@ -76,7 +76,9 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
 
   if (k === "bxUser") {
     const me = box.me();
-    const doorRole = me?.roles.includes("box-office") !== true;
+    // The header's own rule (what the account can do), so the two never name the same person twice:
+    // an owner with no role of the app was "Box office" in the header and "Door" here.
+    const doorRole = box.doorOnly();
     const dev = doorRole ? doorOf(app).device() : null;
     Object.assign(o, {
       icon: "user-round",

@@ -370,7 +370,22 @@ export class WaveApp {
   }
   /** What is left of each type of a show (undefined while Adminium has not answered). */
   left(show: Show): Map<Id, TypeLeft> | undefined {
-    const answer = this.get(`aud:left:${String(show.id)}`, () => this.ports.audience!.left(show.id));
+    const port = this.ports.audience!;
+    /*
+     * EVERY SHOW IN ONE ASK. What's on listed each show's tickets with a
+     * request of its own — some twenty reads to open the site, a fifth of an
+     * address's budget for a minute — and once the limit refused them the
+     * page had no answer at all. A show a code unlocked is still asked by
+     * itself: its code travels with the ask.
+     */
+    const shows = this.venue()?.events.map((e) => e.id) ?? [];
+    if (port.leftAll !== undefined && !this.unlockedTypes().has(show.id) && shows.includes(show.id)) {
+      const all = this.get(`aud:left:all:${shows.join(",")}`, () => port.leftAll!(shows));
+      if (all === undefined) return undefined;
+      const own = new Set(show.types.map((t) => t.id));
+      return new Map(all.filter((l) => own.has(l.ticket_type_id)).map((l) => [l.ticket_type_id, l]));
+    }
+    const answer = this.get(`aud:left:${String(show.id)}`, () => port.left(show.id));
     if (answer === undefined) return undefined;
     return new Map(answer.map((l) => [l.ticket_type_id, l]));
   }

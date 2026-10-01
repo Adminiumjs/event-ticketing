@@ -275,7 +275,8 @@ export function worldOf(venue: Venue, unlocked: Map<Id, { code: string; types: R
 }
 
 /** A type's state on the page: Adminium's availability, told apart by the type's own sales window when not on sale. */
-export type TypeState = "on" | "soldout" | "soon" | "ended" | "stopped" | "cancelled" | "past";
+/** `checking`: Adminium has not said what is left of the show (the answer is on its way, or was refused). */
+export type TypeState = "on" | "soldout" | "soon" | "ended" | "stopped" | "cancelled" | "past" | "checking";
 
 export function typeState(show: Show, type: Type, left: TypeLeft | undefined, now: number): TypeState {
   if (show.cancelled) return "cancelled";

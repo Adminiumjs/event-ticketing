@@ -260,7 +260,7 @@ export class Buyer {
       // Which type ran short: the refusal names the line; what is left of it is the public count, when little is.
       const index = typeof p["index"] === "number" ? p["index"] : null;
       const typeId = index !== null ? lines[index]?.ticket_type_id : chosen[0]?.typeId;
-      this.app.refresh(`aud:left:${String(show.id)}`);
+      this.app.refresh("aud:left:");
       const left = await this.port.left(show.id).catch(() => []);
       const l = left.find((x) => x.ticket_type_id === typeId);
       const n = l === undefined ? null : l.state === "sold_out" ? 0 : (l.left ?? null);

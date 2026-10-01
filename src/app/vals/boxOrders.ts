@@ -250,7 +250,9 @@ function drawerVals(app: WaveApp, box: Box, w: BoxWorld): V {
   push(order["created_at"], order["channel"] === "box_office" ? tr("Order made at the box office") : order["channel"] === "door" ? tr("Sold at the door") : tr("Order placed"), "var(--accent)");
   // Confirmed later than placed: a transfer checkout confirmed from its email.
   if ((ms(order["confirmed_at"]) ?? 0) - (ms(order["created_at"]) ?? 0) > 60_000) push(order["confirmed_at"], tr("Confirmed by email"), "var(--fg-subtle)");
-  for (const m of mails) push(m["sent_at"] ?? m["created_at"], tr("{kind} emailed to {to}", { kind: mailWord(String(m["kind"])), to: String(m["to_address"] ?? "") }), "var(--fg-subtle)");
+  // Only what WENT: a reminder queued for the day of the show has been emailed to nobody yet,
+  // and used to read "An email emailed to …" the moment the order was paid.
+  for (const m of mails) push(m["sent_at"], tr("{kind} emailed to {to}", { kind: mailWord(String(m["kind"])), to: String(m["to_address"] ?? "") }), "var(--fg-subtle)");
   for (const p of payments) push(p["recorded_at"], tr("{amount} recorded · {how} · by {by}", { amount: money(p["amount"]), how: methodWord(p["method"]), by: String(p["recorded_by"] ?? "") }), "var(--pos)");
   for (const c of collections) push(c["taken_at"], tr("{amount} taken at the door · by {by}", { amount: money(c["amount"]), by: String(c["taken_by"] ?? "") }), "var(--pos)");
   for (const r of refunds) push(r["recorded_at"], tr("Refund of {amount} recorded · {how} · by {by}", { amount: money(r["amount"]), how: methodWord(r["method"]), by: String(r["recorded_by"] ?? "") }), "var(--info)");
@@ -360,8 +362,8 @@ function drawerVals(app: WaveApp, box: Box, w: BoxWorld): V {
   };
 }
 
-/** An email's kind, as the timeline names it. */
-function mailWord(kind: string): string {
+/** An email's kind, as the timeline names it: every kind the app sends has a word (held to the manifest's list by a test). */
+export function mailWord(kind: string): string {
   const words: Record<string, string> = {
     tickets: tr("Tickets"),
     "tickets-paid": tr("Tickets"),
@@ -376,6 +378,22 @@ function mailWord(kind: string): string {
     "tickets-cancelled": tr("Tickets cancelled"),
     "refund-declined": tr("Refund request declined"),
     broadcast: tr("A message about the show"),
+    "broadcast-holder": tr("A message about the show"),
+    "transfer-confirm-offer": tr("The confirm link"),
+    "moved-holder": tr("The new date"),
+    "cancelled-paid": tr("Tickets cancelled"),
+    "cancelled-unpaid": tr("Tickets cancelled"),
+    "cancelled-holder": tr("Tickets cancelled"),
+    "holder-set": tr("Tickets"),
+    tonight: tr("A reminder of the show"),
+    tomorrow: tr("A reminder of the show"),
+    "tonight-holder": tr("A reminder of the show"),
+    "tomorrow-holder": tr("A reminder of the show"),
+    "friend-offer": tr("The offer of a ticket"),
+    "friend-ready": tr("A friend's ticket"),
+    "friend-returned": tr("The ticket handed back"),
+    "on-sale": tr("On sale now"),
+    "on-sale-presale": tr("On sale now"),
   };
   return words[kind] ?? tr("An email");
 }

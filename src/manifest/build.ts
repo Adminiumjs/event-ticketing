@@ -19,7 +19,7 @@ import { ROLES } from "./roles.ts";
 import { TABLES } from "./tables.ts";
 
 /** This release, a patch over 0.2.x (the version moved 0.1.3 → 0.2.0 once: its tables were new). */
-export const VERSION = "0.2.3";
+export const VERSION = "0.2.4";
 
 /**
  * The Adminium release that first reads everything below: places counted by
@@ -28,7 +28,7 @@ export const VERSION = "0.2.3";
  * codes looked up, a friend's ticket, an order's own link. Written from the
  * version actually released, never guessed.
  */
-export const MIN_ADMINIUM = "0.3.8";
+export const MIN_ADMINIUM = "0.3.9";
 
 const ENV = {
   VITE_ADMINIUM_API_BASE_URL: { required: false, example: "https://admin.example.com" },
