@@ -3,7 +3,7 @@
  * (Tue 28 Jul 2026, 16:30 at the venue): Today, Events, Sales, Orders, the
  * drawer, the guest lists, the waitlist, codes, messages and a cancelled
  * show's refunds show the sample's own figures, and its buttons land where
- * the plan says. Values only — the browser pass draws them.
+ * they should. Values only — the browser pass draws them.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
