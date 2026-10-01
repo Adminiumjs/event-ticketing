@@ -8,6 +8,7 @@ import { DemoAdminium } from "../demo/adminium.ts";
 import { setLocale } from "../i18n/tr.ts";
 import { loadWave } from "../i18n/strings/wave.ts";
 import { SURFACE_EXTRAS, SURFACE_NAV } from "../surface-nav.ts";
+import { boxOf } from "./box.ts";
 import { docTitle } from "./title.ts";
 import { WaveApp, type BoxScreen, type Screen } from "./wave.ts";
 
@@ -48,10 +49,16 @@ describe("the tab's title", () => {
       seen.set(`aud:${scr}`, t);
     }
     app.setPersona("box");
+    const boxWorld = async () => {
+      for (let i = 0; i < 10 && boxOf(app).world() === null; i += 1) await app.idle();
+      return boxOf(app).world();
+    };
+    const bw = await boxWorld();
+    expect(bw).not.toBeNull();
     const box = [...SURFACE_NAV.filter((e) => e.side === "staff").map((e) => e.view), ...SURFACE_EXTRAS.staff] as BoxScreen[];
     for (const bx of box) {
       app.setState({ bx });
-      const t = docTitle(app);
+      const t = docTitle(app, bw);
       expect(t, bx).toMatch(new RegExp(`^.+ · ${venue}$`));
       seen.set(`box:${bx}`, t);
     }

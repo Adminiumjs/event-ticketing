@@ -6,15 +6,23 @@
  * venue answers, the name the operator gave the app stands in for it.
  *
  * Reads the controller's state only: it reaches no box-office module, so the
- * audience's build carries it as it is.
+ * audience's build carries it as it is. The box office and the door have no
+ * audience port to ask (`bootAdminium`): their venue is the box office's own
+ * read of it, handed in by whoever draws them (`WaveRoot`).
  */
+import type { Id } from "../data/wire.ts";
 import { appName } from "../i18n/ambient.ts";
 import { tr } from "../i18n/tr.ts";
 import type { WaveApp } from "./wave.ts";
 
-function screenWords(app: WaveApp): string {
+/** What a title reads of a venue: its name and its shows' — the audience's world, or the box office's. */
+export interface TitleWorld {
+  settings: { venueName: string };
+  byId: Map<Id, { name: string }>;
+}
+
+function screenWords(app: WaveApp, w: TitleWorld | null): string {
   const s = app.state;
-  const w = app.world();
   const showName = (id: unknown) => (id === null || id === undefined ? "" : (w?.byId.get(id as never)?.name ?? ""));
   if (app.persona === "box") {
     switch (s.bx) {
@@ -74,8 +82,12 @@ function screenWords(app: WaveApp): string {
   }
 }
 
-/** The tab's title: "{screen} · {venue}", or whichever of the two there is. */
-export function docTitle(app: WaveApp): string {
-  const venue = app.world()?.settings.venueName || appName() || "";
-  return [screenWords(app), venue].filter((x) => x !== "").join(" · ");
+/**
+ * The tab's title: "{screen} · {venue}", or whichever of the two there is. On the staff side the venue
+ * is `boxWorld` (null until Adminium has answered); the audience's is never asked for there.
+ */
+export function docTitle(app: WaveApp, boxWorld: TitleWorld | null = null): string {
+  const w = app.persona === "box" ? boxWorld : app.world();
+  const venue = w?.settings.venueName || appName() || "";
+  return [screenWords(app, w), venue].filter((x) => x !== "").join(" · ");
 }

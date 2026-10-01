@@ -342,7 +342,10 @@ export class WaveApp {
   // ── the venue, as the audience reads it ─────────────────────────────────
 
   private venue(): Venue | undefined {
-    return this.get("aud:venue", () => this.ports.audience!.venue());
+    // The box office and the door on a real Adminium have no audience port: there is no audience's venue to read.
+    const audience = this.ports.audience;
+    if (audience === undefined) return undefined;
+    return this.get("aud:venue", () => audience.venue());
   }
   /** The types each typed code unlocked, by show. */
   private unlockedTypes(): Map<Id, { code: string; types: Row[] }> {

@@ -10,6 +10,7 @@ import { BoxLayersView } from "../view/BoxLayersView.tsx";
 import { OverlaysView } from "../view/OverlaysView.tsx";
 import { StaffView } from "../view/StaffView.tsx";
 import { st } from "../view/dom.tsx";
+import { boxOf } from "./box.ts";
 import { AUDIENCE, STAFF } from "./sides.ts";
 import { docTitle } from "./title.ts";
 import { renderVals } from "./vals/base.ts";
@@ -18,6 +19,11 @@ import type { WaveApp } from "./wave.ts";
 import "./wave.css";
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+/** The tab's title for the side on show: the box office and the door name the venue from their own rows. */
+export function tabTitle(app: WaveApp): string {
+  return docTitle(app, STAFF && app.persona === "box" ? boxOf(app).world() : null);
+}
 
 /** What counts as a layer over the page: a sheet, a menu, a dialog (the phone's ticket panel is one while open). */
 const LAYER = '[role="dialog"],[role="alertdialog"],[role="menu"]';
@@ -148,7 +154,7 @@ export function WaveRoot({ app }: { app: WaveApp }) {
     document.documentElement.dataset["theme"] = String(v["themeAttr"]);
     document.documentElement.style.background = "var(--bg)";
     // Every screen names itself in the tab (and to a screen reader's page change).
-    const title = docTitle(app);
+    const title = tabTitle(app);
     if (title !== "" && document.title !== title) document.title = title;
   });
   return (
