@@ -135,3 +135,8 @@ ADMINIUM_CONTRACT=1 ADMINIUM_REPO=../adminium npx vitest run src/contract
 ## License
 
 AGPL-3.0-only.
+
+## Building on this app with a coding agent
+
+The Adminium skills teach Claude Code, Codex and other agents to build and change an app:
+`npx skills add Adminiumjs/skills` — https://github.com/Adminiumjs/skills
