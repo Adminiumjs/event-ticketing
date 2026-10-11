@@ -41,6 +41,7 @@ import { z } from 'zod';
 
 import type { AddOnNeeds } from './add-ons.ts';
 import { formulaColumns, type FormulaExpr } from './formula.ts';
+import { OTHERWISE_BLOCKS, placeholderPattern } from './placeholders.ts';
 import { personalColumn, unlistedColumn } from './public-access.ts';
 import { reachedOnlyByUndo, type StateMove } from './states.ts';
 import {
@@ -353,6 +354,16 @@ export const outboxSchema = z
       .object({
         manage: z.string().regex(/^\/[A-Za-z0-9/_-]{0,119}$/, 'a path on the guest side, e.g. /my-visits').optional(),
         booking: z.string().regex(/^\/[A-Za-z0-9/_-]{0,119}$/, 'a path on the guest side, e.g. /').optional(),
+        /**
+         * An add-on's links into the customer side of whichever app it serves:
+         * a name of its own → the key of a route that app declares. A template
+         * reads it as `{{app_url.<name>}}`; it is empty when no app of the
+         * add-on's has that route.
+         */
+        app: z
+          .record(z.string().regex(/^[a-z][a-z0-9-]{0,39}$/, 'a kebab-case name'), z.string().regex(/^[A-Za-z][A-Za-z0-9]{0,39}$/, 'a route key'))
+          .refine((names) => Object.keys(names).length >= 1 && Object.keys(names).length <= 6, { message: 'one to six links into an app' })
+          .optional(),
       })
       .strict()
       .optional(),
@@ -377,8 +388,15 @@ const emailBlockSchema = z
     id: z.string().min(1).max(60).optional(),
     label: z.string().min(1).max(120).optional(),
     data: z.record(z.string(), z.unknown()).optional(),
+    /** The block is sent only when this variable has a value. */
+    showWhen: z.object({ var: z.string().regex(/^[A-Za-z0-9_.-]{1,120}$/) }).strict().optional(),
+    /** What a text block says in its own place when that variable has none. */
+    otherwise: z.string().min(1).max(4000).optional(),
   })
-  .strict();
+  .strict()
+  // Words nothing would ever print are a mistake, said at the install and not found in a sent mail.
+  .refine((block) => block.otherwise === undefined || block.showWhen !== undefined, { message: '"otherwise" is what a block says when its "showWhen" value is missing: it needs a "showWhen"', path: ['otherwise'] })
+  .refine((block) => block.otherwise === undefined || OTHERWISE_BLOCKS.includes(block.block), { message: 'only a text or a heading block can say other words ("otherwise")', path: ['otherwise'] });
 
 const emailContentSchema = z
   .object({
@@ -448,6 +466,9 @@ export const REPEAT_KEY_LENGTH = 43;
 export const WAS_MIN_LENGTH = 1000;
 /** The mark on a template's block that is sent only with the document the template carries (`attach.optional`). */
 export const WITH_ATTACHMENT = 'withAttachment';
+/** The marks on a block that is sent only when a variable is filled (`onlyWith`), or only when it is empty (`onlyWithout`). */
+export const ONLY_WITH = 'onlyWith';
+export const ONLY_WITHOUT = 'onlyWithout';
 
 /** What the outbox writes, and which rules each refuses: everything, but a check of the address a person types. */
 export const OUTBOX_WRITTEN = {
@@ -494,6 +515,8 @@ export function outboxIssues(
     outbox?: Outbox | undefined;
     emailTemplates?: readonly EmailTemplate[] | undefined;
     addOns?: AddOnNeeds | undefined;
+    /** `add-on` when the outbox is an add-on's own: it links into its apps' pages, and has no guest side of its own. */
+    kind?: string | undefined;
   } & Parameters<typeof unlistedColumn>[0],
   index: TableIndex,
 ): ReferenceIssue[] {
@@ -506,6 +529,20 @@ export function outboxIssues(
     // A block sent only with the document: marked `true`, and only where the document may be left out.
     for (const [locale, content] of Object.entries(template.locales)) {
       content.blocks.forEach((block, b) => {
+        // A block sent only when a variable is filled, or only when it is empty: one name, without braces.
+        const marks = [ONLY_WITH, ONLY_WITHOUT].filter((name) => block.data?.[name] !== undefined);
+        if (marks.length === 2) out.push({ path: ['emailTemplates', i, 'locales', locale, 'blocks', b, 'data'], message: `a block is sent ${ONLY_WITH} a variable or ${ONLY_WITHOUT} one, not both` });
+        for (const name of marks) {
+          const variable = block.data?.[name];
+          const path = ['emailTemplates', i, 'locales', locale, 'blocks', b, 'data', name];
+          if (typeof variable !== 'string' || !/^[A-Za-z_][A-Za-z0-9_.-]{0,119}$/.test(variable)) {
+            out.push({ path, message: `${name} names one variable, without braces (card.sender_name)` });
+          } else if (variable.startsWith('app_url.') && m.outbox?.pages?.app?.[variable.slice('app_url.'.length)] === undefined) {
+            out.push({ path, message: `"${variable}" is not a link the outbox declares (outbox.pages.app)` });
+          } else if (variable.startsWith('row.')) {
+            out.push({ path, message: 'a row\'s own value is read inside an email.rows block, which is sent with its rows or not at all' });
+          }
+        }
         const mark = block.data?.[WITH_ATTACHMENT];
         if (mark === undefined) return;
         const path = ['emailTemplates', i, 'locales', locale, 'blocks', b, 'data', WITH_ATTACHMENT];
@@ -526,6 +563,14 @@ export function outboxIssues(
     return out;
   }
   const at = (...rest: (string | number)[]) => ['outbox', ...rest];
+  // Whose pages a link leads to: an app's own guest side, or — for an add-on — a page of the app it serves.
+  if (m.kind === 'add-on') {
+    for (const own of ['manage', 'booking'] as const) {
+      if (box.pages?.[own] !== undefined) out.push({ path: at('pages', own), message: `an add-on has no guest side of its own: link into its app's pages by name (outbox.pages.app)` });
+    }
+  } else if (box.pages?.app !== undefined) {
+    out.push({ path: at('pages', 'app'), message: 'an app links to its own guest side (pages.manage, pages.booking): "app" is how an add-on links into an app' });
+  }
   if (index.table(box.table) === undefined) {
     out.push({ path: at('table'), message: `"${box.table}" is not a table of this app` });
     return out;
@@ -865,7 +910,8 @@ export function outboxIssues(
       }
     }
   });
-  out.push(...emailBlockIssues(m.emailTemplates ?? [], box, index, (table, column) => unlistedColumn(m, table, column)));
+  const named = new Set([...(m.kind === 'add-on' ? [m.key] : []), ...(m.addOns?.requires ?? []), ...(m.addOns?.suggests ?? [])].map((need) => (typeof need === 'string' ? need : need.key)));
+  out.push(...emailBlockIssues(m.emailTemplates ?? [], box, index, (table, column) => unlistedColumn(m, table, column), named));
   return out;
 }
 
@@ -885,17 +931,36 @@ export function outboxIssues(
  */
 export const emailRowsDataSchema = z
   .object({
-    from: z
-      .object({
-        link: z.string().regex(/^[a-z][a-z_]*$/, 'a link name is snake_case'),
-        table: refSchema,
-        via: refSchema,
-        orderBy: refSchema.optional(),
-        where: z.object({ column: refSchema, in: z.array(scalarSchema).min(1).max(32) }).strict().optional(),
-        unless: refSchema.optional(),
-        limit: z.number().int().min(1).max(50).optional(),
-      })
-      .strict(),
+    from: z.union([
+      z
+        .object({
+          link: z.string().regex(/^[a-z][a-z_]*$/, 'a link name is snake_case'),
+          table: refSchema,
+          via: refSchema,
+          orderBy: refSchema.optional(),
+          where: z.object({ column: refSchema, in: z.array(scalarSchema).min(1).max(32) }).strict().optional(),
+          unless: refSchema.optional(),
+          limit: z.number().int().min(1).max(50).optional(),
+        })
+        .strict(),
+      /**
+       * Rows of an add-on's table that belong to the row a link names, found
+       * by the table-and-row pair the add-on keeps (what was applied to an
+       * order). `table` and `match` are the add-on's own short names.
+       */
+      z
+        .object({
+          link: z.string().regex(/^[a-z][a-z_]*$/, 'a link name is snake_case'),
+          addOn: z.string().regex(/^[a-z][a-z0-9-]{1,79}$/, 'an add-on key'),
+          table: refSchema,
+          match: z.object({ table: refSchema, row: refSchema }).strict(),
+          orderBy: refSchema.optional(),
+          where: z.object({ column: refSchema, in: z.array(scalarSchema).min(1).max(32) }).strict().optional(),
+          unless: refSchema.optional(),
+          limit: z.number().int().min(1).max(50).optional(),
+        })
+        .strict(),
+    ]),
     joins: z
       .record(
         refSchema,
@@ -921,7 +986,6 @@ export type EmailRowsData = z.infer<typeof emailRowsDataSchema>;
 
 /** A QR code of a code column, as the whole value of an image: `{{ticket.code.qr}}`. */
 const QR_VALUE = /^\{\{\s*([A-Za-z0-9_.-]+)\.qr\s*\}\}$/;
-const PLACEHOLDERS = /\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}/g;
 
 /** Every string inside a value, with the path it sits at. */
 function stringsIn(value: unknown, path: (string | number)[], out: { text: string; path: (string | number)[] }[] = []) {
@@ -937,7 +1001,14 @@ function stringsIn(value: unknown, path: (string | number)[], out: { text: strin
  * can fill; the same rows in every language; and a QR code only as a whole
  * image value, of a code column.
  */
-function emailBlockIssues(templates: readonly EmailTemplate[], box: Outbox, index: TableIndex, unlisted: (table: string, column: string) => string | null): ReferenceIssue[] {
+function emailBlockIssues(
+  templates: readonly EmailTemplate[],
+  box: Outbox,
+  index: TableIndex,
+  unlisted: (table: string, column: string) => string | null,
+  /** The add-ons whose rows a block may list: the ones the manifest names, and itself when it is one. */
+  named: ReadonlySet<string> = new Set(),
+): ReferenceIssue[] {
   const out: ReferenceIssue[] = [];
   const links = box.links ?? {};
   /** The table a link names. */
@@ -997,7 +1068,7 @@ function emailBlockIssues(templates: readonly EmailTemplate[], box: Outbox, inde
         if (block.block !== 'email.rows') {
           // Only a block that lists rows has a row to read.
           for (const { text, path } of stringsIn(block.data, [])) {
-            if ([...text.matchAll(PLACEHOLDERS)].some((m) => m[1]!.startsWith('row.'))) {
+            if ([...text.matchAll(placeholderPattern())].some((m) => m[1]!.startsWith('row.'))) {
               out.push({ path: at('data', ...path), message: '{{row.…}} is read only inside an email.rows block' });
             }
           }
@@ -1013,6 +1084,12 @@ function emailBlockIssues(templates: readonly EmailTemplate[], box: Outbox, inde
         const from = data.from;
         const parent = linkTable(from.link);
         if (links[from.link] === undefined) out.push({ path: at('data', 'from', 'link'), message: `"${from.link}" is not one of the outbox's links` });
+        if ('addOn' in from) {
+          // An add-on's rows: its table and columns are checked where its manifest is at hand, at install.
+          if (!named.has(from.addOn)) out.push({ path: at('data', 'from', 'addOn'), message: `"${from.addOn}" is not an add-on this manifest names: add it to addOns.requires or addOns.suggests` });
+          if (data.joins !== undefined) out.push({ path: at('data', 'joins'), message: 'rows of an add-on\'s table join no list of this manifest\'s' });
+          return;
+        }
         if (index.table(from.table) === undefined) {
           out.push({ path: at('data', 'from', 'table'), message: `"${from.table}" is not a table of this app` });
           return;
@@ -1051,7 +1128,7 @@ function emailBlockIssues(templates: readonly EmailTemplate[], box: Outbox, inde
         }
         // Each {{row.*}} names something a row fills, in a form its type has.
         for (const { text, path } of stringsIn({ row: data.row, empty: data.empty }, [])) {
-          for (const m of text.matchAll(PLACEHOLDERS)) {
+          for (const m of text.matchAll(placeholderPattern())) {
             const name = m[1]!;
             if (!name.startsWith('row.')) continue;
             const parts = name.split('.').slice(1);
@@ -1145,11 +1222,19 @@ export const GROUPED_FORM = 'grouped';
  * A code in groups of four joined by `-` (`K7QXM2PD` → `K7QX-M2PD`), the way
  * a person reads it out; separators already in it are dropped first. Empty
  * stays empty.
+ *
+ * A code kept with a prefix keeps it whole (`GC-7K2M9QXA41TR` with `GC-` →
+ * `GC-7K2M-9QXA-41TR`): the prefix is what tells a card from a voucher, and
+ * cut into the first group of four it reads as part of the code. A value
+ * that does not start with the prefix is grouped as any other.
  */
-export function groupedCode(value: unknown): string {
+export function groupedCode(value: unknown, prefix = ''): string {
   if (value === null || value === undefined) return '';
+  const fours = (text: string): string => (text.match(/.{1,4}/g) ?? []).join('-');
   const bare = String(value).replace(/[\s-]+/g, '');
-  return (bare.match(/.{1,4}/g) ?? []).join('-');
+  const head = prefix.replace(/[^0-9A-Za-z]/g, '');
+  if (head !== '' && bare.length > head.length && bare.toUpperCase().startsWith(head.toUpperCase())) return prefix + fours(bare.slice(head.length));
+  return fours(bare);
 }
 
 /** Whether a column holds a code Adminium makes: a text column with a `code` rule. */

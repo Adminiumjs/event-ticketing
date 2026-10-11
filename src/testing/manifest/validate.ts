@@ -27,8 +27,11 @@ import {
   cappedFormulaWarnings,
   manifestSchema,
   type Manifest,
+  PHONE_KIND,
+  PHONE_SIDE,
 } from './schema.ts';
 import { plainTextLengthWarnings } from './public-access.ts';
+import { ledgerIndexIssues } from './ledger-indexes.ts';
 import { tableShapeIssues } from './table-shapes.ts';
 
 export interface ManifestIssue {
@@ -139,10 +142,11 @@ export function validateManifest(
   if (!parsed.success) {
     return {
       ok: false,
-      issues: parsed.error.issues.map((issue) => ({
-        path: issue.path.map(String).join('.'),
-        message: issue.message,
-      })),
+      issues: parsed.error.issues.map((issue) => {
+        // A check with a code of its own (a ledger's scope) hands it through the issue's params.
+        const code = issue.code === 'custom' ? (issue as { params?: { code?: unknown } }).params?.code : undefined;
+        return { path: issue.path.map(String).join('.'), message: issue.message, ...(typeof code === 'string' ? { code } : {}) };
+      }),
       warnings: [],
     };
   }
@@ -188,6 +192,8 @@ export function validateManifest(
   );
 
   issues.push(...sampleDataIssues(manifest));
+  // The receipt key Adminium makes must be one every database can index.
+  issues.push(...ledgerIndexIssues(manifest));
   // A table shared under a shape Adminium writes down is what that shape says.
   if (manifest.kind === 'app') issues.push(...tableShapeIssues(manifest));
 
@@ -202,14 +208,32 @@ export function validateManifest(
  * carries no built side.
  */
 export function isManifestOnly(manifest: Manifest): boolean {
-  return manifest.kind === 'app' && manifest.frontends.every((frontend) => frontend.kind === 'none');
+  // A phone side is built on the builder's machine and is no part of a package.
+  return manifest.kind === 'app' && manifest.frontends.every((frontend) => frontend.kind === 'none' || frontend.kind === PHONE_KIND);
+}
+
+/** Whether the app has a phone side (`frontends` names `mobile`). */
+export function hasPhoneSide(manifest: Manifest): boolean {
+  return manifest.kind === 'app' && manifest.frontends.some((frontend) => frontend.side === PHONE_SIDE);
 }
 
 /** `sampleData.skipWhenShared` names the app's own tables, its `table` is one it shares, and no table left in links to a skipped one. */
 function sampleDataIssues(manifest: Manifest): ManifestIssue[] {
-  const rule = manifest.kind === 'app' ? manifest.sampleData?.skipWhenShared : undefined;
-  if (rule === undefined) return [];
   const out: ManifestIssue[] = [];
+  if (manifest.kind === 'app') {
+    // Rows for an add-on: one the app names, in a file of its own.
+    const named = new Set([...(manifest.addOns?.requires ?? []), ...(manifest.addOns?.suggests ?? [])].map((need) => need.key));
+    for (const [key, section] of Object.entries(manifest.sampleData?.addOns ?? {})) {
+      if (!named.has(key)) {
+        out.push({ path: `sampleData.addOns.${key}`, message: `"${key}" is not an add-on this app names: add it to addOns.requires or addOns.suggests` });
+      }
+      if (section.file === manifest.sampleData?.file) {
+        out.push({ path: `sampleData.addOns.${key}.file`, message: `rows for "${key}" are a file of their own, not the app's own sample file` });
+      }
+    }
+  }
+  const rule = manifest.kind === 'app' ? manifest.sampleData?.skipWhenShared : undefined;
+  if (rule === undefined) return out;
   const tables = new Map((manifest.requiredSchema?.tables ?? []).map((table) => [table.ref, table]));
   const shared = tables.get(rule.table);
   if (shared === undefined) {
