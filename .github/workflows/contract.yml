@@ -145,12 +145,24 @@ jobs:
           TEST_MYSQL_URL: mysql://root@127.0.0.1:3306
         run: npx vitest run
 
+      # The validator copy follows the product as it is now, not the release this app
+      # floors on: the contract above runs on the floor, and a copy held to the floor
+      # would check this app's manifest with an older validator than the product has.
+      - name: Check out the two packages the validator is copied from, as they are now
+        uses: actions/checkout@v4
+        with:
+          repository: MoSofi/Adminium
+          ref: main
+          path: .adminium-current
+          sparse-checkout: |
+            packages/manifest/src
+            packages/add-on-contracts/src
+
       - name: The copies of other repos' files
-        env:
-          ADMINIUM_REPO: ${{ runner.temp }}/adminium-product
         run: |
-          node scripts/sync-manifest-validator.mjs --check
-          node scripts/untranslated.mjs --check
+          mv .adminium-current "$RUNNER_TEMP/adminium-current"
+          ADMINIUM_REPO="$RUNNER_TEMP/adminium-current" node scripts/sync-manifest-validator.mjs --check
+          ADMINIUM_REPO="$RUNNER_TEMP/adminium-product" node scripts/untranslated.mjs --check
 
       - name: Both hosted sides, and the website's demo
         run: |
