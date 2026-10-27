@@ -140,6 +140,7 @@ function msgVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unknown>
       onSubj: (e: { target: { value: string } }) => setM({ subj: e.target.value }),
       onBody: (e: { target: { value: string } }) => setM({ body: e.target.value }),
       langNote: tr("Everyone gets these words, whatever language they chose."),
+      newsNote: tr("For news about this show only. Offers go out as campaigns."),
       paras: body.split(/\n\n+/).map((t, i) => ({ k: `p${String(i)}`, t })),
       countTxt: who === undefined ? "…" : tr("{who} will get this", { who: countTxt }),
       sendOff: who === undefined || who.orders === 0 || subj.trim() === "" || body.trim() === "",

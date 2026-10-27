@@ -1633,7 +1633,7 @@ export function AudienceView({ v }: { v: any }) {
                             ) : null}
                           </Fragment>
                         ))}
-                        <button type="button" role="checkbox" aria-checked={v.co.optIn} onClick={v.co.toggleOpt} className="wv-gi" style={st("display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:transparent; font-size:14px; font-weight:700; text-align:start;")}>
+                        <button type="button" role="checkbox" aria-checked={v.co.optIn} aria-describedby="co-opt-note" onClick={v.co.toggleOpt} className="wv-gi" style={st("display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:transparent; font-size:14px; font-weight:700; text-align:start;")}>
                           <span style={st(v.co.boxStyle)}>
                             {v.co.optIn ? (
                               <>
@@ -1643,6 +1643,9 @@ export function AudienceView({ v }: { v: any }) {
                           </span>
                           {v.co.optLabel}
                         </button>
+                        <span id="co-opt-note" style={st(`${v.s.hint}padding-inline-start:12px;`)}>
+                          {v.co.optNote}
+                        </span>
                       </fieldset>
                       {" "}
                       {v.co.payOn ? (

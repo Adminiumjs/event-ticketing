@@ -315,6 +315,7 @@ function checkoutVals(app: WaveApp, w: World): V {
     onAccess: (e: { target: { value: string } }) => b.setCoField({ access: e.target.value }),
     optIn: co.optIn,
     optLabel: tr("Email me about new shows at {venue}", { venue: w.settings.venueName }),
+    optNote: tr("Every email has a link to stop them."),
     toggleOpt: () => b.setCoField({ optIn: !co.optIn }),
     boxStyle: `width:20px; height:20px; flex-shrink:0; border-radius:6px; display:flex; align-items:center; justify-content:center; border:${co.optIn ? "0" : "2px solid var(--border-strong)"}; background:${co.optIn ? "var(--accent)" : "transparent"}; color:var(--accent-fg);`,
     payOn: opts.length > 0,

@@ -2335,9 +2335,12 @@ export function StaffView({ v }: { v: any }) {
                           <span style={st(v.s.lbl)}>
                             {tr("Message")}
                           </span>
-                          <textarea className="wv-fld" rows={9} value={v.ms.body} onChange={v.ms.onBody} aria-describedby="ms-lang" style={st(`${v.bo.fld}padding-block:10px; line-height:1.6; font-weight:500; resize:vertical;`)}></textarea>
+                          <textarea className="wv-fld" rows={9} value={v.ms.body} onChange={v.ms.onBody} aria-describedby="ms-lang ms-news" style={st(`${v.bo.fld}padding-block:10px; line-height:1.6; font-weight:500; resize:vertical;`)}></textarea>
                           <span id="ms-lang" style={st(v.s.hint)}>
                             {v.ms.langNote}
+                          </span>
+                          <span id="ms-news" style={st(v.s.hint)}>
+                            {v.ms.newsNote}
                           </span>
                         </label>
                         {" "}
