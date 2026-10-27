@@ -910,13 +910,27 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
       const said = (panel: Panel) => panel.history.map((e) => [e.state, e.source, e.detail, e.wordingVersion]);
       const newsOf = (panel: Panel) => panel.purposes.find((p) => p.purpose === "newsletter")!.state;
       const ticked = (value: unknown) => value === true || value === 1 || value === "1";
+      /** A show of these steps' own, on sale: the sample's shows keep the places the other steps count. */
+      let newsShow: Promise<Row> | null = null;
+      const ownNewsShow = () =>
+        (newsShow ??= (async () => {
+          const box = await staffPort(ADMIN);
+          const room = (await box.rows("rooms"))[0]!;
+          const at = (h: number) => new Date(venueAt("2026-10-03T19:00") + h * 3_600_000).toISOString();
+          const show = await box.create("events", { slug: `news-${engine}`, name: "Newsletter Night", room_id: room.id, doors_at: at(0), starts_at: at(1), curfew_at: at(4), ends_at: at(4) });
+          await box.create("event_days", { event_id: show.id, day: 1, doors_at: at(0), curfew_at: at(4) });
+          await box.create("ticket_types", { event_id: show.id, name: "Standard", price: 20, capacity: 50, pay_door: true, pay_transfer: true });
+          await box.update("events", show.id, { status: "published" });
+          return show;
+        })());
       /** A checkout as the screens make it, through the order's own link: held, named, the tick (or not) at "Confirm", pay at the door. */
       const checkoutAs = async (email: string, language: string, tick: boolean, aud?: AdminiumAudience) => {
         const buyer = aud ?? (await audience());
+        const own = await ownNewsShow();
         const venue = await buyer.venue();
-        const neon = venue.events.find((e) => e["name"] === "Neon Circuit")!;
-        const standard = venue.types.find((t) => t["event_id"] === neon.id && t["name"] === "Standard")!;
-        const body = { values: { event_id: neon.id, room_id: neon["room_id"], buyer_name: "Noor Haddad", email, language }, tickets: [{ ticket_type_id: standard.id }] };
+        const show = venue.events.find((e) => e.id === own.id)!;
+        const standard = venue.types.find((t) => t["event_id"] === show.id && t["name"] === "Standard")!;
+        const body = { values: { event_id: show.id, room_id: show["room_id"], buyer_name: "Noor Haddad", email, language }, tickets: [{ ticket_type_id: standard.id }] };
         const made = await buyer.buy({ ...body, expect: { total: Number((await buyer.quote(body)).data["total"]) } }, key("tick"));
         await buyer.nameTicket((await buyer.order()).tickets[0]!.id, "Noor Haddad");
         await buyer.updateOrder({ opt_in: tick });
@@ -997,9 +1011,9 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         const token = JSON.stringify(invited.body).match(/\/reset\/([A-Za-z0-9_-]+)/)![1]!;
         ok(await new Caller(server.base, { origin: server.base }).post("/api/v1/auth/password/reset", { token, newPassword: person.password }));
         const box = await staffPort(person);
-        const neon = (await box.rows("events")).find((e) => e["name"] === "Neon Circuit")!;
+        const own = await ownNewsShow();
         const before = await sinkCount();
-        const sentOut = await box.broadcast({ event_id: neon.id, audience: "everyone", template: "other", subject: "Doors at 19:30 tonight", body: "Doors open half an hour early tonight.", people: 1, order_count: 1 }, [{ order_id: orderId, to_address: email }], true);
+        const sentOut = await box.broadcast({ event_id: own.id, audience: "everyone", template: "other", subject: "Doors at 19:30 tonight", body: "Doors open half an hour early tonight.", people: 1, order_count: 1 }, [{ order_id: orderId, to_address: email }], true);
         const message = await until(async () => (await box.list("messages", { where: [{ column: "broadcast_id", eq: sentOut.id }] })).rows.find((m) => m["status"] !== "queued"), "the message's email", 150_000);
         expect(`${String(message["status"])}${message["skip_reason"] ? `: ${String(message["skip_reason"])}` : ""}`).toBe("sent");
         expect((await mailTo(email, before, /Doors at 19:30 tonight/)).to).toContain(email);
