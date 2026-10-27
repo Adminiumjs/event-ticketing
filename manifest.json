@@ -3,7 +3,7 @@
   "manifestVersion": 1,
   "key": "events",
   "name": "Event Ticketing",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "publisher": {
     "id": "adminium",
     "name": "Adminium",
@@ -18,7 +18,7 @@
     "hospitality"
   ],
   "compatibility": {
-    "minAdminiumVersion": "0.3.9",
+    "minAdminiumVersion": "0.3.38",
     "engines": [
       "sqlite",
       "postgres",
@@ -3533,6 +3533,60 @@
             "nullable": true
           },
           {
+            "ref": "language",
+            "type": "text",
+            "maxLength": 16,
+            "nullable": true,
+            "label": {
+              "en-US": "Language",
+              "de-DE": "Sprache",
+              "fr-FR": "Langue",
+              "da-DK": "Sprog",
+              "cs-CZ": "Jazyk",
+              "ar-EG": "اللغة",
+              "zh-CN": "语言",
+              "zh-TW": "語言"
+            },
+            "rules": {
+              "options": {
+                "values": [
+                  {
+                    "value": "en-US",
+                    "label": "English"
+                  },
+                  {
+                    "value": "de-DE",
+                    "label": "Deutsch"
+                  },
+                  {
+                    "value": "fr-FR",
+                    "label": "Français"
+                  },
+                  {
+                    "value": "da-DK",
+                    "label": "Dansk"
+                  },
+                  {
+                    "value": "cs-CZ",
+                    "label": "Čeština"
+                  },
+                  {
+                    "value": "ar-EG",
+                    "label": "العربية"
+                  },
+                  {
+                    "value": "zh-CN",
+                    "label": "简体中文"
+                  },
+                  {
+                    "value": "zh-TW",
+                    "label": "繁體中文"
+                  }
+                ]
+              }
+            }
+          },
+          {
             "ref": "opt_in",
             "type": "bool",
             "default": false,
@@ -3857,6 +3911,9 @@
       },
       {
         "ref": "orders",
+        "keep": {
+          "law": "tax"
+        },
         "label": {
           "en-US": "Order",
           "de-DE": "Bestellung",
@@ -6317,7 +6374,10 @@
               "zh-CN": "无障碍需求",
               "zh-TW": "無障礙需求"
             },
-            "nullable": true
+            "nullable": true,
+            "rules": {
+              "personal": true
+            }
           },
           {
             "ref": "opt_in",
@@ -6443,6 +6503,9 @@
       },
       {
         "ref": "tickets",
+        "keep": {
+          "law": "tax"
+        },
         "label": {
           "en-US": "Ticket",
           "de-DE": "Ticket",
@@ -9443,6 +9506,9 @@
       },
       {
         "ref": "door_collections",
+        "keep": {
+          "law": "tax"
+        },
         "label": {
           "en-US": "Door payment",
           "de-DE": "Zahlung am Einlass",
@@ -9781,6 +9847,9 @@
       },
       {
         "ref": "payments",
+        "keep": {
+          "law": "tax"
+        },
         "label": {
           "en-US": "Payment",
           "de-DE": "Zahlung",
@@ -10064,6 +10133,9 @@
       },
       {
         "ref": "refunds",
+        "keep": {
+          "law": "tax"
+        },
         "label": {
           "en-US": "Refund",
           "de-DE": "Erstattung",
@@ -15929,8 +16001,7 @@
         "opt_in"
       ],
       "writable": [
-        "name",
-        "opt_in"
+        "name"
       ],
       "claim": {
         "verify": "email-link",
@@ -16021,7 +16092,24 @@
       },
       "documents": [
         "receipt"
-      ]
+      ],
+      "consent": {
+        "column": "opt_in",
+        "purpose": "newsletter",
+        "wording": {
+          "version": 1,
+          "text": {
+            "en-US": "Email me about new shows at {venue}\nEvery email has a link to stop them.",
+            "de-DE": "Schick mir E-Mails zu neuen Shows in {venue}\nJede E-Mail enthält einen Link, mit dem du sie abbestellen kannst.",
+            "fr-FR": "M'écrire à propos des nouveaux spectacles à {venue}\nChaque e-mail contient un lien pour ne plus les recevoir.",
+            "da-DK": "Send mig en mail om nye arrangementer på {venue}\nHver mail har et link, så du kan stoppe dem.",
+            "cs-CZ": "Posílejte mi e-mailem novinky o akcích v {venue}\nKaždý e-mail obsahuje odkaz, kterým je můžete odhlásit.",
+            "ar-EG": "راسلوني بالبريد عن الحفلات الجديدة في {venue}\nكل رسالة فيها رابط لإيقاف هذه الرسائل.",
+            "zh-CN": "{venue} 有新演出时发邮件通知我\n每封邮件都附有停止接收的链接。",
+            "zh-TW": "有 {venue} 的新演出時寄信通知我\n每封信都附有停止接收的連結。"
+          }
+        }
+      }
     },
     {
       "table": "tickets",
@@ -16852,7 +16940,25 @@
         "email": "email",
         "link": "customer_id",
         "fill": {
-          "name": "buyer_name"
+          "name": "buyer_name",
+          "language": "language"
+        }
+      },
+      "consent": {
+        "column": "opt_in",
+        "purpose": "newsletter",
+        "wording": {
+          "version": 1,
+          "text": {
+            "en-US": "Email me about new shows at {venue}\nEvery email has a link to stop them.",
+            "de-DE": "Schick mir E-Mails zu neuen Shows in {venue}\nJede E-Mail enthält einen Link, mit dem du sie abbestellen kannst.",
+            "fr-FR": "M'écrire à propos des nouveaux spectacles à {venue}\nChaque e-mail contient un lien pour ne plus les recevoir.",
+            "da-DK": "Send mig en mail om nye arrangementer på {venue}\nHver mail har et link, så du kan stoppe dem.",
+            "cs-CZ": "Posílejte mi e-mailem novinky o akcích v {venue}\nKaždý e-mail obsahuje odkaz, kterým je můžete odhlásit.",
+            "ar-EG": "راسلوني بالبريد عن الحفلات الجديدة في {venue}\nكل رسالة فيها رابط لإيقاف هذه الرسائل.",
+            "zh-CN": "{venue} 有新演出时发邮件通知我\n每封邮件都附有停止接收的链接。",
+            "zh-TW": "有 {venue} 的新演出時寄信通知我\n每封信都附有停止接收的連結。"
+          }
         }
       },
       "shareLink": "link_token",
@@ -17026,6 +17132,14 @@
         "own": true,
         "address": "email"
       },
+      "identity": {
+        "table": "customers",
+        "email": "email",
+        "link": "customer_id",
+        "on": {
+          "to": "door"
+        }
+      },
       "newLink": {
         "column": "confirm_token",
         "kind": "transfer-confirm",
@@ -17105,7 +17219,24 @@
       },
       "documents": [
         "receipt"
-      ]
+      ],
+      "consent": {
+        "column": "opt_in",
+        "purpose": "newsletter",
+        "wording": {
+          "version": 1,
+          "text": {
+            "en-US": "Email me about new shows at {venue}\nEvery email has a link to stop them.",
+            "de-DE": "Schick mir E-Mails zu neuen Shows in {venue}\nJede E-Mail enthält einen Link, mit dem du sie abbestellen kannst.",
+            "fr-FR": "M'écrire à propos des nouveaux spectacles à {venue}\nChaque e-mail contient un lien pour ne plus les recevoir.",
+            "da-DK": "Send mig en mail om nye arrangementer på {venue}\nHver mail har et link, så du kan stoppe dem.",
+            "cs-CZ": "Posílejte mi e-mailem novinky o akcích v {venue}\nKaždý e-mail obsahuje odkaz, kterým je můžete odhlásit.",
+            "ar-EG": "راسلوني بالبريد عن الحفلات الجديدة في {venue}\nكل رسالة فيها رابط لإيقاف هذه الرسائل.",
+            "zh-CN": "{venue} 有新演出时发邮件通知我\n每封邮件都附有停止接收的链接。",
+            "zh-TW": "有 {venue} 的新演出時寄信通知我\n每封信都附有停止接收的連結。"
+          }
+        }
+      }
     },
     {
       "table": "tickets",
@@ -17704,6 +17835,37 @@
       "broadcast": "events-broadcast",
       "broadcast-holder": "events-broadcast-holder"
     },
+    "classes": {
+      "tickets": "service",
+      "tickets-paid": "service",
+      "transfer-confirm": "service",
+      "transfer-confirm-offer": "service",
+      "transfer-waiting": "service",
+      "transfer-reminder": "service",
+      "transfer-released": "service",
+      "payment-received": "service",
+      "friend-offer": "service",
+      "friend-ready": "service",
+      "friend-returned": "service",
+      "holder-set": "service",
+      "waitlist-offer": "service",
+      "on-sale": "service",
+      "on-sale-presale": "service",
+      "moved": "service",
+      "moved-holder": "service",
+      "cancelled-paid": "service",
+      "cancelled-unpaid": "service",
+      "cancelled-holder": "service",
+      "tonight": "service",
+      "tomorrow": "service",
+      "tonight-holder": "service",
+      "tomorrow-holder": "service",
+      "refund-recorded": "service",
+      "tickets-cancelled": "service",
+      "refund-declined": "service",
+      "broadcast": "service",
+      "broadcast-holder": "service"
+    },
     "producers": [
       {
         "kind": "tickets",
@@ -18152,6 +18314,83 @@
       }
     ]
   },
+  "people": [
+    {
+      "table": "customers",
+      "kind": "people",
+      "email": "email",
+      "name": "name",
+      "firstName": "firstWordOfName",
+      "language": "language",
+      "consent": {
+        "column": "opt_in",
+        "purpose": "newsletter"
+      },
+      "copies": [
+        {
+          "table": "orders",
+          "column": "buyer_name",
+          "holds": "name",
+          "via": "customer_id"
+        },
+        {
+          "table": "orders",
+          "column": "email",
+          "holds": "email",
+          "via": "customer_id"
+        },
+        {
+          "table": "tickets",
+          "column": "holder_name",
+          "holds": "name",
+          "via": "holder_customer_id"
+        },
+        {
+          "table": "tickets",
+          "column": "holder_email",
+          "holds": "email",
+          "via": "holder_customer_id"
+        },
+        {
+          "table": "tickets",
+          "column": "pending_name",
+          "holds": "name"
+        },
+        {
+          "table": "tickets",
+          "column": "pending_email",
+          "holds": "email"
+        },
+        {
+          "table": "tickets",
+          "column": "sender_name",
+          "holds": "name"
+        },
+        {
+          "table": "waitlist",
+          "column": "email",
+          "holds": "email",
+          "via": "customer_id"
+        },
+        {
+          "table": "reminders",
+          "column": "email",
+          "holds": "email",
+          "via": "customer_id"
+        }
+      ],
+      "carry": [
+        {
+          "consent": {
+            "from": "orders",
+            "via": "customer_id",
+            "column": "opt_in",
+            "latest": "confirmed_at"
+          }
+        }
+      ]
+    }
+  ],
   "emailTemplates": [
     {
       "key": "events-tickets",

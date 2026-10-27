@@ -19,11 +19,19 @@
  * The `ticket` key opens one ticket sent to a friend, by the code in the link
  * emailed to that friend: they may accept it, in their own name.
  *
+ * The tick "Email me about new shows" is the newsletter's consent, given on an
+ * order and kept for its buyer (`consent`): the order's own change at
+ * "Confirm" carries it, signed in or by the order's own link. A box left
+ * unticked takes back no earlier yes, and a person's own account cannot set
+ * the newsletter by hand: it is set by a tick, and cleared by an unsubscribe
+ * or by deleting their details.
+ *
  * What never leaves: payments, refunds, door money, guest lists, codes,
  * messages, doors, check-ins, anyone else's order, the link and confirm codes,
  * the retry keys, who at the box office did what, why something was
  * cancelled. A ticket's code is shown only to its holder.
  */
+import { NEWS_TICK } from "./people.ts";
 import { LIVE_ORDER, setting } from "./tables.ts";
 
 /** What a buyer sees of their order (its answers and access note are written, never read back). */
@@ -196,6 +204,13 @@ const TYPE_SELECT = [
 
 const SIGNED_IN = { level: "verified", claimedBy: { table: "customers", column: "customer_id" } };
 const OWN_LINK = { claim: { by: "token", column: "link_token", stopped: "link_stopped", own: true, address: "email" } };
+/**
+ * Whose tick a change through the order's own link carries: the customer the order is linked to (the checkout's
+ * create found or made them by the address typed). An order with nobody linked (a phone order, or an address that
+ * only looks like one on file) finds its person by the address the link was emailed to, and only on the move to
+ * pay at the door.
+ */
+const LINK_PERSON = { identity: { table: "customers", email: "email", link: "customer_id", on: { to: "door" } } };
 const WITH_ORDER = { level: "verified", visibleWith: { table: "orders", via: "order_id" } };
 /**
  * "Send it again" from the checkout's own link: the confirm email made again with a new confirm code (the old
@@ -221,6 +236,7 @@ function orderEntry(keyed: Record<string, unknown>, who: Record<string, unknown>
     writableValues: { status: ["confirming", "door", "no_charge", "let_go"] },
     writableWhen: { status: LIVE_ORDER },
     documents: ["receipt"],
+    consent: NEWS_TICK,
   };
 }
 
@@ -306,7 +322,8 @@ export const PUBLIC_ACCESS = [
     table: "customers",
     methods: ["GET", "PATCH"],
     select: ["name", "email", "opt_in"],
-    writable: ["name", "opt_in"],
+    // The newsletter is never set by hand here: only the checkout's tick, kept in the consent log, says yes.
+    writable: ["name"],
     claim: { verify: "email-link", email: "email" },
     humanCheck: true,
     // Deleting their details also stops their orders' own links: an old email no longer opens a name and an address.
@@ -370,7 +387,8 @@ export const PUBLIC_ACCESS = [
     writable: ["event_id", "room_id", "buyer_name", "email", "code_text", "client_key", "opt_in", "answers", "access_note", "language"],
     requires: ["email", "buyer_name"],
     claimedBy: { table: "customers", column: "customer_id", optional: true },
-    identity: { table: "customers", email: "email", link: "customer_id", fill: { name: "buyer_name" } },
+    identity: { table: "customers", email: "email", link: "customer_id", fill: { name: "buyer_name", language: "language" } },
+    consent: NEWS_TICK,
     shareLink: "link_token",
     // The room the page sends is the show's own: a code for a room is found by it, and a wrong one buys nothing.
     agrees: [{ column: "room_id", eq: { via: "event_id", column: "room_id" } }],
@@ -422,7 +440,7 @@ export const PUBLIC_ACCESS = [
   },
 
   // ── one order, by its own link ──────────────────────────────────────────────
-  orderEntry({ key: "link" }, { ...OWN_LINK, ...SEND_AGAIN }),
+  orderEntry({ key: "link" }, { ...OWN_LINK, ...LINK_PERSON, ...SEND_AGAIN }),
   ...ticketEntries({ key: "link" }),
   { table: "settings", key: "link", methods: ["GET"], level: "verified", select: BANK_SELECT },
 

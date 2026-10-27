@@ -1768,8 +1768,7 @@ export const MANIFEST_RULES = {
         "opt_in"
       ],
       "writable": [
-        "name",
-        "opt_in"
+        "name"
       ],
       "claim": {
         "verify": "email-link",
@@ -1860,7 +1859,24 @@ export const MANIFEST_RULES = {
       },
       "documents": [
         "receipt"
-      ]
+      ],
+      "consent": {
+        "column": "opt_in",
+        "purpose": "newsletter",
+        "wording": {
+          "version": 1,
+          "text": {
+            "en-US": "Email me about new shows at {venue}\nEvery email has a link to stop them.",
+            "de-DE": "Schick mir E-Mails zu neuen Shows in {venue}\nJede E-Mail enthält einen Link, mit dem du sie abbestellen kannst.",
+            "fr-FR": "M'écrire à propos des nouveaux spectacles à {venue}\nChaque e-mail contient un lien pour ne plus les recevoir.",
+            "da-DK": "Send mig en mail om nye arrangementer på {venue}\nHver mail har et link, så du kan stoppe dem.",
+            "cs-CZ": "Posílejte mi e-mailem novinky o akcích v {venue}\nKaždý e-mail obsahuje odkaz, kterým je můžete odhlásit.",
+            "ar-EG": "راسلوني بالبريد عن الحفلات الجديدة في {venue}\nكل رسالة فيها رابط لإيقاف هذه الرسائل.",
+            "zh-CN": "{venue} 有新演出时发邮件通知我\n每封邮件都附有停止接收的链接。",
+            "zh-TW": "有 {venue} 的新演出時寄信通知我\n每封信都附有停止接收的連結。"
+          }
+        }
+      }
     },
     {
       "table": "tickets",
@@ -2691,7 +2707,25 @@ export const MANIFEST_RULES = {
         "email": "email",
         "link": "customer_id",
         "fill": {
-          "name": "buyer_name"
+          "name": "buyer_name",
+          "language": "language"
+        }
+      },
+      "consent": {
+        "column": "opt_in",
+        "purpose": "newsletter",
+        "wording": {
+          "version": 1,
+          "text": {
+            "en-US": "Email me about new shows at {venue}\nEvery email has a link to stop them.",
+            "de-DE": "Schick mir E-Mails zu neuen Shows in {venue}\nJede E-Mail enthält einen Link, mit dem du sie abbestellen kannst.",
+            "fr-FR": "M'écrire à propos des nouveaux spectacles à {venue}\nChaque e-mail contient un lien pour ne plus les recevoir.",
+            "da-DK": "Send mig en mail om nye arrangementer på {venue}\nHver mail har et link, så du kan stoppe dem.",
+            "cs-CZ": "Posílejte mi e-mailem novinky o akcích v {venue}\nKaždý e-mail obsahuje odkaz, kterým je můžete odhlásit.",
+            "ar-EG": "راسلوني بالبريد عن الحفلات الجديدة في {venue}\nكل رسالة فيها رابط لإيقاف هذه الرسائل.",
+            "zh-CN": "{venue} 有新演出时发邮件通知我\n每封邮件都附有停止接收的链接。",
+            "zh-TW": "有 {venue} 的新演出時寄信通知我\n每封信都附有停止接收的連結。"
+          }
         }
       },
       "shareLink": "link_token",
@@ -2865,6 +2899,14 @@ export const MANIFEST_RULES = {
         "own": true,
         "address": "email"
       },
+      "identity": {
+        "table": "customers",
+        "email": "email",
+        "link": "customer_id",
+        "on": {
+          "to": "door"
+        }
+      },
       "newLink": {
         "column": "confirm_token",
         "kind": "transfer-confirm",
@@ -2944,7 +2986,24 @@ export const MANIFEST_RULES = {
       },
       "documents": [
         "receipt"
-      ]
+      ],
+      "consent": {
+        "column": "opt_in",
+        "purpose": "newsletter",
+        "wording": {
+          "version": 1,
+          "text": {
+            "en-US": "Email me about new shows at {venue}\nEvery email has a link to stop them.",
+            "de-DE": "Schick mir E-Mails zu neuen Shows in {venue}\nJede E-Mail enthält einen Link, mit dem du sie abbestellen kannst.",
+            "fr-FR": "M'écrire à propos des nouveaux spectacles à {venue}\nChaque e-mail contient un lien pour ne plus les recevoir.",
+            "da-DK": "Send mig en mail om nye arrangementer på {venue}\nHver mail har et link, så du kan stoppe dem.",
+            "cs-CZ": "Posílejte mi e-mailem novinky o akcích v {venue}\nKaždý e-mail obsahuje odkaz, kterým je můžete odhlásit.",
+            "ar-EG": "راسلوني بالبريد عن الحفلات الجديدة في {venue}\nكل رسالة فيها رابط لإيقاف هذه الرسائل.",
+            "zh-CN": "{venue} 有新演出时发邮件通知我\n每封邮件都附有停止接收的链接。",
+            "zh-TW": "有 {venue} 的新演出時寄信通知我\n每封信都附有停止接收的連結。"
+          }
+        }
+      }
     },
     {
       "table": "tickets",

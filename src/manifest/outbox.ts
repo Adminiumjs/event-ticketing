@@ -44,6 +44,11 @@
  * `broadcast-holder`): linked to the ticket and to the friend as the customer,
  * so it goes to the friend's own address and opens their ticket.
  *
+ * Every kind is service mail: each is about the person's own order, ticket,
+ * waitlist place or reminder, or the show they hold tickets for. A message the
+ * box office writes to a show's buyers (`broadcast`) is for that show's news;
+ * offers go out as Adminium's campaigns, which the do-not-email list stops.
+ *
  * The log is the dedupe: a kind already queued or sent for the same row is
  * not queued again — except a ticket sent to a friend, emailed once per send,
  * and one that came back, told each time. Every email waits while its switch
@@ -148,6 +153,8 @@ export const OUTBOX = {
   // An order's own link opens it on the audience site; its code rides the fragment.
   pages: { manage: "/o", booking: "/" },
   kinds: Object.fromEntries(KINDS.map((kind) => [kind, `events-${kind}`])),
+  // Every email is about a person's own order, ticket, place or show: none is stopped by the do-not-email list.
+  classes: Object.fromEntries(KINDS.map((kind) => [kind, "service"])),
   producers: [
     { kind: "tickets", ...byOrder, ...onOrder("status", ["door", "no_charge"]) },
     // Paid: the tickets, once, by what the buyer has not had yet (`paid_email`): an order that chose the door had them then.

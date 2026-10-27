@@ -53,8 +53,13 @@ export interface Table {
   unique?: string[][];
   capacity?: Record<string, unknown> | Record<string, unknown>[];
   states?: Record<string, unknown>;
+  /** The law makes the venue keep these rows (a sale's record): an erasure leaves them as they are. */
+  keep?: { law: "tax" | "health" | "contract" | "safety" };
   columns: Column[];
 }
+
+/** A sale's record, kept for the tax years whoever asks to be forgotten. */
+const KEPT_FOR_TAX = { law: "tax" } as const;
 
 // ── column makers ───────────────────────────────────────────────────────────
 
@@ -715,6 +720,8 @@ export const TABLES: Table[] = [
       id,
       text("email", 254, "Email", { ...opt, unique: true, semantic: "email", rules: { normalize: "email", validation: { format: "email" } } }),
       text("name", 120, "Full name", opt),
+      // The language of their first checkout: what the venue writes to them in.
+      language("language"),
       bool("opt_in", "News from the venue", false),
       at("forgotten_at", "Details deleted", opt),
       at("created_at", "First order", { ...opt, rules: stamp("now", onCreate) }),
@@ -740,6 +747,7 @@ export const TABLES: Table[] = [
   },
   {
     ref: "orders",
+    keep: KEPT_FOR_TAX,
     label: l("Order"),
     labelPlural: l("Orders"),
     keyField: "number",
@@ -904,7 +912,8 @@ export const TABLES: Table[] = [
       }),
       fk("waitlist_id", "waitlist", "Waitlist place", opt),
       json("answers", "Answers"),
-      text("access_note", 500, "Access needs", opt),
+      // What a buyer says they need to get in and around: personal, read only where a role reads a buyer's details.
+      text("access_note", 500, "Access needs", { ...opt, rules: { personal: true } }),
       bool("opt_in", "News from the venue", false),
       at("kept_at", "Kept after the move", opt),
       text("note", 500, "Box-office note", opt),
@@ -918,6 +927,7 @@ export const TABLES: Table[] = [
   },
   {
     ref: "tickets",
+    keep: KEPT_FOR_TAX,
     label: l("Ticket"),
     labelPlural: l("Tickets"),
     keyField: "code",
@@ -1055,6 +1065,7 @@ export const TABLES: Table[] = [
   },
   {
     ref: "door_collections",
+    keep: KEPT_FOR_TAX,
     label: l("Door payment"),
     labelPlural: l("Door payments"),
     keyField: "taken_at",
@@ -1085,6 +1096,7 @@ export const TABLES: Table[] = [
   },
   {
     ref: "payments",
+    keep: KEPT_FOR_TAX,
     label: l("Payment"),
     labelPlural: l("Payments"),
     keyField: "method",
@@ -1106,6 +1118,7 @@ export const TABLES: Table[] = [
   },
   {
     ref: "refunds",
+    keep: KEPT_FOR_TAX,
     label: l("Refund"),
     labelPlural: l("Refunds"),
     keyField: "method",
