@@ -285,9 +285,11 @@ export class WaveApp {
       this.zone = config.timezone || "UTC";
       setZone(this.zone);
       setCurrency(config.currency);
-      if (config.now) this.skew = Date.parse(config.now) - Date.now();
+      // One reading of the real clock for both: read twice, a millisecond between them puts the page past the server's now.
+      const real = Date.now();
+      if (config.now) this.skew = Date.parse(config.now) - real;
       this.receipts = config.receipts === true;
-      this.now = Date.now() + this.skew;
+      this.now = real + this.skew;
       this.setState({ loading: false, loadError: false });
     } catch {
       this.setState({ loading: false, loadError: true });
