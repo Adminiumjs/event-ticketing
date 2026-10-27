@@ -901,6 +901,110 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         expect(await refusal(async () => (await audience()).openOrder(pair.b.token))).not.toBeNull();
       }, 240_000);
 
+      // ── the newsletter's tick, kept in Adminium's consent log ──
+
+      type Panel = { declared: boolean; purposes: { purpose: string; state: string }[]; history: { state: string; source: string; detail: string | null; wordingVersion: string | null }[] };
+      /** How a customer stands in the consent log, as the record page's panel reads it. */
+      const panelOf = async (customerId: number) =>
+        ok(await staff.post<{ data: Panel }>("/api/v1/consent/panel", { connectionId, table: tableIds["customers"]!, recordId: String(customerId) })).data;
+      const said = (panel: Panel) => panel.history.map((e) => [e.state, e.source, e.detail, e.wordingVersion]);
+      const newsOf = (panel: Panel) => panel.purposes.find((p) => p.purpose === "newsletter")!.state;
+      const ticked = (value: unknown) => value === true || value === 1 || value === "1";
+      /** A checkout as the screens make it, through the order's own link: held, named, the tick (or not) at "Confirm", pay at the door. */
+      const checkoutAs = async (email: string, language: string, tick: boolean, aud?: AdminiumAudience) => {
+        const buyer = aud ?? (await audience());
+        const venue = await buyer.venue();
+        const neon = venue.events.find((e) => e["name"] === "Neon Circuit")!;
+        const standard = venue.types.find((t) => t["event_id"] === neon.id && t["name"] === "Standard")!;
+        const body = { values: { event_id: neon.id, room_id: neon["room_id"], buyer_name: "Noor Haddad", email, language }, tickets: [{ ticket_type_id: standard.id }] };
+        const made = await buyer.buy({ ...body, expect: { total: Number((await buyer.quote(body)).data["total"]) } }, key("tick"));
+        await buyer.nameTicket((await buyer.order()).tickets[0]!.id, "Noor Haddad");
+        await buyer.updateOrder({ opt_in: tick });
+        expect((await buyer.choose("door"))["status"]).toBe("door");
+        return made.data.id;
+      };
+      const tickBuyer = { email: `noor.${engine}@waveform.dev`, id: 0 };
+
+      it("keeps a checkout's tick in the consent log, for its customer, in the language of the checkout; an unticked one keeps an earlier yes", async (ctx) => {
+        needsWrites(() => ctx.skip());
+        const first = await checkoutAs(tickBuyer.email, "fr-FR", true);
+        const order = (await rows("orders")).find((o) => o.id === first)!;
+        const customer = (await rows("customers")).find((c) => c.id === order["customer_id"])!;
+        tickBuyer.id = customer.id;
+        // The sale's record, the customer's own yes, their language, and one row in the log: from the form, the wording shown.
+        expect([ticked(order["opt_in"]), customer["email"], ticked(customer["opt_in"]), customer["language"]]).toEqual([true, tickBuyer.email, true, "fr-FR"]);
+        const panel = await panelOf(customer.id);
+        expect([panel.declared, newsOf(panel), said(panel)]).toEqual([true, "yes", [["yes", "form", "events:orders", "v1 fr-FR"]]]);
+        // A later checkout left unticked writes nothing: it takes back no earlier yes.
+        const second = await checkoutAs(tickBuyer.email, "fr-FR", false);
+        expect(ticked((await rows("orders")).find((o) => o.id === second)!["opt_in"])).toBe(false);
+        expect(ticked((await rows("customers")).find((c) => c.id === customer.id)!["opt_in"])).toBe(true);
+        expect(said(await panelOf(customer.id))).toEqual([["yes", "form", "events:orders", "v1 fr-FR"]]);
+        // Never ticked: nothing in the log, and no yes.
+        const plain = await checkoutAs(`omar.${engine}@waveform.dev`, "en-US", false);
+        const plainOrder = (await rows("orders")).find((o) => o.id === plain)!;
+        const omar = (await rows("customers")).find((c) => c.id === plainOrder["customer_id"])!;
+        expect([ticked(omar["opt_in"]), said(await panelOf(omar.id))]).toEqual([false, []]);
+      }, 240_000);
+
+      it("keeps a signed-in buyer's tick at confirm too, and never lets their own account set the newsletter by hand", async (ctx) => {
+        needsWrites(() => ctx.skip());
+        const email = `rana.${engine}@waveform.dev`;
+        const sent = new Map<string, string>();
+        // Rana's first order makes her account; she then signs in by the code her email carries.
+        await checkoutAs(email, "ar-EG", false);
+        const rana = await signInAs(email, sent);
+        const k = await keys();
+        const session = sent.get(k.customer)!;
+        expect(session).toBeTruthy();
+        const me = (await rows("customers")).find((c) => c["email"] === email)!;
+        // Her own account, by its own door: the name is hers to change, the newsletter is not.
+        const refs = publicRefs(real);
+        const byHand = await publicCall("customer", session, `/api/v1/public/records/${refs.account}/${String(me.id)}`, { method: "PATCH", body: { values: { opt_in: true } } });
+        expect(byHand.status).toBeGreaterThanOrEqual(400);
+        expect([ticked((await rows("customers")).find((c) => c.id === me.id)!["opt_in"]), said(await panelOf(me.id))]).toEqual([false, []]);
+        // Signed in, her order's change at confirm carries the tick: kept for her, in her account's language.
+        const mine = (await rana.myOrders()).orders[0]!.order;
+        const tick = await publicCall("customer", session, `/api/v1/public/records/${refs.myOrders}/${String(mine.id)}`, { method: "PATCH", body: { values: { opt_in: true } } });
+        expect(tick.status).toBe(200);
+        expect([ticked((await rows("customers")).find((c) => c.id === me.id)!["opt_in"]), said(await panelOf(me.id))]).toEqual([true, [["yes", "form", "events:orders", "v1 ar-EG"]]]);
+      }, 240_000);
+
+      it("records the withdrawal when a buyer deletes their details: the log and the column agree", async (ctx) => {
+        needsWrites(() => ctx.skip());
+        const noor = await signInAs(tickBuyer.email);
+        await noor.forget();
+        const account = (await rows("customers")).find((c) => c.id === tickBuyer.id)!;
+        expect([account["email"] ?? null, ticked(account["opt_in"]), account["forgotten_at"] === null]).toEqual([null, false, false]);
+        const panel = await panelOf(tickBuyer.id);
+        expect(said(panel)).toEqual([
+          ["no", "person", "forget", null],
+          ["yes", "form", "events:orders", "v1 fr-FR"],
+        ]);
+        expect(newsOf(panel)).toBe("no");
+      }, 240_000);
+
+      it("lets the box office's message to a show's buyers reach a buyer on the do-not-email list: it is service mail", async (ctx) => {
+        needsWrites(() => ctx.skip());
+        const email = `vera.${engine}@waveform.dev`;
+        const orderId = await checkoutAs(email, "en-US", false);
+        ok(await staff.post("/api/v1/consent/stop-list", { addresses: [email] }));
+        // Sent by a box-office person, as the box office's own screen sends it.
+        const roles = ok(await staff.get<{ data?: { id: string; slug: string }[]; roles?: { id: string; slug: string }[] }>("/api/v1/roles"));
+        const role = (roles.data ?? roles.roles ?? []).find((r) => r.slug === "events-box-office")!;
+        const person = { email: `bo.news.${engine}@waveform.test`, password: `box-${Math.random().toString(36).slice(2)}-${String(Date.now())}` };
+        const invited = await staff.post("/api/v1/users", { email: person.email, name: "Priya", roleIds: [role.id] });
+        const token = JSON.stringify(invited.body).match(/\/reset\/([A-Za-z0-9_-]+)/)![1]!;
+        ok(await new Caller(server.base, { origin: server.base }).post("/api/v1/auth/password/reset", { token, newPassword: person.password }));
+        const box = await staffPort(person);
+        const neon = (await box.rows("events")).find((e) => e["name"] === "Neon Circuit")!;
+        const before = await sinkCount();
+        const sentOut = await box.broadcast({ event_id: neon.id, audience: "everyone", template: "other", subject: "Doors at 19:30 tonight", body: "Doors open half an hour early tonight.", people: 1, order_count: 1 }, [{ order_id: orderId, to_address: email }], true);
+        const message = await until(async () => (await box.list("messages", { where: [{ column: "broadcast_id", eq: sentOut.id }] })).rows.find((m) => m["status"] !== "queued"), "the message's email", 150_000);
+        expect(`${String(message["status"])}${message["skip_reason"] ? `: ${String(message["skip_reason"])}` : ""}`).toBe("sent");
+        expect((await mailTo(email, before, /Doors at 19:30 tonight/)).to).toContain(email);
+      }, 240_000);
+
       it("resends an order's tickets: each code grouped, a friend's ticket by their name and never their code", async (ctx) => {
         needsWrites(() => ctx.skip());
         const box = await staffPort(ADMIN);
