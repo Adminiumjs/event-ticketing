@@ -13,12 +13,19 @@
 #                  the public API, the door's check-in conditions, the sample
 #                  removed. Here `ADMINIUM_REQUIRE_CONTRACT=1` runs it and
 #                  makes a skip a failure, so it cannot go quietly green.
+#   the update     `src/contract/update.test.ts`: the RELEASED package of the
+#                  version in service (`FROM_VERSION`, fetched from the
+#                  downloads host and held to RELEASES.json's integrity),
+#                  installed on the Adminium it was released for (`FROM_REF`,
+#                  a second build), that Adminium upgraded in place to the one
+#                  above, and then this build applied: every row that was
+#                  there, byte for byte, but the newsletter answers it carries.
 #   drift          the manifest validator this repo keeps a copy of, and the
 #                  untranslated ledger — each fails when it no longer matches
 #                  its source.
 #   the builds     both hosted sides and the website's demo (`demo.json`).
 #
-# Both product checkouts are moved out of the workspace before the suite
+# The product checkouts are moved out of the workspace before the suite
 # runs: vitest collects every `*.test.ts` under the repo root, and the
 # products' own suites are not this repo's to run.
 #
@@ -48,11 +55,16 @@ on:
         required: false
         default: ""
 
+env:
+  # The release this version updates, and the Adminium it was released for.
+  FROM_VERSION: 0.2.4
+  FROM_REF: v0.3.9
+
 jobs:
   contract:
     name: three-engine contract & drift
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
 
     services:
       postgres:
@@ -105,6 +117,13 @@ jobs:
           ref: ${{ steps.refs.outputs.adminium }}
           path: .adminium-product
 
+      - name: Check out the Adminium the released version was made for
+        uses: actions/checkout@v4
+        with:
+          repository: MoSofi/Adminium
+          ref: ${{ env.FROM_REF }}
+          path: .adminium-from
+
       - name: Check out the add-ons
         uses: actions/checkout@v4
         with:
@@ -121,15 +140,26 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm turbo run build --filter="@adminium/e2e..."
 
+      - name: Build the Adminium the released version was made for
+        run: |
+          cd .adminium-from
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm turbo run build --filter="@adminium/e2e..."
+
+      - name: Fetch the released package this version updates
+        run: curl -fsSL "https://downloads.adminium.dev/apps/events/events-${FROM_VERSION}.tgz" -o "$RUNNER_TEMP/events-${FROM_VERSION}.tgz"
+
       - name: Build the add-ons
         run: |
           cd .add-ons
           npm ci
           npm run build
 
-      - name: Move both checkouts out of the workspace
+      - name: Move the checkouts out of the workspace
         run: |
           mv "$GITHUB_WORKSPACE/.adminium-product" "$RUNNER_TEMP/adminium-product"
+          mv "$GITHUB_WORKSPACE/.adminium-from" "$RUNNER_TEMP/adminium-from"
           mv "$GITHUB_WORKSPACE/.add-ons" "$RUNNER_TEMP/add-ons"
 
       - name: Types
@@ -141,9 +171,12 @@ jobs:
           ADD_ONS_REPO: ${{ runner.temp }}/add-ons
           ADMINIUM_REQUIRE_CONTRACT: "1"
           ADMINIUM_REQUIRE_VALIDATOR: "true"
+          CONTRACT_FROM_ADMINIUM: ${{ runner.temp }}/adminium-from
+          CONTRACT_FROM_TARBALL: ${{ runner.temp }}/events-${{ env.FROM_VERSION }}.tgz
           TEST_POSTGRES_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
           TEST_MYSQL_URL: mysql://root@127.0.0.1:3306
-        run: npx vitest run
+        # One file at a time: each boots a server on every engine.
+        run: npx vitest run --no-file-parallelism
 
       # The validator copy follows the product as it is now, not the release this app
       # floors on: the contract above runs on the floor, and a copy held to the floor
