@@ -50,6 +50,7 @@ import { TABLES } from "../manifest/tables.ts";
 import { appBundle, boot, Caller, ENGINES, FROM_ADMINIUM, missing, ok, PORTS_PER_ENGINE, rawTables, releasedBundle, releasedMissing, until, type Engine, type RawTable, type Server } from "./harness.ts";
 
 type Row = Record<string, unknown> & { id: number };
+type Timed = { from: string; to: string; at: { column: string; or?: { column: string }[]; plus?: { hours: { column: string } } } };
 
 const REQUIRED = ["1", "true"].includes(process.env["ADMINIUM_REQUIRE_CONTRACT"] ?? "");
 const why = missing() ?? releasedMissing();
@@ -114,6 +115,29 @@ describe.skipIf(why !== null)(`the update of a live ${FROM} venue to ${TO}${why 
       const appRefs = () => Object.keys(tableIds).filter((name) => name.startsWith(PREFIX) && name !== `${PREFIX}sample_data`).map((name) => name.slice(PREFIX.length));
       const all = async () => Object.fromEntries(await Promise.all(appRefs().map(async (ref) => [ref, await rows(ref)] as const)));
       const raw = () => rawTables(engine as Engine, port, database, PREFIX);
+      /** Each row waiting on a move the clock makes by itself (its table's `states.timed`), with the moment that move comes due: the earliest first. */
+      const waiting = async () => {
+        const settings = (await rows("settings"))[0] ?? {};
+        const instant = (value: unknown) => {
+          const text = String(value).replace(" ", "T");
+          return Date.parse(/(Z|[+-]\d\d:?\d\d)$/.test(text) ? text : `${text}Z`);
+        };
+        const out: { row: string; due: number }[] = [];
+        for (const table of TABLES) {
+          const states = table.states as { column: string; timed?: Timed[] } | undefined;
+          if (states?.timed === undefined) continue;
+          const list = await rows(table.ref);
+          for (const rule of states.timed) {
+            for (const row of list.filter((found) => found[states.column] === rule.from)) {
+              const at = [rule.at, ...(rule.at.or ?? [])].map((m) => row[m.column]).find((v) => v !== null && v !== undefined);
+              if (at === undefined) continue;
+              const due = instant(at) + (rule.at.plus === undefined ? 0 : Number(settings[rule.at.plus.hours.column]) * 3_600_000);
+              out.push({ row: `${table.ref} ${String(row.id)} ${rule.from} → ${rule.to} at ${new Date(due).toISOString()}`, due });
+            }
+          }
+        }
+        return out.sort((a, b) => a.due - b.due);
+      };
       const sample = async () => ok(await staff.get<{ loaded: boolean; total: number }>("/api/v1/apps/events/sample-data"));
       const upload = async (bundle: { buffer: Buffer; integrity: string }) => {
         const reply = await staff.post(`/api/v1/apps/upload?expectedSha512=${encodeURIComponent(bundle.integrity)}`, bundle.buffer);
@@ -223,6 +247,13 @@ describe.skipIf(why !== null)(`the update of a live ${FROM} venue to ${TO}${why 
         const movedTo = DEMO_START + 20 * 60_000;
         await server.moveClock(movedTo);
         const movedAt = realNow();
+        // Every move that makes due made by the Adminium it runs on — its own job, once a minute — before the database
+        // counts as still: a few quiet seconds are not that minute, and a move left over is made by the upgraded one.
+        await until(async () => ((await waiting()).some((w) => w.due <= movedTo) ? undefined : true), "every move the clock made due to be made", 240_000);
+        // And the next one (the overdue transfer released at 18:00) further on than the six steps from here to the
+        // update's last read can take together (26 minutes, by their own time limits): no upgrade reaches it, however slow.
+        const next = (await waiting())[0];
+        expect(next === undefined || next.due - movedTo > 30 * 60_000, `the next move the clock makes: ${next?.row ?? ""}`).toBe(true);
         const still = async () => {
           const a = await raw();
           await new Promise((resolve) => setTimeout(resolve, 3_000));
@@ -233,7 +264,7 @@ describe.skipIf(why !== null)(`the update of a live ${FROM} venue to ${TO}${why 
         await server.stop();
         server = await boot(engine as Engine, port, Math.round(movedTo + (realNow() - movedAt)), { database, keep: house });
         ran.to = await signIn();
-        console.info(`[upgrade, ${engine}] Adminium ${ran.from} → ${ran.to}`);
+        console.info(`[upgrade, ${engine}] Adminium ${ran.from} → ${ran.to}; the next timed move: ${next?.row ?? "none"}`);
         expect(ran.to).not.toBe(ran.from);
         const apps = ok(await staff.get<{ apps: { key: string; version: string; connectionId: string }[] }>("/api/v1/apps"));
         expect(apps.apps.filter((a) => a.key === "events").map((a) => [a.version, a.connectionId])).toEqual([[FROM, connectionId]]);
