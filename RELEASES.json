@@ -60,6 +60,12 @@
       "version": "0.2.5",
       "integrity": "sha512-GyckRKXGeipEv9QKBhokn9mifJq338uG2H2+d2cFWPfC22qltr7mYS+WZAN0hk2VHb9bVt5wrB3drEKJb2REFA==",
       "publishedAt": "2026-10-27T22:23:42.000Z"
+    },
+    {
+      "name": "@adminiumjs/app-events",
+      "version": "0.2.6",
+      "integrity": "sha512-G92bYogM3OWWw16KLtxge0bSvGzsuTPYzJmxVOb9AkEs0NcFW8J3webeieZUMM69LMpdbueUDnCuGh79eoyI/Q==",
+      "publishedAt": "2026-11-07T08:40:39.000Z"
     }
   ]
 }
