@@ -20,7 +20,7 @@ import { ROLES } from "./roles.ts";
 import { TABLES } from "./tables.ts";
 
 /** This release, a patch over 0.2.x (the version moved 0.1.3 → 0.2.0 once: its tables were new). */
-export const VERSION = "0.2.5";
+export const VERSION = "0.2.6";
 
 /**
  * The Adminium release that first reads everything below: places counted by
@@ -28,10 +28,11 @@ export const VERSION = "0.2.5";
  * tickets, strict moves and moves made by the clock, conditions on a new row,
  * codes looked up, a friend's ticket, an order's own link; and (0.3.38) the
  * venue's people, each email's class, the tables the law keeps and the
- * checkout's tick kept in the consent log. Written from the version actually
- * released, never guessed.
+ * checkout's tick kept in the consent log; and (0.3.49) one install per
+ * database, each side served at its own mount and naming its install on every
+ * call. Written from the version actually released, never guessed.
  */
-export const MIN_ADMINIUM = "0.3.38";
+export const MIN_ADMINIUM = "0.3.49";
 
 const ENV = {
   VITE_ADMINIUM_API_BASE_URL: { required: false, example: "https://admin.example.com" },
@@ -81,8 +82,9 @@ export function buildManifest(): Record<string, unknown> {
     },
     capabilities: ["realtime", "email-delivery"],
     frontends: [
-      { side: "staff", kind: "spa", entry: "index.html", env: ENV, placement: "external", routes: STAFF_ROUTES },
-      { side: "customer", kind: "spa", entry: "index.html", env: ENV, routes: CUSTOMER_ROUTES },
+      // Both sides can be installed once per database, each at its own mount.
+      { side: "staff", kind: "spa", entry: "index.html", env: ENV, placement: "external", routes: STAFF_ROUTES, instances: true },
+      { side: "customer", kind: "spa", entry: "index.html", env: ENV, routes: CUSTOMER_ROUTES, instances: true },
     ],
     addOns: ADD_ONS,
     documents: DOCUMENTS,

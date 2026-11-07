@@ -7,7 +7,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 
-import { configBase, loadStaffConfig, resolveStaffConnectionId } from "./staffConnection.ts";
+import { configBase, loadAttachedAddOns, loadStaffConfig, resolveStaffConnectionId } from "./staffConnection.ts";
 
 const ok = (doc: unknown) =>
   vi.fn(async () =>
@@ -16,6 +16,13 @@ const ok = (doc: unknown) =>
       headers: { "content-type": "application/json" },
     }),
   ) as unknown as typeof fetch;
+
+/** A server that answers each config path with its own document, and 404 elsewhere. */
+const byPath = (docs: Record<string, unknown>) =>
+  vi.fn(async (input: unknown) => {
+    const doc = docs[String(input)];
+    return doc === undefined ? new Response("{}", { status: 404 }) : new Response(JSON.stringify(doc), { status: 200, headers: { "content-type": "application/json" } });
+  }) as unknown as typeof fetch;
 
 describe("resolveStaffConnectionId", () => {
   it("reads the bound connection from the served document", async () => {
@@ -92,6 +99,7 @@ describe("loadStaffConfig", () => {
   it("reads everything a till boots from, and keeps nothing it does not understand", async () => {
     const fetchImpl = ok({
       connectionId: "con_42",
+      installId: "ins_7",
       appName: null,
       tables: { tickets: "pos_tickets", odd: 7 },
       settings: { business_type: "retail" },
@@ -108,6 +116,7 @@ describe("loadStaffConfig", () => {
     });
     expect(await loadStaffConfig({ hostedStaff: true, base: "/apps/pos/staff/", fetchImpl })).toEqual({
       connectionId: "con_42",
+      installId: "ins_7",
       appName: null,
       tables: { tickets: "pos_tickets" },
       settings: { business_type: "retail" },
@@ -137,5 +146,46 @@ describe("loadStaffConfig", () => {
     const fetchImpl = ok({});
     expect(await loadStaffConfig({ hostedStaff: false, fetchImpl })).toBeNull();
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("names no install from an Adminium too old to say, so no install header is sent", async () => {
+    const config = await loadStaffConfig({ hostedStaff: true, base: "/apps/events/staff/", fetchImpl: ok({ connectionId: "con_42" }) });
+    expect(config?.installId).toBeNull();
+  });
+
+  it("gives a second install, served at its own mount, its own install id and database", async () => {
+    const fetchImpl = byPath({
+      "/apps/events/staff/surface-config.json": { connectionId: "con_hall", installId: "ins_hall" },
+      "/apps/events/arena/staff/surface-config.json": { connectionId: "con_arena", installId: "ins_arena" },
+    });
+    const first = await loadStaffConfig({ hostedStaff: true, base: configBase("/apps/events/staff/", "/apps/events/staff/"), fetchImpl });
+    const second = await loadStaffConfig({ hostedStaff: true, base: configBase("/apps/events/staff/", "/apps/events/arena/staff/door"), fetchImpl });
+    expect([first?.installId, first?.connectionId]).toEqual(["ins_hall", "con_hall"]);
+    expect([second?.installId, second?.connectionId]).toEqual(["ins_arena", "con_arena"]);
+  });
+});
+
+describe("loadAttachedAddOns", () => {
+  const docs = {
+    "/apps/events/customer/surface-config.json": { publishableKey: "adm_pub_hall", addOns: { invoices: { keys: {} } } },
+    "/apps/events/arena/customer/surface-config.json": { publishableKey: "adm_pub_arena" },
+  };
+
+  it("reads a later install's own add-ons from its own mount, not the first install's", async () => {
+    const fetchImpl = byPath(docs);
+    // The arena has no Invoices; the hall does. The arena's page must not offer receipts.
+    expect(await loadAttachedAddOns({ hosted: true, base: configBase("/apps/events/customer/", "/apps/events/arena/customer/o"), fetchImpl })).toEqual({});
+    expect(await loadAttachedAddOns({ hosted: true, base: configBase("/apps/events/customer/", "/apps/events/customer/"), fetchImpl })).toEqual({ invoices: { keys: {} } });
+    expect(vi.mocked(fetchImpl).mock.calls.map((call) => String(call[0]))).toEqual([
+      "/apps/events/arena/customer/surface-config.json",
+      "/apps/events/customer/surface-config.json",
+    ]);
+  });
+
+  it("is null outside a hosted build, and when no config answers", async () => {
+    const fetchImpl = byPath(docs);
+    expect(await loadAttachedAddOns({ hosted: false, fetchImpl })).toBeNull();
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(await loadAttachedAddOns({ hosted: true, base: "/apps/events/gone/customer/", fetchImpl })).toBeNull();
   });
 });

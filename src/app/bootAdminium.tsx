@@ -40,13 +40,14 @@ export async function bootAdminium(mount: HTMLElement, fail: StartupFailure): Pr
     const transport = createSessionTransport({
       tableOfRef: staff.tables,
       connectionId: staff.connectionId ?? undefined,
+      installId: staff.installId,
       staff: { csrfToken: staff.csrfToken, timezone: staff.timezone, timezoneSource: staff.timezoneSource, serverTimezone: staff.serverTimezone, currency: staff.currency },
       refreshToken: async () => (await loadStaffConfig())?.csrfToken ?? null,
     });
     const port = new AdminiumStaff(transport, staff);
     app = new WaveApp({ boxOffice: port, door: port }, "box", { lang, theme });
   } else {
-    const [{ resolveSurfaceConfig }, { AdminiumAudience }] = await Promise.all([import("../publicConfig.ts"), import("../data/adminiumAudience.ts")]);
+    const [{ resolveSurfaceConfig }, { loadAttachedAddOns }, { AdminiumAudience }] = await Promise.all([import("../publicConfig.ts"), import("../staffConnection.ts"), import("../data/adminiumAudience.ts")]);
     const served = await resolveSurfaceConfig();
     if (served === null) {
       fail(
@@ -56,8 +57,9 @@ export async function bootAdminium(mount: HTMLElement, fail: StartupFailure): Pr
       return;
     }
     // Receipts come from an add-on: the hosted page's configuration says whether one is attached.
-    const attached = HOSTED ? await fetch(`${import.meta.env.BASE_URL}surface-config.json`, { cache: "no-store" }).then((r) => (r.ok ? (r.json() as Promise<{ addOns?: Record<string, unknown> }>) : null)).catch(() => null) : null;
-    const port = new AdminiumAudience({ ...served, receipts: attached?.addOns?.["invoices"] !== undefined });
+    // This install's own: a later install's page is served under its own mount, with its own add-ons.
+    const attached = await loadAttachedAddOns();
+    const port = new AdminiumAudience({ ...served, receipts: attached?.["invoices"] !== undefined });
     app = new WaveApp({ audience: port }, "audience", { lang, theme });
     // Signed out on another device, or the details deleted: this tab lets go too, and says so.
     port.onSessionEnded(() => app.buyer.sessionEnded());

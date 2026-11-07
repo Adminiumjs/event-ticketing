@@ -354,6 +354,8 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         const transport = createSessionTransport({
           tableOfRef: cfg.tables,
           connectionId: cfg.connectionId ?? undefined,
+          // As the box office boots: every call names the install the config names.
+          installId: cfg.installId ?? null,
           staff: { csrfToken: cfg.csrfToken, timezone: cfg.timezone, timezoneSource: cfg.timezoneSource, serverTimezone: cfg.serverTimezone, currency: cfg.currency },
           refreshToken: async () => (await read()).csrfToken,
           fetchImpl: caller.fetchAs(),

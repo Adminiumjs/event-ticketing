@@ -320,6 +320,29 @@ describe("writes", () => {
   });
 });
 
+describe("the install header", () => {
+  const routes = { "/api/v1/data/conn-2/payments": { data: [] }, "/api/v1/apps/events/rules": { data: [] } };
+
+  it("carries the staff config's install on every call, reads and writes", async () => {
+    const { calls, fetchImpl } = harness(routes);
+    const t = createSessionTransport({ tableOfRef: MAP, connectionId: "conn-2", installId: "ins_arena", staff: { csrfToken: "tok" }, fetchImpl });
+    await t.port.list("payments", { limit: 10, offset: 0 });
+    await t.mutate("/api/v1/data/conn-2/payments", "POST", { values: {} });
+    await t.get("/api/v1/apps/events/rules");
+    expect(calls.length).toBe(3);
+    for (const call of calls) expect([call.url, call.headers["x-adminium-install"]]).toEqual([call.url, "ins_arena"]);
+  });
+
+  it("sends nothing when the config names no install (an older Adminium)", async () => {
+    const { calls, fetchImpl } = harness(routes);
+    const t = createSessionTransport({ tableOfRef: MAP, connectionId: "conn-2", installId: null, staff: { csrfToken: "tok" }, fetchImpl });
+    await t.port.list("payments", { limit: 10, offset: 0 });
+    await t.mutate("/api/v1/data/conn-2/payments", "POST", { values: {} });
+    expect(calls.length).toBe(2);
+    for (const call of calls) expect("x-adminium-install" in call.headers).toBe(false);
+  });
+});
+
 describe("a request refused for rate (429)", () => {
   /** The harness, with the first `times` requests to `path` refused for rate. */
   function limited(path: string, times: number, retryAfter: string | null = "3") {

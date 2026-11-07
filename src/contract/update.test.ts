@@ -59,7 +59,7 @@ const PORT_BASE = Number(process.env["CONTRACT_UPDATE_PORT_BASE"] ?? Number(proc
 const ADMIN = { email: process.env["E2E_ADMIN_EMAIL"] ?? "e2e@adminium.local", password: process.env["E2E_ADMIN_PASSWORD"] ?? "adminium-e2e-password" };
 const PREFIX = "events_";
 
-/** What 0.2.5 adds to 0.2.4's tables, from the manifest: the update's plan must be exactly this. */
+/** What 0.2.5 and 0.2.6 add to 0.2.4's tables, from the manifest: the update's plan must be exactly this. */
 const NEW_TABLES: string[] = [];
 const NEW_COLUMNS: Record<string, string[]> = { customers: ["language"] };
 
@@ -69,7 +69,7 @@ const realNow = () => performance.timeOrigin + performance.now();
 
 const released = why === null ? releasedBundle() : null;
 const FROM = released?.version ?? "0.2.4";
-const TO = why === null ? appBundle().version : "0.2.5";
+const TO = why === null ? appBundle().version : "0.2.6";
 
 describe.skipIf(why !== null)(`the update of a live ${FROM} venue to ${TO}${why === null ? "" : ` — skipped: ${why}`}`, () => {
   ENGINES.forEach(([engine, available], index) => {

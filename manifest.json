@@ -3,7 +3,7 @@
   "manifestVersion": 1,
   "key": "events",
   "name": "Event Ticketing",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "publisher": {
     "id": "adminium",
     "name": "Adminium",
@@ -18,7 +18,7 @@
     "hospitality"
   ],
   "compatibility": {
-    "minAdminiumVersion": "0.3.38",
+    "minAdminiumVersion": "0.3.49",
     "engines": [
       "sqlite",
       "postgres",
@@ -52,7 +52,8 @@
       "routes": {
         "boxOffice": "/",
         "door": "/door"
-      }
+      },
+      "instances": true
     },
     {
       "side": "customer",
@@ -77,7 +78,8 @@
         "ticket": "/t",
         "signIn": "/sign-in",
         "myTickets": "/my-tickets"
-      }
+      },
+      "instances": true
     }
   ],
   "addOns": {

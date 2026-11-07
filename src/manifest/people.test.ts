@@ -62,7 +62,7 @@ describe("the venue's people", () => {
         carry: [{ consent: { from: "orders", via: "customer_id", column: "opt_in", latest: "confirmed_at" } }],
       },
     ]);
-    expect(manifest.compatibility["minAdminiumVersion"]).toBe("0.3.38");
+    expect(manifest.compatibility["minAdminiumVersion"]).toBe("0.3.49");
   });
 
   it("have one address: the outbox's and the one they sign in with", () => {

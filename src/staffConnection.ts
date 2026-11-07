@@ -87,6 +87,12 @@ export function configBase(bakedBase: string, pathname: string): string {
  */
 export interface StaffConfig {
   connectionId: string | null;
+  /**
+   * Which install of the app this side is (one app can be installed on
+   * several databases). Every Adminium call carries it as
+   * `X-Adminium-Install`; null from an Adminium too old to say.
+   */
+  installId: string | null;
   appName: string | null;
   tables: Record<string, string>;
   settings: Record<string, unknown>;
@@ -194,6 +200,7 @@ export async function loadStaffConfig(opts: StaffConfigOptions = {}): Promise<St
     const user = record(d.user);
     return {
       connectionId: text(d.connectionId),
+      installId: text(d.installId),
       appName: text(d.appName),
       tables: Object.fromEntries(
         Object.entries(record(d.tables)).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
@@ -217,6 +224,31 @@ export async function loadStaffConfig(opts: StaffConfigOptions = {}): Promise<St
     };
   } catch {
     // An older server answers this path with the SPA index (HTML).
+    return null;
+  }
+}
+
+/**
+ * The add-ons attached to the install a CUSTOMER page is served for, by key —
+ * or null outside a hosted build, or when no config answers.
+ *
+ * Read from the page's own mount (`configBase`), never the baked base: a later
+ * install is served at `/apps/<key>/<slug>/customer/`, and the baked
+ * `/apps/<key>/customer/` names the first install, whose add-ons are not this
+ * one's.
+ */
+export async function loadAttachedAddOns(opts: { hosted?: boolean; base?: string; pathname?: string; fetchImpl?: typeof fetch } = {}): Promise<Record<string, unknown> | null> {
+  if (!(opts.hosted ?? HOSTED)) return null;
+  const base =
+    opts.base ??
+    configBase(import.meta.env.BASE_URL, opts.pathname ?? window.location.pathname);
+  const doFetch = opts.fetchImpl ?? fetch;
+  try {
+    const res = await doFetch(`${base}surface-config.json`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const doc: unknown = await res.json();
+    return record(record(doc).addOns);
+  } catch {
     return null;
   }
 }
