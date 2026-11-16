@@ -66,6 +66,14 @@ const PREFIX = "events_";
  * venue's switch for automatic refunds).
  */
 const NEW_TABLES: string[] = [];
+/** The values paying online adds to 0.2.4's lists (an order paying online, paid online, its tickets email): only added, never taken away. */
+const NEW_VALUES: Record<string, Record<string, string[]>> = {
+  orders: { status: ["paying"], paid_method: ["online"] },
+  tickets: { order_status: ["paying"] },
+  payments: { method: ["online"] },
+  refunds: { method: ["online"] },
+  messages: { kind: ["tickets-online"] },
+};
 /**
  * The added columns Adminium works out (a rollup, a formula) or fills with their default on the rows that were
  * there: each may be filled, only with what the old rows say — nothing came in online, nothing went back
@@ -329,7 +337,7 @@ describe.skipIf(why !== null)(`the update of a live ${FROM} venue to ${TO}${why 
         tables: { ref: string; table: string; class: string; action: string; edits: { kind: string; column: string; values?: string[] }[]; blocked: unknown[]; renameExistingTo?: string }[];
       };
 
-      it(`plans the update to ${TO}: a customer's language, and nothing dropped, renamed or rewritten`, async () => {
+      it(`plans the update to ${TO}: a customer's language, what paying online keeps, and nothing dropped, renamed or rewritten`, async () => {
         const app = appBundle();
         await upload(app);
         plan = ok(await staff.post<{ plan: typeof plan }>("/api/v1/apps/plan", { key: app.key, version: app.version, connectionId })).plan;
@@ -348,7 +356,9 @@ describe.skipIf(why !== null)(`the update of a live ${FROM} venue to ${TO}${why 
           const planned = byRef[ref]!;
           expect([ref, planned.action, planned.class, planned.table, planned.renameExistingTo, planned.blocked]).toEqual([ref, "reuse", "own-leftover", `${PREFIX}${ref}`, undefined, []]);
           expect([ref, planned.edits.filter((e) => e.kind === "add-column").map((e) => e.column).sort()]).toEqual([ref, NEW_COLUMNS[ref] ?? []]);
-          expect([ref, planned.edits.filter((e) => e.kind !== "add-column")]).toEqual([ref, []]);
+          const widened = Object.fromEntries(planned.edits.filter((e) => e.kind === "enum-values").map((e) => [e.column, [...(e.values ?? [])].sort()]));
+          expect([ref, widened]).toEqual([ref, NEW_VALUES[ref] ?? {}]);
+          expect([ref, planned.edits.filter((e) => e.kind !== "add-column" && e.kind !== "enum-values")]).toEqual([ref, []]);
         }
       }, 120_000);
 
