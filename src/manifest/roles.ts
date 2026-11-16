@@ -15,6 +15,12 @@
  *                message; never marks an order paid while money is owed, and
  *                never changes an order's buyer, channel or note.
  *
+ *   box-office-manager  everything the box office does, and gives money
+ *                back to buyers who paid online (Adminium sends it back
+ *                through the payment service). The box office records
+ *                refunds of door and transfer money; it never sends money
+ *                back online.
+ *
  * Adminium's own admins see everything, as ever.
  *
  * The screens show or hide a button by the role, but the grants and the
@@ -47,16 +53,25 @@ const DOOR_READS = [
   "devices",
 ];
 
+/** What the box office holds: every table, page and buyer's details. */
+const BOX_OFFICE = [
+  "app:@:staff",
+  ...TABLE_REFS.flatMap((table) => (KEPT.has(table) ? grant(table, "read", "create", "update") : grant(table, "read", "create", "update", "delete"))),
+  ...PAGE_REFS.flatMap((page) => [view(page), `page:@${page}:edit`]),
+  ...["orders", "customers", "tickets", "waitlist", "reminders", "messages", "guest_list"].map(pii),
+];
+
 export const ROLES = [
   {
     key: "box-office",
     name: "Box office",
-    permissions: [
-      "app:@:staff",
-      ...TABLE_REFS.flatMap((table) => (KEPT.has(table) ? grant(table, "read", "create", "update") : grant(table, "read", "create", "update", "delete"))),
-      ...PAGE_REFS.flatMap((page) => [view(page), `page:@${page}:edit`]),
-      ...["orders", "customers", "tickets", "waitlist", "reminders", "messages", "guest_list"].map(pii),
-    ],
+    permissions: BOX_OFFICE,
+  },
+  {
+    key: "box-office-manager",
+    name: "Box office manager",
+    // The right to give back online payments, for this app's own payments only.
+    permissions: [...BOX_OFFICE, "payments:@:refund"],
   },
   {
     key: "door",

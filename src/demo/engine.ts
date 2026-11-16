@@ -79,8 +79,8 @@ const RULE_SET = MANIFEST_RULES as unknown as {
   producers: Json[];
 };
 
-/** An order's states whose tickets count for good: no hold ends them. */
-const COUNTED = ["door", "awaiting_transfer", "overdue", "no_charge", "paid"];
+/** An order's states whose tickets count for good: no hold ends them (paying online ends only by its own timed move). */
+const COUNTED = ["paying", "door", "awaiting_transfer", "overdue", "no_charge", "paid"];
 const iso = (ms: number) => new Date(ms).toISOString();
 
 export function holds(row: Readonly<Record<string, unknown>>, c: Condition): boolean {
@@ -598,21 +598,30 @@ export class Engine {
   // ── stamps, effects, emails ─────────────────────────────────────────────────
 
   private stamp(table: Table, before: Row | null, row: Record<string, unknown>, writer: Writer): void {
+    type Trigger = string | { column?: string; values?: unknown[]; filled?: true; columns?: string[] };
+    const fires = (on: Trigger): boolean =>
+      on === "create"
+        ? before === null
+        : typeof on === "object" && on.columns !== undefined
+          ? before === null || on.columns.some((c) => before[c] !== row[c])
+          : typeof on === "object" && on.filled === true
+            ? (before === null || before[on.column!] === null || before[on.column!] === undefined) && row[on.column!] !== null && row[on.column!] !== undefined
+            : typeof on === "object" && on.values !== undefined
+              ? (before === null || before[on.column!] !== row[on.column!]) && on.values.includes(row[on.column!])
+              : false;
     for (const [column, rule] of Object.entries(RULE_SET.stamps[table] ?? {})) {
-      const on = rule.on as string | { column?: string; values?: unknown[]; filled?: true; columns?: string[] };
-      const fires =
-        on === "create"
-          ? before === null
-          : typeof on === "object" && on.columns !== undefined
-            ? before === null || on.columns.some((c) => before[c] !== row[c])
-            : typeof on === "object" && on.filled === true
-              ? (before === null || before[on.column!] === null || before[on.column!] === undefined) && row[on.column!] !== null && row[on.column!] !== undefined
-              : typeof on === "object" && on.values !== undefined
-                ? (before === null || before[on.column!] !== row[on.column!]) && on.values.includes(row[on.column!])
-                : false;
-      if (!fires) continue;
+      // One trigger, or a list of them: any one fires the stamp.
+      const on = rule.on as Trigger | Trigger[];
+      if (!(Array.isArray(on) ? on.some(fires) : fires(on))) continue;
       const set = rule.set as string | Json;
       const at = this.judgedAt(writer);
+      // A word for a public write; staff write their own (a stamp with no staff word keeps what they wrote).
+      if (typeof set === "object" && "byOrigin" in set) {
+        const words = set["byOrigin"] as { public: string; staff?: string };
+        const word = writer.origin === "public" ? words.public : words.staff;
+        if (word !== undefined) row[column] = word;
+        continue;
+      }
       if (set === "now") row[column] = iso(at);
       else if (set === "today") row[column] = iso(at).slice(0, 10);
       else if (set === "user-name") row[column] = writer.name;

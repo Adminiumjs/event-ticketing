@@ -45,6 +45,18 @@ export const EMAIL_DE: EmailWords = {
     "button": "Meine Bestellung ansehen",
     "foot": "Bestellung {{order.number}}. Der Button öffnet deine Bestellung – heb diese E-Mail gut auf."
   },
+  "tickets-online": {
+    "name": "Deine Tickets (online bezahlt)",
+    "subject": "Deine Tickets für {{order.event.name}} · {{order.number}}",
+    "preheader": "Online bezahlt · {{order.total}}",
+    "heading": "Du bist dabei: {{order.event.name}}",
+    "paras": [
+      "{{order.event.doors_at.date}} · Einlass {{order.event.doors_at.time}} · Beginn {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
+      "Online bezahlt: {{order.total}}. Deine Tickets gelten ab sofort. Zeig am Einlass den Code jedes Tickets."
+    ],
+    "button": "Meine Bestellung ansehen",
+    "foot": "Bestellung {{order.number}}. Der Button öffnet deine Bestellung – heb diese E-Mail gut auf."
+  },
   "transfer-confirm": {
     "name": "Bestätige deine Bestellung",
     "subject": "Bestätige deine Bestellung für {{order.event.name}} · {{order.number}}",
@@ -312,6 +324,8 @@ export const EMAIL_DE: EmailWords = {
     "button": "Meine Bestellung ansehen",
     "foot": "Bestellung {{order.number}} · {{order.event.name}}."
   },
+  "refundSentHeading": "Erstattung gesendet",
+  "refundSentPara": "Wir haben {{refund.amount}} für Bestellung {{order.number}} zurück auf die Karte oder das PayPal-Konto geschickt, mit dem du bezahlt hast. Es kann ein paar Tage dauern, bis du es siehst.",
   "tickets-cancelled": {
     "name": "Tickets storniert",
     "subject": "Tickets deiner Bestellung für {{order.event.name}} sind storniert · {{order.number}}",
@@ -390,6 +404,18 @@ export const EMAIL_FR: EmailWords = {
     "paras": [
       "{{order.event.doors_at.date}} · Ouverture des portes à {{order.event.doors_at.time}} · sur scène à {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
       "Tout est réglé : {{order.total}}. Présentez le code de chaque billet à l'entrée."
+    ],
+    "button": "Voir ma commande",
+    "foot": "Commande {{order.number}}. Le bouton ouvre votre commande : gardez cet e-mail."
+  },
+  "tickets-online": {
+    "name": "Vos billets (payés en ligne)",
+    "subject": "Vos billets pour {{order.event.name}} · {{order.number}}",
+    "preheader": "Payé en ligne · {{order.total}}",
+    "heading": "Vous venez à {{order.event.name}}",
+    "paras": [
+      "{{order.event.doors_at.date}} · Ouverture des portes à {{order.event.doors_at.time}} · sur scène à {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
+      "Payé en ligne : {{order.total}}. Vos billets sont valables dès maintenant. Présentez le code de chaque billet à l'entrée."
     ],
     "button": "Voir ma commande",
     "foot": "Commande {{order.number}}. Le bouton ouvre votre commande : gardez cet e-mail."
@@ -661,6 +687,8 @@ export const EMAIL_FR: EmailWords = {
     "button": "Voir ma commande",
     "foot": "Commande {{order.number}} · {{order.event.name}}."
   },
+  "refundSentHeading": "Remboursement envoyé",
+  "refundSentPara": "Nous avons renvoyé {{refund.amount}} sur la carte ou le compte PayPal utilisé pour la commande {{order.number}}. Cela peut prendre quelques jours avant d'apparaître.",
   "tickets-cancelled": {
     "name": "Billets annulés",
     "subject": "Des billets de votre commande pour {{order.event.name}} sont annulés · {{order.number}}",
@@ -739,6 +767,18 @@ export const EMAIL_DA: EmailWords = {
     "paras": [
       "{{order.event.doors_at.date}} · Dørene åbner {{order.event.doors_at.time}} · på scenen {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
       "Betalt fuldt ud: {{order.total}}. Vis hver billets kode ved døren."
+    ],
+    "button": "Se min ordre",
+    "foot": "Ordre {{order.number}}. Knappen åbner din ordre – gem denne mail."
+  },
+  "tickets-online": {
+    "name": "Dine billetter (betalt online)",
+    "subject": "Dine billetter til {{order.event.name}} · {{order.number}}",
+    "preheader": "Betalt online · {{order.total}}",
+    "heading": "Du skal til {{order.event.name}}",
+    "paras": [
+      "{{order.event.doors_at.date}} · Dørene åbner {{order.event.doors_at.time}} · på scenen {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
+      "Betalt online: {{order.total}}. Dine billetter gælder nu. Vis hver billets kode ved døren."
     ],
     "button": "Se min ordre",
     "foot": "Ordre {{order.number}}. Knappen åbner din ordre – gem denne mail."
@@ -1010,6 +1050,8 @@ export const EMAIL_DA: EmailWords = {
     "button": "Se min ordre",
     "foot": "Ordre {{order.number}} · {{order.event.name}}."
   },
+  "refundSentHeading": "Refusion sendt",
+  "refundSentPara": "Vi har sendt {{refund.amount}} tilbage til det kort eller den PayPal-konto, du betalte ordre {{order.number}} med. Der kan gå et par dage, før du kan se det.",
   "tickets-cancelled": {
     "name": "Billetter annulleret",
     "subject": "Billetter på din ordre til {{order.event.name}} er annulleret · {{order.number}}",
@@ -1088,6 +1130,18 @@ export const EMAIL_CS: EmailWords = {
     "paras": [
       "{{order.event.doors_at.date}} · Otevíráme v {{order.event.doors_at.time}} · na pódiu od {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
       "Zaplaceno v plné výši: {{order.total}}. U vchodu ukažte kód každé vstupenky."
+    ],
+    "button": "Zobrazit objednávku",
+    "foot": "Objednávka {{order.number}}. Tlačítko otevře vaši objednávku – tento e-mail si uschovejte."
+  },
+  "tickets-online": {
+    "name": "Vaše vstupenky (zaplaceno online)",
+    "subject": "Vaše vstupenky na {{order.event.name}} · {{order.number}}",
+    "preheader": "Zaplaceno online · {{order.total}}",
+    "heading": "Jdete na {{order.event.name}}",
+    "paras": [
+      "{{order.event.doors_at.date}} · Otevíráme v {{order.event.doors_at.time}} · na pódiu od {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
+      "Zaplaceno online: {{order.total}}. Vaše vstupenky teď platí. U vchodu ukažte kód každé vstupenky."
     ],
     "button": "Zobrazit objednávku",
     "foot": "Objednávka {{order.number}}. Tlačítko otevře vaši objednávku – tento e-mail si uschovejte."
@@ -1359,6 +1413,8 @@ export const EMAIL_CS: EmailWords = {
     "button": "Zobrazit objednávku",
     "foot": "Objednávka {{order.number}} · {{order.event.name}}."
   },
+  "refundSentHeading": "Peníze odeslány zpět",
+  "refundSentPara": "Poslali jsme {{refund.amount}} za objednávku {{order.number}} zpět na kartu nebo účet PayPal, kterým jste platili. Může trvat několik dní, než se objeví.",
   "tickets-cancelled": {
     "name": "Vstupenky zrušeny",
     "subject": "Vstupenky ve vaší objednávce na {{order.event.name}} jsou zrušené · {{order.number}}",
@@ -1437,6 +1493,18 @@ export const EMAIL_AR: EmailWords = {
     "paras": [
       "{{order.event.doors_at.date}} · فتح الأبواب {{order.event.doors_at.time}} · على المسرح {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
       "المبلغ مدفوع بالكامل: {{order.total}}. اعرض رمز كل تذكرة عند الباب."
+    ],
+    "button": "عرض طلبي",
+    "foot": "الطلب {{order.number}}. الزر يفتح طلبك، فاحتفظ بهذه الرسالة."
+  },
+  "tickets-online": {
+    "name": "تذاكرك (مدفوعة عبر الإنترنت)",
+    "subject": "تذاكرك لحضور {{order.event.name}} · {{order.number}}",
+    "preheader": "دُفع عبر الإنترنت · {{order.total}}",
+    "heading": "أنت على موعد مع {{order.event.name}}",
+    "paras": [
+      "{{order.event.doors_at.date}} · فتح الأبواب {{order.event.doors_at.time}} · على المسرح {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
+      "دُفع عبر الإنترنت: {{order.total}}. تذاكرك صالحة الآن. اعرض رمز كل تذكرة عند الباب."
     ],
     "button": "عرض طلبي",
     "foot": "الطلب {{order.number}}. الزر يفتح طلبك، فاحتفظ بهذه الرسالة."
@@ -1708,6 +1776,8 @@ export const EMAIL_AR: EmailWords = {
     "button": "عرض طلبي",
     "foot": "الطلب {{order.number}} · {{order.event.name}}."
   },
+  "refundSentHeading": "تم إرسال المبلغ المسترد",
+  "refundSentPara": "أرسلنا {{refund.amount}} عن الطلب {{order.number}} إلى البطاقة أو حساب PayPal الذي دفعت به. قد يستغرق ظهوره بضعة أيام.",
   "tickets-cancelled": {
     "name": "أُلغيت التذاكر",
     "subject": "أُلغيت تذاكر من طلبك لحضور {{order.event.name}} · {{order.number}}",
@@ -1786,6 +1856,18 @@ export const EMAIL_ZH_CN: EmailWords = {
     "paras": [
       "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 开门 · {{order.event.starts_at.time}} 开演 · {{order.room.name}}。{{order.event.age_note}}",
       "已全额付款：{{order.total}}。入场时请出示每张票的票码。"
+    ],
+    "button": "查看我的订单",
+    "foot": "订单 {{order.number}}。点击按钮即可打开订单，请保留这封邮件。"
+  },
+  "tickets-online": {
+    "name": "你的门票（已在线支付）",
+    "subject": "你的 {{order.event.name}} 门票 · {{order.number}}",
+    "preheader": "已在线支付 · {{order.total}}",
+    "heading": "{{order.event.name}}，不见不散",
+    "paras": [
+      "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 开门 · {{order.event.starts_at.time}} 开演 · {{order.room.name}}。{{order.event.age_note}}",
+      "已在线支付：{{order.total}}。你的门票现已生效。入场时请出示每张票的票码。"
     ],
     "button": "查看我的订单",
     "foot": "订单 {{order.number}}。点击按钮即可打开订单，请保留这封邮件。"
@@ -2057,6 +2139,8 @@ export const EMAIL_ZH_CN: EmailWords = {
     "button": "查看我的订单",
     "foot": "订单 {{order.number}} · {{order.event.name}}。"
   },
+  "refundSentHeading": "退款已发出",
+  "refundSentPara": "我们已将订单 {{order.number}} 的 {{refund.amount}} 退回到你付款时使用的银行卡或 PayPal 账户。到账可能需要几天时间。",
   "tickets-cancelled": {
     "name": "门票已取消",
     "subject": "你的 {{order.event.name}} 订单中的门票已取消 · {{order.number}}",
@@ -2135,6 +2219,18 @@ export const EMAIL_ZH_TW: EmailWords = {
     "paras": [
       "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 入場 · {{order.event.starts_at.time}} 演出開始 · {{order.room.name}}。{{order.event.age_note}}",
       "已全額付清：{{order.total}}。入場時請出示每張票的代碼。"
+    ],
+    "button": "查看我的訂單",
+    "foot": "訂單 {{order.number}}。按下按鈕即可開啟你的訂單，請保留這封信。"
+  },
+  "tickets-online": {
+    "name": "你的票券（已線上付款）",
+    "subject": "你的 {{order.event.name}} 票券 · {{order.number}}",
+    "preheader": "已線上付款 · {{order.total}}",
+    "heading": "{{order.event.name}}，等你來！",
+    "paras": [
+      "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 入場 · {{order.event.starts_at.time}} 演出開始 · {{order.room.name}}。{{order.event.age_note}}",
+      "已線上付款：{{order.total}}。你的票券現在已經可以使用。入場時請出示每張票的票碼。"
     ],
     "button": "查看我的訂單",
     "foot": "訂單 {{order.number}}。按下按鈕即可開啟你的訂單，請保留這封信。"
@@ -2406,6 +2502,8 @@ export const EMAIL_ZH_TW: EmailWords = {
     "button": "查看我的訂單",
     "foot": "訂單 {{order.number}} · {{order.event.name}}。"
   },
+  "refundSentHeading": "退款已送出",
+  "refundSentPara": "我們已將訂單 {{order.number}} 的 {{refund.amount}} 退回到你付款時使用的信用卡或 PayPal 帳戶。可能需要幾天才會顯示。",
   "tickets-cancelled": {
     "name": "票券已取消",
     "subject": "你的 {{order.event.name}} 訂單中有票券已取消 · {{order.number}}",

@@ -34,13 +34,13 @@ const MOST_ROWS = 20_000;
 export const DOOR_DEADLINE_MS = 6_000;
 const HURRY: CallOptions = { deadlineMs: DOOR_DEADLINE_MS };
 /** The columns the data API answers as decimal strings, read as numbers here. */
-const MONEY = new Set(["price", "subtotal", "discount", "adjusted", "total", "collected", "paid_in", "refunded", "balance", "due", "code_value", "value", "live_price", "live_discount", "amount", "received", "owed_door", "owed_transfer", "owed_overdue"]);
+const MONEY = new Set(["price", "subtotal", "discount", "adjusted", "total", "collected", "paid_in", "online_in", "back_elsewhere", "refunded_elsewhere", "counted", "refunded", "balance", "due", "code_value", "value", "live_price", "live_discount", "amount", "received", "owed_door", "owed_transfer", "owed_overdue"]);
 
 /**
  * The app's yes/no columns (every `bool` in the manifest): MySQL and SQLite answer them as 0/1, read
  * here as false/true so no screen meets a number where it asks a yes.
  */
-export const BOOLS = new Set(["accounts_on", "active", "admits_day1", "admits_day2", "admits_day3", "codes_on", "door_on", "eve_email", "lapsed", "link_stopped", "opt_in", "pay_door", "pay_transfer", "questions_on", "required", "selling", "send_on", "sets_published", "timetable_on", "tonight_email_on", "transfer_on", "voided", "waitlist_on"]);
+export const BOOLS = new Set(["accounts_on", "active", "auto_refund", "admits_day1", "admits_day2", "admits_day3", "codes_on", "door_on", "eve_email", "lapsed", "link_stopped", "opt_in", "pay_door", "pay_transfer", "questions_on", "required", "selling", "send_on", "sets_published", "timetable_on", "tonight_email_on", "transfer_on", "voided", "waitlist_on"]);
 
 /** A time with no zone, as a database that keeps none answers it: `2026-07-29 01:59:17.183`. */
 const WALL = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(\.\d+)?)?$/;

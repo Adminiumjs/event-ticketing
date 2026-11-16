@@ -9,6 +9,8 @@
  *   tickets-paid           paid by card or cash before any email carried the
  *                          tickets (at the box office, or an unpaid transfer
  *                          settled there);
+ *   tickets-online         paid online, through Adminium's pay page: the
+ *                          tickets (Adminium sends the receipt itself);
  *   transfer-confirm       the buyer chose a bank transfer: the confirm link,
  *                          emailed only here (the order waits for it);
  *   transfer-confirm-offer the same for a waitlist offer claimed by transfer,
@@ -31,7 +33,8 @@
  *                          day, or at 18:00 the evening before a daytime show
  *                          (never to an order with no ticket left, nor to a
  *                          friend holding a ticket of an order that is gone);
- *   refund-recorded        money given back, one email for each refund;
+ *   refund-recorded        money given back, one email for each refund (sent
+ *                          back online, it says so: "Refund sent");
  *   tickets-cancelled      the box office cancelled tickets, or a refund request
  *                          was approved, or the buyer cancelled unpaid ones;
  *   refund-declined        a refund request was declined.
@@ -58,6 +61,7 @@
 export const KINDS = [
   "tickets",
   "tickets-paid",
+  "tickets-online",
   "transfer-confirm",
   "transfer-confirm-offer",
   "transfer-waiting",
@@ -165,6 +169,7 @@ export const OUTBOX = {
     { kind: "transfer-waiting", ...byOrder, ...onOrder("status", "awaiting_transfer") },
     { kind: "transfer-released", ...byOrder, ...onOrder("status", "released") },
     { kind: "payment-received", ...byOrder, ...onOrder("status", "paid", { column: "paid_email", eq: 2 }) },
+    { kind: "tickets-online", ...byOrder, ...onOrder("status", "paid", { column: "paid_email", eq: 3 }) },
     { kind: "waitlist-offer", ...byOrder, ...onOrder("status", "offered") },
     // The show's cancellation, held until the box office sends it: the cause is written with the move.
     { kind: "cancelled-paid", ...byOrder, hold: true, ...onOrder("cancel_cause", "show", { column: "cancel_email", eq: 1 }) },

@@ -26,6 +26,10 @@
  * the newsletter by hand: it is set by a tick, and cleared by an unsubscribe
  * or by deleting their details.
  *
+ * Paying online: the order moves on to `paying` through the same doors, and
+ * the page asks Adminium for the order's pay link (never an amount of its
+ * own); what came in online reads back as `online_in`.
+ *
  * What never leaves: payments, refunds, door money, guest lists, codes,
  * messages, doors, check-ins, anyone else's order, the link and confirm codes,
  * the retry keys, who at the box office did what, why something was
@@ -54,6 +58,7 @@ export const ORDER_SELECT = [
   "ticket_count",
   "collected",
   "paid_in",
+  "online_in",
   "refunded",
   "balance",
   "held_until",
@@ -102,10 +107,10 @@ export const TICKET_SELECT = [
 ];
 
 /** An order's states in which its tickets can be named: held in a checkout, or live. */
-const NAMED = ["held", "confirming", "offered", "door", "no_charge", "paid", "awaiting_transfer", "overdue"];
+const NAMED = ["held", "paying", "confirming", "offered", "door", "no_charge", "paid", "awaiting_transfer", "overdue"];
 
 /** An order's states in which nothing is paid yet: its tickets carry no code to the browser. */
-const UNPAID = ["held", "confirming", "offered", "awaiting_transfer", "overdue", "released"];
+const UNPAID = ["held", "paying", "confirming", "offered", "awaiting_transfer", "overdue", "released"];
 
 /**
  * A friend's code stays with the friend (their address is never read at all); the buyer sees "Sent to Kai Renner".
@@ -226,14 +231,15 @@ function orderEntry(keyed: Record<string, unknown>, who: Record<string, unknown>
   return {
     // Choosing how to pay, letting a checkout go, keeping tickets after a move. Never on to waiting for a
     // transfer: the emailed confirm does that. "No charge" is for a free show's places only: the order's own
-    // rule refuses it while anything is to pay. Which move is allowed from where is the order's own rule.
+    // rule refuses it while anything is to pay. Paying online moves the order on to `paying`, never to paid:
+    // only a payment Adminium took does that. Which move is allowed from where is the order's own rule.
     table: "orders",
     ...keyed,
     methods: ["GET", "PATCH"],
     ...who,
     select: ORDER_SELECT,
     writable: ["status", "buyer_name", "opt_in", "answers", "access_note", "language", "kept_at"],
-    writableValues: { status: ["confirming", "door", "no_charge", "let_go"] },
+    writableValues: { status: ["paying", "confirming", "door", "no_charge", "let_go"] },
     writableWhen: { status: LIVE_ORDER },
     documents: ["receipt"],
     consent: NEWS_TICK,

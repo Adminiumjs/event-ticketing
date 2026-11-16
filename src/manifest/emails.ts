@@ -46,6 +46,9 @@ export type EmailWords = Record<Kind, Words> & {
   bankReference: string;
   /** Said only when the email carries the receipt (Invoices & Receipts draws it). */
   receiptAttached: string;
+  /** "Refund recorded", for a refund sent back online (it names the payment it gives back): its heading and its words. */
+  refundSentHeading: string;
+  refundSentPara: string;
 };
 
 const KEEP = "Order {{order.number}}. The button opens your order — keep this email.";
@@ -62,6 +65,8 @@ export const EMAIL_EN: EmailWords = {
   bankRouting: "Sort code or routing number",
   bankReference: "Reference",
   receiptAttached: "Your receipt is attached.",
+  refundSentHeading: "Refund sent",
+  refundSentPara: "We've sent {{refund.amount}} back to the card or PayPal account you paid with, for order {{order.number}}. It can take a few days to show.",
   tickets: {
     name: "Your tickets",
     subject: "Your tickets for {{order.event.name}} · {{order.number}}",
@@ -82,6 +87,18 @@ export const EMAIL_EN: EmailWords = {
     paras: [
       "{{order.event.doors_at.date}} · Doors {{order.event.doors_at.time}} · on stage {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
       "Paid in full: {{order.total}}. Show each ticket's code at the door.",
+    ],
+    button: "See my order",
+    foot: KEEP,
+  },
+  "tickets-online": {
+    name: "Your tickets (paid online)",
+    subject: "Your tickets for {{order.event.name}} · {{order.number}}",
+    preheader: "Paid online · {{order.total}}",
+    heading: "You're going to {{order.event.name}}",
+    paras: [
+      "{{order.event.doors_at.date}} · Doors {{order.event.doors_at.time}} · on stage {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
+      "Paid online: {{order.total}}. Your tickets work now. Show each ticket's code at the door.",
     ],
     button: "See my order",
     foot: KEEP,
@@ -375,7 +392,7 @@ const TICKET_ROWS: Block = {
 };
 
 /** The emails that carry the order's tickets. */
-const WITH_TICKETS: ReadonlySet<Kind> = new Set(["tickets", "tickets-paid", "payment-received", "tonight", "tomorrow"]);
+const WITH_TICKETS: ReadonlySet<Kind> = new Set(["tickets", "tickets-paid", "tickets-online", "payment-received", "tonight", "tomorrow"]);
 /** The emails that carry the receipt, when an add-on draws one: without it they go as they are, minus the line saying so. */
 const WITH_RECEIPT: ReadonlySet<Kind> = new Set(["payment-received"]);
 /** The receipt each of those carries. */
@@ -400,10 +417,22 @@ const BUTTON_URL: Partial<Record<Kind, string>> = {
   "on-sale-presale": "{{booking_url}}",
 };
 
+/** A refund sent back online names the payment it gives back; one the box office recorded names none. */
+const ONLINE_REFUND = "refund.payment_id";
+
 function layout(kind: Kind, all: EmailWords) {
   const w = all[kind];
-  const blocks: Block[] = [{ block: "email.heading", id: "heading", data: { text: w.heading } }];
-  blocks.push({ block: "email.text", id: "body", data: { paras: w.paras } });
+  const blocks: Block[] = [];
+  if (kind === "refund-recorded") {
+    // Recorded by the box office, or sent back online by Adminium: the same email, its words picked by the refund.
+    blocks.push({ block: "email.heading", id: "heading", data: { text: w.heading, onlyWithout: ONLINE_REFUND } });
+    blocks.push({ block: "email.text", id: "body", data: { paras: w.paras, onlyWithout: ONLINE_REFUND } });
+    blocks.push({ block: "email.heading", id: "heading-online", data: { text: all.refundSentHeading, onlyWith: ONLINE_REFUND } });
+    blocks.push({ block: "email.text", id: "body-online", data: { paras: [all.refundSentPara], onlyWith: ONLINE_REFUND } });
+  } else {
+    blocks.push({ block: "email.heading", id: "heading", data: { text: w.heading } });
+    blocks.push({ block: "email.text", id: "body", data: { paras: w.paras } });
+  }
   if (WITH_TICKETS.has(kind)) blocks.push(TICKET_ROWS);
   if (WITH_RECEIPT.has(kind)) blocks.push({ block: "email.text", id: "receipt", data: { paras: [all.receiptAttached], withAttachment: true } });
   if (WITH_BANK.has(kind)) {

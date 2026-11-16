@@ -47,7 +47,7 @@ const SHOWS_PER_ASK = 20;
 /** The order states a person's own list shows (a checkout still open or let go is not an order yet). */
 const LIVE_OR_PAST = ["door", "awaiting_transfer", "overdue", "no_charge", "paid", "offered", "released", "cancelled", "not_collected"];
 /** The columns the public door answers as decimal strings, read as numbers here. */
-const MONEY = new Set(["price", "subtotal", "discount", "adjusted", "total", "collected", "paid_in", "refunded", "balance", "due", "code_value", "live_price", "live_discount", "received", "owed_door", "owed_transfer", "owed_overdue"]);
+const MONEY = new Set(["price", "subtotal", "discount", "adjusted", "total", "collected", "paid_in", "online_in", "refunded", "balance", "due", "code_value", "live_price", "live_discount", "received", "owed_door", "owed_transfer", "owed_overdue"]);
 
 /** A row as the screens read one: ids and money as numbers. */
 export function rowOf(row: ClientRow): Row {
