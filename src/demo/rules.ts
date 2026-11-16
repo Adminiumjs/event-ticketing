@@ -3825,7 +3825,8 @@ export const MANIFEST_RULES = {
           "delete"
         ]
       },
-      "limits": null
+      "limits": null,
+      "refund": false
     },
     {
       "key": "box-office-manager",
@@ -3957,7 +3958,8 @@ export const MANIFEST_RULES = {
           "delete"
         ]
       },
-      "limits": null
+      "limits": null,
+      "refund": true
     },
     {
       "key": "door",
@@ -4028,7 +4030,8 @@ export const MANIFEST_RULES = {
             "arrived"
           ]
         }
-      }
+      },
+      "refund": false
     }
   ],
   "producers": [
@@ -4522,5 +4525,47 @@ export const MANIFEST_RULES = {
     "refund-declined": "events-refund-declined",
     "broadcast": "events-broadcast",
     "broadcast-holder": "events-broadcast-holder"
+  },
+  "payments": {
+    "table": "orders",
+    "refunds": {
+      "model": "rows",
+      "table": "refunds",
+      "payment": "payment_id",
+      "amount": "amount",
+      "when": [
+        {
+          "column": "method",
+          "eq": "online"
+        }
+      ],
+      "providerRef": "provider_ref",
+      "state": "refund_state",
+      "openIn": "/",
+      "auto": {
+        "values": {
+          "method": "online",
+          "kind": "cancelled_tickets"
+        }
+      }
+    },
+    "refundOn": {
+      "moves": [
+        {
+          "from": [
+            "paid"
+          ],
+          "to": "cancelled",
+          "by": [
+            "system",
+            "refund-right"
+          ]
+        }
+      ],
+      "switch": {
+        "table": "settings",
+        "column": "auto_refund"
+      }
+    }
   }
 } as const;

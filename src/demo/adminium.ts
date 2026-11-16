@@ -29,7 +29,7 @@ export class DemoAdminium {
     this.engine = new Engine(this.world);
     this.audience = new DemoAudience(this.engine);
     this.boxOffice = new DemoBoxOffice(this.engine);
-    this.door = new DemoDoor(this.engine, { name: "Priya", roles: ["box-office"], email: "priya@waveform.example" });
+    this.door = new DemoDoor(this.engine, { name: "Priya", roles: ["box-office-manager"], email: "priya@waveform.example" });
   }
 
   get now(): number {

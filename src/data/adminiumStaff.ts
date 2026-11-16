@@ -14,7 +14,7 @@
  * that Adminium refuses reaches the screens with its code and what it said.
  */
 import { broadcastKind } from "./messageKinds.ts";
-import type { BoxOfficePort, DoorPort, EventChildren, StaffPerson } from "./ports.ts";
+import type { BoxOfficePort, DoorPort, EventChildren, StaffPayments, StaffPerson } from "./ports.ts";
 import { cancelShowOrders, offerPlan, recipientKey } from "./boxSteps.ts";
 import { SessionPortError, type CallOptions, type SessionTransport } from "./sessionSource.ts";
 import type { StaffConfig } from "../staffConnection.ts";
@@ -488,6 +488,38 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
 
   recordRefund(orderId: Id, amount: number, method: "bank_transfer" | "card" | "cash", kind: "cancelled_tickets" | "goodwill", key?: string): Promise<Row> {
     return answer(() => this.keyed("refunds", { order_id: orderId, amount: amount.toFixed(2), method, kind }, key));
+  }
+
+  // ── payments online ───────────────────────────────────────────────────────
+
+  async payments(): Promise<StaffPayments | null> {
+    return this.cfg.payments ?? null;
+  }
+
+  /** The order as Adminium's payments name it: a row of the app's own payable table. */
+  private async payable(orderId: Id): Promise<Record<string, unknown>> {
+    return { kind: "profile", connectionId: this.cfg.connectionId ?? (await this.t.connection()), tableName: this.real("orders"), rowKey: String(orderId) };
+  }
+
+  /**
+   * An order's pay link, as Adminium's payment panel makes it: the one its buyer already holds while it works
+   * (`/payments/links/current`), else a new one (`/payments/links`). Each asks to change the order.
+   */
+  payLink(orderId: Id): Promise<{ url: string; expiresAt: number }> {
+    return answer(async () => {
+      const payable = await this.payable(orderId);
+      const current = await this.mutate<{ data?: { url?: string; expiresAt?: number } | null }>("/api/v1/payments/links/current", "POST", payable);
+      if (typeof current.data?.url === "string" && typeof current.data.expiresAt === "number") return { url: current.data.url, expiresAt: current.data.expiresAt };
+      const made = await this.mutate<{ data?: { link?: { url?: string; expiresAt?: number } } }>("/api/v1/payments/links", "POST", payable);
+      const link = made.data?.link;
+      if (typeof link?.url !== "string" || typeof link.expiresAt !== "number") throw new ApiError(500, "PAY_LINK_EMPTY");
+      return { url: link.url, expiresAt: link.expiresAt };
+    });
+  }
+
+  /** A refund row naming the payment taken online: Adminium sends the money back and stamps where it stands. */
+  refundOnline(orderId: Id, paymentId: Id, amount: number, kind: "cancelled_tickets" | "goodwill", note: string | null, key?: string): Promise<Row> {
+    return answer(() => this.keyed("refunds", { order_id: orderId, payment_id: paymentId, amount: amount.toFixed(2), method: "online", kind, note }, key));
   }
 
   /**

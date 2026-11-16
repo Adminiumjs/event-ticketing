@@ -26,7 +26,11 @@ export function demoRulesText(manifest: Json): string {
       ),
     ),
     limits: r["limits"] ?? null,
+    // Whether the role may send money back online (Adminium's own right, given to the app's role by placeholder).
+    refund: ((r["permissions"] as string[]) ?? []).includes("payments:@:refund"),
   }));
+  /** How an order's refunds go back online, and which moves refund by themselves. */
+  const payable = ((manifest["payments"] as { payables?: Json[] } | undefined)?.payables ?? [])[0];
   const outbox = manifest["outbox"] as Json;
   /** Per table, each column's stamp rule, by column. */
   const stamps = Object.fromEntries(
@@ -72,6 +76,7 @@ export function demoRulesText(manifest: Json): string {
     roles,
     producers: outbox["producers"],
     kinds: outbox["kinds"],
+    payments: payable === undefined ? null : { table: payable["table"], refunds: payable["refunds"], refundOn: payable["refundOn"] },
   };
   return [
     "/**",

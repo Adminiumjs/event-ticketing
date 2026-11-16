@@ -25,6 +25,9 @@ import type { BoxScreen, WaveApp } from "./wave.ts";
 export type BoxScreenId = BoxScreen;
 
 /** The order states whose tickets count for good. */
+/** The box office's roles: the box office, and its manager (who may also send money back online). */
+export const BOX_OFFICE_ROLES = ["box-office", "box-office-manager"];
+export const boxOfficeRole = (roles: readonly string[]): boolean => roles.some((r) => BOX_OFFICE_ROLES.includes(r));
 export const LIVE = ["door", "awaiting_transfer", "overdue", "no_charge", "paid"];
 /** A ticket still in someone's hands. */
 export const LIVE_TICKET = ["valid", "offered", "refund_asked"];
@@ -217,7 +220,7 @@ export class Box {
   /** Someone who works the door and not the box office: the door is all they see. */
   doorOnly(): boolean {
     const me = this.me();
-    return me !== undefined && me.roles.includes("door") && !me.roles.includes("box-office");
+    return me !== undefined && me.roles.includes("door") && !boxOfficeRole(me.roles);
   }
   /**
    * Whether the person may do this to a table, as Adminium says (a button whose write would be refused is

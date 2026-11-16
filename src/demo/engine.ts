@@ -75,9 +75,16 @@ const RULE_SET = MANIFEST_RULES as unknown as {
   uniques: Record<string, string[][]>;
   capacity: Record<string, Json>;
   states: Record<string, States>;
-  roles: { key: string; grants: Record<string, string[]>; limits: Record<string, { writable?: string[]; writableValues?: Record<string, unknown[]> }> | null }[];
+  roles: { key: string; grants: Record<string, string[]>; limits: Record<string, { writable?: string[]; writableValues?: Record<string, unknown[]> }> | null; refund: boolean }[];
   producers: Json[];
+  payments: {
+    table: string;
+    refunds: { table: string; payment: string; amount: string; when: Condition[]; providerRef: string; state: string; auto: { values: Json } };
+    refundOn: { moves: { from?: string[]; to: string; by: string[] }[]; switch?: { table: string; column: string } };
+  } | null;
 };
+/** Adminium sending money back online, as the system: an automatic refund's row. */
+const REFUNDS: Writer = { origin: "automation", name: "Refund", roles: [] };
 
 /** An order's states whose tickets count for good: no hold ends them (paying online ends only by its own timed move). */
 const COUNTED = ["paying", "door", "awaiting_transfer", "overdue", "no_charge", "paid"];
@@ -214,6 +221,7 @@ export class Engine {
       this.judgeLimits([{ table, row }, ...made.map((r) => ({ table: children!.table, row: r }))], writer, true, usage);
       if (children?.table === "tickets") this.judgeLeast(made.map((r) => this.world.get("tickets", r.id)!), writer);
       this.judgeUniques(table);
+      this.sendBack(table, this.world.get(table, row.id)!, writer);
       if (children !== null) this.judgeUniques(children.table);
       this.produce(table, null, this.world.get(table, row.id)!);
       for (const r of made) this.produce(children!.table, null, this.world.get(children!.table, r.id)!);
@@ -340,7 +348,8 @@ export class Engine {
     this.judgeUniques(table);
     if (moving) this.effects(table, before, after);
     this.produce(table, before, after);
-    return { ...after };
+    if (moving) this.refundOn(table, before, after, writer);
+    return { ...this.world.get(table, id)! };
   }
 
   /** A row deleted (a check-in undone, a guest taken off the list). */
@@ -592,6 +601,61 @@ export class Engine {
       if (least === null || least === undefined || n >= Number(least)) continue;
       if (writer.origin === "public") throw new ApiError(400, "PUBLIC_WRITE_REFUSED", { reason: "too-few", group: typeId });
       throw new ApiError(422, "VALIDATION_FAILED", { reason: "too-few", group: typeId });
+    }
+  }
+
+  // ── money sent back online ─────────────────────────────────────────────────
+
+  /** Whether the writer may send money back online: a role given the right, or Adminium itself. */
+  private mayRefund(writer: Writer): boolean {
+    if (writer.origin === "automation") return true;
+    return writer.origin === "staff" && RULE_SET.roles.some((r) => r.refund && writer.roles.includes(r.key));
+  }
+
+  /**
+   * A refund row that sends money back online: refused (and nothing written) unless the writer may give refunds;
+   * then the payment service is asked, which in the demo answers at once — the row is stamped sent, with the
+   * service's reference, as Adminium stamps it.
+   */
+  private sendBack(table: Table, row: Row, writer: Writer): void {
+    const rules = RULE_SET.payments?.refunds;
+    if (rules === undefined || table !== rules.table || !rules.when.every((c) => holds(row, c))) return;
+    if (!this.mayRefund(writer)) throw new ApiError(403, "PAYMENT_REFUND_NOT_ALLOWED", { table });
+    const payment = this.world.get("payments", row[rules.payment] as Id);
+    const taken = Number(payment?.["amount"] ?? 0);
+    const back = this.world
+      .where(table, (r) => r.id !== row.id && r[rules.payment] === row[rules.payment] && r[rules.state] !== "not-sent" && r["voided"] !== true)
+      .reduce((sum, r) => sum + Number(r[rules.amount] ?? 0), 0);
+    const ok = payment !== undefined && payment["method"] === "online" && Number(row[rules.amount] ?? 0) <= taken - back + 0.005;
+    Object.assign(this.world.get(table, row.id)!, ok ? { [rules.state]: "done", [rules.providerRef]: `re_demo_${randomCode(12)}` } : { [rules.state]: "not-sent" });
+    this.world.touched(table, row.id);
+    this.settleAll();
+  }
+
+  /**
+   * A move after which the money goes back by itself (a paid order cancelled), made by someone who may give
+   * refunds or by the clock, while the venue's switch is on: each payment taken online is refunded in full, as
+   * the system, in a row of the app's own. Anyone else's move leaves the money to give back ("Refund owed").
+   */
+  private refundOn(table: Table, before: Row, after: Row, writer: Writer): void {
+    const payments = RULE_SET.payments;
+    if (payments === null || table !== payments.table) return;
+    const states = RULE_SET.states[table]!;
+    const from = String(before[states.column]);
+    const to = String(after[states.column]);
+    const move = payments.refundOn.moves.find((m) => m.to === to && (m.from === undefined || m.from.includes(from)));
+    if (move === undefined) return;
+    const by = writer.origin === "automation" ? "system" : writer.origin === "public" ? "customer" : this.mayRefund(writer) ? "refund-right" : null;
+    if (by === null || !move.by.includes(by)) return;
+    if (payments.refundOn.switch !== undefined && this.setting(payments.refundOn.switch.column) !== true) return;
+    const rules = payments.refunds;
+    for (const payment of this.world.where("payments", (p) => p["order_id"] === after.id && p["method"] === "online")) {
+      const back = this.world
+        .where(rules.table as Table, (r) => r[rules.payment] === payment.id && r[rules.state] !== "not-sent" && r["voided"] !== true)
+        .reduce((sum, r) => sum + Number(r[rules.amount] ?? 0), 0);
+      const left = Math.round((Number(payment["amount"] ?? 0) - back) * 100) / 100;
+      if (left <= 0) continue;
+      this.create(rules.table as Table, { ...rules.auto.values, order_id: after.id, [rules.payment]: payment.id, [rules.amount]: left }, REFUNDS);
     }
   }
 

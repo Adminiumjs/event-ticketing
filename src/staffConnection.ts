@@ -128,6 +128,27 @@ export interface StaffConfig {
    * needs one stays off.
    */
   addOns: Record<string, StaffAddOn>;
+  /**
+   * Whether the app takes payments, and what this person may do with them:
+   * `on` someone switched the app on; `online` buyers can pay online right
+   * now; `test` this person is rehearsing; `refund` they may send money back.
+   * Null from an Adminium that does not say: then no payment control shows.
+   */
+  payments?: StaffConfigPayments | null;
+}
+
+export interface StaffConfigPayments {
+  on: boolean;
+  online: boolean;
+  test: boolean;
+  refund: boolean;
+}
+
+/** `payments` as the server sent it; null when it sent none. */
+function paymentsOf(value: unknown): StaffConfigPayments | null {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
+  const p = value as Record<string, unknown>;
+  return { on: p.on === true, online: p.online === true, test: p.test === true, refund: p.refund === true };
 }
 
 export interface StaffAddOn {
@@ -221,6 +242,7 @@ export async function loadStaffConfig(opts: StaffConfigOptions = {}): Promise<St
       ),
       access: accessOf(d.access),
       addOns: addOnsOf(d.addOns),
+      payments: paymentsOf(d.payments),
     };
   } catch {
     // An older server answers this path with the SPA index (HTML).

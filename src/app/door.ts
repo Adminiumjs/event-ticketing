@@ -20,7 +20,7 @@
 import type { DoorPort } from "../data/ports.ts";
 import { ApiError, isApiError, type Id, type OrderReply, type Row } from "../data/wire.ts";
 import { tr } from "../i18n/tr.ts";
-import { boxOf, LIVE, LIVE_TICKET, plural, refusalOf, type Box } from "./box.ts";
+import { boxOf, boxOfficeRole, LIVE, LIVE_TICKET, plural, refusalOf, type Box } from "./box.ts";
 import type { BoxShow } from "./boxWorld.ts";
 import { codeFace, fD, fT, money, ms, strip } from "./fmt.ts";
 import type { WaveApp } from "./wave.ts";
@@ -829,7 +829,7 @@ export class Door {
     let key = was !== null && was.sig === sig ? was.key : saleKey();
     this.set({ busy: true, sellKey: { key, sig } });
     const dev = this.device();
-    const boxOffice = this.box.me()?.roles.includes("box-office") === true;
+    const boxOffice = boxOfficeRole(this.box.me()?.roles ?? []);
     const pay = method === "none" ? "card" : method;
     const body = { values: { event_id: t.show.id, buyer_name: tr("Door sale"), channel: "door", email: null }, tickets: Array.from({ length: qty }, () => ({ ticket_type_id: typeId, holder_name: null })) };
     let made = false;
