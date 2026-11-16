@@ -59,9 +59,31 @@ const PORT_BASE = Number(process.env["CONTRACT_UPDATE_PORT_BASE"] ?? Number(proc
 const ADMIN = { email: process.env["E2E_ADMIN_EMAIL"] ?? "e2e@adminium.local", password: process.env["E2E_ADMIN_PASSWORD"] ?? "adminium-e2e-password" };
 const PREFIX = "events_";
 
-/** What 0.2.5 and 0.2.6 add to 0.2.4's tables, from the manifest: the update's plan must be exactly this. */
+/**
+ * What 0.2.5 to 0.2.7 add to 0.2.4's tables, from the manifest: the update's plan must be exactly this — a
+ * customer's language, and what paying online keeps (what came in online and went back elsewhere on an order,
+ * a payment's reference, service and currency, the payment a refund sends back and where it stands, and the
+ * venue's switch for automatic refunds).
+ */
 const NEW_TABLES: string[] = [];
-const NEW_COLUMNS: Record<string, string[]> = { customers: ["language"] };
+/**
+ * The added columns Adminium works out (a rollup, a formula) or fills with their default on the rows that were
+ * there: each may be filled, only with what the old rows say — nothing came in online, nothing went back
+ * elsewhere, a refund counts its whole amount, and automatic refunds are on.
+ */
+const WORKED_OUT: Record<string, (row: Record<string, string | null>, column: string) => boolean> = {
+  online_in: (row, c) => row[c] === null || Number(row[c]) === 0,
+  back_elsewhere: (row, c) => row[c] === null || Number(row[c]) === 0,
+  counted: (row, c) => row[c] === null || Number(row[c]) === Number(row["amount"]),
+  auto_refund: (row, c) => row[c] === null || yes(row[c]),
+};
+const NEW_COLUMNS: Record<string, string[]> = {
+  customers: ["language"],
+  orders: ["back_elsewhere", "online_in"],
+  payments: ["currency", "payment_ref", "provider", "refunded_elsewhere"],
+  refunds: ["counted", "payment_id", "provider_ref", "refund_state"],
+  settings: ["auto_refund"],
+};
 
 const yesNoColumns = (ref: string): string[] => (TABLES.find((t) => t.ref === ref)?.columns ?? []).filter((c) => c.type === "bool").map((c) => c.ref);
 const yes = (value: unknown) => value === true || value === 1 || value === "1" || value === "true" || value === "t";
@@ -333,8 +355,12 @@ describe.skipIf(why !== null)(`the update of a live ${FROM} venue to ${TO}${why 
       it(`updates in place to ${TO}, as planned`, async () => {
         const reply = await staff.post<{ from: string; to: string; app: { version: string; schema?: { created: string[] }; rules?: { skipped: unknown[] } } }>("/api/v1/apps/events/update", {
           planChecksum: plan.checksum,
-          // What the new version's doors do (the tick kept in the consent log) is the operator's to allow.
+          // What the new version's doors do (the tick kept in the consent log, an order paying online and what came
+          // in online read back) is the operator's to allow; so is the manager's right to send money back.
           publicAccess: true,
+          publicWider: true,
+          roleTables: true,
+          roleGrants: true,
         });
         expect(reply.status, JSON.stringify(reply.body).slice(0, 1500)).toBe(200);
         const updated = reply.body;
@@ -386,7 +412,11 @@ describe.skipIf(why !== null)(`the update of a live ${FROM} venue to ${TO}${why 
           } else {
             expect(kept, `the rows of ${name}`).toEqual(was.rows);
           }
-          for (const column of added[name]!) expect([name, column, now!.rows.filter((found) => found[column] !== null).length]).toEqual([name, column, 0]);
+          for (const column of added[name]!) {
+            const worked = WORKED_OUT[column];
+            const off = now!.rows.filter((found) => (worked === undefined ? found[column] !== null : !worked(found, column)));
+            expect([name, column, off.length]).toEqual([name, column, 0]);
+          }
         }
         console.info(`[redeclared, ${engine}] ${JSON.stringify(redeclared)}`);
         expect(redeclared).toEqual([]);

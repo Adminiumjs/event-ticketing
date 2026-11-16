@@ -1752,6 +1752,74 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         }, 300_000);
       });
 
+      describe("payments online", () => {
+        /** A person of this block's own, in one of the app's roles: their own requests-a-minute. */
+        const SELLER = { email: `bo.pay.${engine}@waveform.test`, password: `box-${Math.random().toString(36).slice(2)}-${String(Date.now())}` };
+        const MANAGER = { email: `mgr.pay.${engine}@waveform.test`, password: `mgr-${Math.random().toString(36).slice(2)}-${String(Date.now())}` };
+        const person = async (who: { email: string; password: string }, slug: string) => {
+          const roles = ok(await staff.get<{ data?: { id: string; slug: string }[]; roles?: { id: string; slug: string }[] }>("/api/v1/roles"));
+          const role = (roles.data ?? roles.roles ?? []).find((r) => r.slug === `events-${slug}`)!;
+          expect(role, `the ${slug} role`).toBeDefined();
+          const invited = await staff.post("/api/v1/users", { email: who.email, name: slug === "box-office" ? "Theo" : "Priya", roleIds: [role.id] });
+          const token = JSON.stringify(invited.body).match(/\/reset\/([A-Za-z0-9_-]+)/)![1]!;
+          ok(await new Caller(server.base, { origin: server.base }).post("/api/v1/auth/password/reset", { token, newPassword: who.password }));
+          return staffPort(who);
+        };
+
+        it("arrives switched off: no Pay now, no pay link, and an order paying online keeps its hold and its places", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          // The app's payable is made, and waits for someone who manages payments to switch it on.
+          const apps = ok(await staff.get<{ data: { apps: { appKey: string; enabled: boolean; tables: { valid: boolean }[] }[] } }>("/api/v1/payments/apps")).data.apps;
+          expect(apps.filter((a) => a.appKey === "events").map((a) => [a.enabled, a.tables.map((t) => t.valid)])).toEqual([[false, [true]]]);
+          const aud = await audience();
+          expect(await aud.payments()).toEqual({ online: false, test: false });
+          const venue = await aud.venue();
+          const cinder = venue.events.find((e) => e["name"] === "Cinder")!;
+          const std = venue.types.find((t) => t["event_id"] === cinder.id && t["name"] === "Standard")!;
+          const body = { values: { event_id: cinder.id, room_id: cinder["room_id"], buyer_name: "Lee Tan", email: `lee.pay.${engine}@waveform.dev`, language: "en-US" }, tickets: [{ ticket_type_id: std.id }, { ticket_type_id: std.id }] };
+          const total = Number((await aud.quote(body)).data["total"]);
+          const made = await aud.buy({ ...body, expect: { total } }, key("pay"));
+          const before = await aud.order();
+          // Paying online: the order waits as paying, with the hold it had, and "Online" for how it is paid.
+          const paying = await aud.choose("paying");
+          expect([paying["status"], paying["held_until"], paying["paid_method"]]).toEqual(["paying", before.order["held_until"], "online"]);
+          const box = await staffPort(ADMIN);
+          const read = (await box.list("orders", { where: [{ column: "id", eq: made.data.id }] })).rows[0]!;
+          expect([read["status"], Number(read["total"]), Number(read["balance"])]).toEqual(["paying", total, total]);
+          // Its places count by its state while it pays: the show's pool holds them as taken, not as a hold the clock ends.
+          const pool = (await box.counts(cinder.id)).find((p) => p.ticket_type_id === std.id)!;
+          expect(pool.taken).toBeGreaterThanOrEqual(2);
+          // Nobody switched the app on: no pay link, for the buyer or the box office.
+          const refused = await refusal(() => aud.payLink());
+          expect([refused?.status, refused?.code, refused?.params["reason"]]).toEqual([409, "PUBLIC_PAY_REFUSED", "off"]);
+          // Another way to pay, while the hold runs: at the door.
+          expect((await aud.choose("door"))["status"]).toBe("door");
+        }, 180_000);
+
+        it("sends money back online only for a role that may: the box office is refused before anything is written", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const seller = await person(SELLER, "box-office");
+          const manager = await person(MANAGER, "box-office-manager");
+          expect((await seller.payments())?.refund).toBe(false);
+          expect((await manager.payments())?.refund).toBe(true);
+          // A paid order of the sample, its payment taken by hand.
+          const paid = (await manager.list("orders", { where: [{ column: "status", eq: "paid" }, { column: "paid_method", eq: "card" }], limit: 1 })).rows[0]!;
+          const payment = (await manager.list("payments", { where: [{ column: "order_id", eq: paid.id }], limit: 1 })).rows[0]!;
+          touched.add(paid.id);
+          const before = (await manager.list("refunds", { where: [{ column: "order_id", eq: paid.id }] })).rows.length;
+          const no = await refusal(() => seller.refundOnline(paid.id, payment.id, 1, "goodwill", null, key("r-seller")));
+          expect([no?.status, no?.code]).toEqual([403, "PAYMENT_REFUND_NOT_ALLOWED"]);
+          expect((await manager.list("refunds", { where: [{ column: "order_id", eq: paid.id }] })).rows.length).toBe(before);
+          // The manager's row is written; the payment was not taken online, so nothing is sent and the row says so,
+          // and the order counts nothing back.
+          const row = await manager.refundOnline(paid.id, payment.id, 1, "goodwill", null, key("r-manager"));
+          const stamped = await until(async () => (await manager.list("refunds", { where: [{ column: "id", eq: row.id }] })).rows.find((r) => r["refund_state"] === "not-sent"), "the refund stamped not sent", 120_000);
+          expect([stamped["method"], Number(stamped["counted"])]).toEqual(["online", 0]);
+          const after = (await manager.list("orders", { where: [{ column: "id", eq: paid.id }] })).rows[0]!;
+          expect([Number(after["refunded"]), Number(after["total"])]).toEqual([Number(paid["refunded"] ?? 0), Number(paid["total"])]);
+        }, 240_000);
+      });
+
       it("removes the sample", async (ctx) => {
         needsWrites(() => ctx.skip());
         const plan = ok(await staff.post<{ tables: { count: number }[]; kept: { ref: string; label: string }[] }>("/api/v1/apps/events/sample-data/remove-plan"));

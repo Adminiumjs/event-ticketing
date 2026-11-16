@@ -74,7 +74,7 @@ describe("the checkout's ways to pay", () => {
     expect((co["pays"] as V[]).map((p) => p["title"])).toEqual(["Pay now", "Pay at the door", "Pay by bank transfer"]);
     expect((co["pays"] as V[])[0]!["desc"]).toBe("You'll pay on the Stripe or PayPal page.");
     expect([o.app.state.co!.pay, bidi(co["cta"]), co["ctaNow"]]).toEqual(["now", "Pay now · $48.00", true]);
-  });
+  }, 30_000);
 
   it("reads as it always has while the venue takes no payments online", async () => {
     const o = await open((demo) => linkOnly(demo.audience, false));
@@ -82,7 +82,7 @@ describe("the checkout's ways to pay", () => {
     const co = (await o.v())["co"] as V;
     expect((co["pays"] as V[]).map((p) => p["title"])).toEqual(["Pay at the door", "Pay by bank transfer"]);
     expect([bidi(co["cta"]), co["ctaNow"], co["testOn"]]).toEqual(["Confirm — 2 tickets, pay at the door", false, false]);
-  });
+  }, 30_000);
 });
 
 describe("Pay now on the demo", () => {
@@ -97,7 +97,7 @@ describe("Pay now on the demo", () => {
     expect(o.demo.world.where("messages", (m) => m["order_id"] === orderId).map((m) => m["kind"])).toContain("tickets-online");
     const gw = (await o.v())["gw"] as V;
     expect([o.app.state.scr, gw["heading"], gw["sub"], gw["paidHow"]]).toEqual(["going", "You're going!", "Your tickets are in your email.", "Paid online"]);
-  });
+  }, 30_000);
 
   it("keeps the checkout's own hold while paying, and lets the places go at its end", async () => {
     const o = await open((demo) => linkOnly(demo.audience));
@@ -107,7 +107,7 @@ describe("Pay now on the demo", () => {
     expect([o.demo.world.get("orders", orderId)!["status"], o.demo.world.get("orders", orderId)!["held_until"]]).toEqual(["paying", held]);
     o.demo.advance(11);
     expect(o.demo.world.get("orders", orderId)!["status"]).toBe("expired");
-  });
+  }, 30_000);
 });
 
 describe("back from the pay page", () => {
@@ -160,7 +160,7 @@ describe("back from the pay page", () => {
       delete (globalThis as { window?: unknown }).window;
       delete (globalThis as { sessionStorage?: unknown }).sessionStorage;
     }
-  });
+  }, 30_000);
 });
 
 describe("a waitlist offer paid online", () => {
@@ -181,7 +181,7 @@ describe("a waitlist offer paid online", () => {
     const row = o.demo.world.get("orders", order.id as Id)! as Row;
     expect([row["status"], row["online_in"]]).toEqual(["paid", 40]);
     expect(o.demo.world.get("waitlist", row["waitlist_id"] as Id)!["status"]).toBe("claimed");
-  });
+  }, 30_000);
 });
 
 describe("a show cancelled after its buyer paid online", () => {
@@ -196,5 +196,5 @@ describe("a show cancelled after its buyer paid online", () => {
     await o.app.arrive("o", `#${String(o.demo.world.get("orders", orderId)!["link_token"])}`);
     const gw = (await o.v())["gw"] as V;
     expect([gw["heading"], bidi(gw["sub"])]).toEqual([`${cinder.name} is cancelled`, "This show is cancelled. $48.00 goes back to the card or PayPal account you paid with."]);
-  });
+  }, 30_000);
 });

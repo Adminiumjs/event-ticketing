@@ -173,6 +173,8 @@ describe("signed in as Mia", () => {
     app.openOffer(order.id as Id);
     await v();
     app.buyer.claim(app.buyer.going()!, 1);
+    // At the door (the demo takes payments online too, and offers that first).
+    app.buyer.setCoField({ pay: "door" });
     app.buyer.setTicket(0, { name: "Mia Okada" });
     await app.buyer.confirm();
     const row = demo.world.get("orders", order.id as Id)!;

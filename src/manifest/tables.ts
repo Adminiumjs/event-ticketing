@@ -1172,7 +1172,14 @@ export const TABLES: Table[] = [
       price("amount", "Amount", { rules: { validation: { min: 0.01 } } }),
       // Money back for tickets cancelled, or money back while the tickets still work.
       choice("kind", "What it is for", { cancelled_tickets: "Cancelled tickets", goodwill: "Money back, tickets stay" }, { default: "cancelled_tickets" }),
-      { ref: "counts_off", type: "int", default: 0, label: l("Taken off the total"), rules: yes({ and: [eq("kind", "goodwill"), eq("voided", false)] }) },
+      // Money back with the tickets kept: off the order's total — unless it could not be sent back online.
+      {
+        ref: "counts_off",
+        type: "int",
+        default: 0,
+        label: l("Taken off the total"),
+        rules: { formula: { if: [{ and: [eq("kind", "goodwill"), eq("voided", false)] }, { if: [eq("refund_state", "not-sent"), 0, 1] }, 0] } },
+      },
       choice("method", "How", { bank_transfer: "Bank transfer", card: "Card", cash: "Cash", online: "Online" }, { default: "bank_transfer" }),
       text("note", 240, "Note", opt),
       at("recorded_at", "Recorded", { ...opt, rules: stamp("now", onCreate) }),

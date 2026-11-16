@@ -273,7 +273,7 @@ export const RULES: Rules = {
     { table: "tickets", column: "settled", scale: 2, expr: {"if":[{"or":[{"eq":["order_status","paid"]},{"eq":["order_status","no_charge"]},{"and":[{"eq":["order_status","door"]},{"gte":[{"coalesce":["collected",0]},{"coalesce":["due",0]}]}]}]},1,0]} },
     { table: "check_ins", column: "right_show", scale: 2, expr: {"if":[{"and":[{"gte":["ticket_event_no","day_event_no"]},{"lte":["ticket_event_no","day_event_no"]}]},1,0]} },
     { table: "check_ins", column: "admitted", scale: 2, expr: {"if":[{"or":[{"and":[{"eq":["day",1]},{"eq":["admits_day1",true]}]},{"and":[{"eq":["day",2]},{"eq":["admits_day2",true]}]},{"and":[{"eq":["day",3]},{"eq":["admits_day3",true]}]}]},1,0]} },
-    { table: "refunds", column: "counts_off", scale: 2, expr: {"if":[{"and":[{"eq":["kind","goodwill"]},{"eq":["voided",false]}]},1,0]} },
+    { table: "refunds", column: "counts_off", scale: 2, expr: {"if":[{"and":[{"eq":["kind","goodwill"]},{"eq":["voided",false]}]},{"if":[{"eq":["refund_state","not-sent"]},0,1]},0]} },
     { table: "refunds", column: "counted", scale: "currency", expr: {"if":[{"eq":["refund_state","not-sent"]},0,{"coalesce":["amount",0]}]} },
     { table: "guest_list", column: "people", scale: 2, expr: {"add":[1,{"coalesce":["plus",0]}]} },
   ],
