@@ -14,7 +14,7 @@ import type { WaveApp } from "../wave.ts";
 import { posterOf } from "./audience.ts";
 import { palette, S, type V } from "./base.ts";
 import { orderState, pill, when } from "./box.ts";
-import { fromLocal, payHow } from "./boxOrders.ts";
+import { fromLocal, onlinePayments, payHow } from "./boxOrders.ts";
 import { focusLater } from "../focus.ts";
 
 type Tpl = "doors" | "set_times" | "moved" | "cancelled" | "other";
@@ -393,7 +393,10 @@ function refundsToMake(app: WaveApp, box: Box, show: BoxShow, B: Record<string, 
   const pages = Math.max(1, Math.ceil(list.length / PER));
   const page = Math.min(s.pc.rfPage, pages - 1);
   const setPc = (q: Partial<typeof s.pc>) => box.set({ pc: { ...s.pc, ev: show.id, ...q } });
-  const payments = list.length === 0 ? [] : (box.list("payments", { where: [{ column: "order_id", in: list.slice(page * PER, page * PER + PER).map((o) => o.id) }] })?.rows ?? []);
+  const ids = list.slice(page * PER, page * PER + PER).map((o) => o.id);
+  const payments = list.length === 0 ? [] : (box.list("payments", { where: [{ column: "order_id", in: ids }] })?.rows ?? []);
+  const refundRows = list.length === 0 ? [] : (box.list("refunds", { where: [{ column: "order_id", in: ids }] })?.rows ?? []);
+  const mayRefund = box.mayRefund();
   return {
     rfHead: [plural(all.length, "{n} order", "{n} orders"), tr("{amount} received", { amount: money(received) }), tr("{amount} refunded", { amount: money(refunded) }), tr("{amount} still to pay back", { amount: money(received - refunded) })].join(" · "),
     rfProg: tr("{refunded} of {received} · {n} of {all}", { refunded: money(refunded), received: money(received), n: num(done.length), all: plural(all.length, "{n} order", "{n} orders") }),
@@ -407,7 +410,27 @@ function refundsToMake(app: WaveApp, box: Box, show: BoxShow, B: Record<string, 
     ).map(([id, label, n]) => ({ id, label, n: num(n), on: tab === id, style: chip(tab === id), go: () => setPc({ rfTab: id, rfPage: 0 }) })),
     rfRows: list.slice(page * PER, page * PER + PER).map((o) => {
       const st = orderState(o, app.now);
-      const pay = payments.find((x) => x["order_id"] === o.id);
+      const pay = payments.find((x) => x["order_id"] === o.id && x["method"] !== "online") ?? payments.find((x) => x["order_id"] === o.id);
+      // Paid online: sent back online by someone who may refund (or by itself), never recorded by hand.
+      if (Number(o["online_in"] ?? 0) > 0) {
+        const left = onlinePayments(payments.filter((x) => x["order_id"] === o.id), refundRows.filter((r) => r["order_id"] === o.id)).find((x) => x.left > 0);
+        const owed = Number(o["balance"] ?? 0) < 0;
+        return {
+          no: String(o["number"]),
+          buyer: String(o["buyer_name"] ?? ""),
+          email: String(o["email"] ?? ""),
+          total: money(paidOf(o)),
+          how: tr("Online"),
+          st: owed ? st.txt : tr("Refunded to the card or PayPal account"),
+          stStyle: pill(owed ? st.k : "muted"),
+          actOn: tab === "to" && owed && mayRefund && left !== undefined,
+          markLabel: tr("Refund"),
+          mark: () => {
+            if (left === undefined) return;
+            app.openSheet("bxRefundOnline", { o: o.id, p: left.payment.id, amount: Math.min(-Number(o["balance"] ?? 0), left.left).toFixed(2), reason: "", rkind: "cancelled_tickets", step: 1, err: {} });
+          },
+        };
+      }
       return {
         no: String(o["number"]),
         buyer: String(o["buyer_name"] ?? ""),
@@ -417,6 +440,7 @@ function refundsToMake(app: WaveApp, box: Box, show: BoxShow, B: Record<string, 
         st: st.txt,
         stStyle: pill(st.k),
         actOn: tab === "to",
+        markLabel: tr("Record a refund"),
         mark: () => app.openSheet("bxRefund", { o: o.id, amount: (-Number(o["balance"] ?? 0)).toFixed(2), how: String(pay?.["method"] ?? "bank_transfer"), rkind: "cancelled_tickets", note: "", err: {} }),
       };
     }),
@@ -506,6 +530,22 @@ function settingsVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unk
         const on = onOf(id);
         return { id, label, sub, on, ...sw(on), go: () => put({ [id]: !on }) };
       }),
+      // Shown only while the app takes payments online: otherwise the settings read as they always have.
+      payOn: box.payments()?.on === true,
+      autoSw: (() => {
+        const on = onOf("auto_refund");
+        return {
+          label: tr("Refund cancellations automatically"),
+          sub: tr("When it's off, a cancelled order that was paid online shows ‘Refund owed’ and someone in the box office refunds it."),
+          on,
+          ...sw(on),
+          go: () => {
+            put({ auto_refund: !on });
+            const said = typeof document === "undefined" ? null : document.getElementById("st-pay-said");
+            if (said !== null) said.textContent = on ? tr("Automatic refunds off.") : tr("Automatic refunds on.");
+          },
+        };
+      })(),
       xferOn: onOf("transfer_on"),
       bankHint: onOf("accounts_on") ? tr("Only shown to a buyer who opened their order or signed in.") : tr("Only shown to a buyer who opened their order."),
       bank: (

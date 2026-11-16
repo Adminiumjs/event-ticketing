@@ -741,3 +741,160 @@ describe("settings on a venue with no settings row", () => {
     expect(made[0]!["venue_name"]).toBe("The Loft");
   });
 });
+
+describe("payments online at the box office", () => {
+  /** The box office on the demo's Adminium, as `person` (the demo's Priya, a box office manager, by default). */
+  async function boot(bx: WaveApp["state"]["bx"] = "orders", person?: { name: string; roles: readonly string[] }, payments?: { on: boolean; online: boolean; test: boolean; refund: boolean } | null) {
+    const demo = new DemoAdminium();
+    const port = person === undefined ? demo.boxOffice : new DemoBoxOffice(demo.engine, { name: person.name, roles: [...person.roles] });
+    if (payments !== undefined) port.payments = async () => payments;
+    const app = new WaveApp({ audience: demo.audience, boxOffice: port, door: demo.door }, "box", { lang: "en-US", theme: "dark" });
+    app.demo = { onClock: (fn) => demo.onClock(fn) };
+    await app.start({ timers: false });
+    const box = boxOf(app);
+    const settle = async () => {
+      for (let i = 0; i < 8; i += 1) {
+        renderVals(app);
+        await app.idle();
+      }
+      return renderVals(app);
+    };
+    app.setState({ bx, box: { ...box.s } });
+    await settle();
+    const order = async (id: Id) => (await demo.boxOffice.list("orders", { where: [{ column: "id", eq: id }] })).rows[0]!;
+    const drawer = async (id: Id) => {
+      box.openDrawer(id);
+      return (await settle())["dr"] as V;
+    };
+    return { app, demo, box, v: settle, order, drawer };
+  }
+
+  /** Two Cinder tickets of its first type bought on the audience site and paid on the demo's pay page. */
+  async function paidOnline(demo: DemoAdminium, pay = true): Promise<Id> {
+    const ev = demo.world.all("events").find((e) => e["name"] === "Cinder")!;
+    const type = demo.world.where("ticket_types", (t) => t["event_id"] === ev.id && t["visibility"] === "public" && Number(t["price"]) > 0 && t["selling"] === true)[0]!;
+    const body = { values: { event_id: ev.id, room_id: ev["room_id"], buyer_name: "Mia Okada", email: "mia.okada@example.com" }, tickets: [{ ticket_type_id: type.id }, { ticket_type_id: type.id }] };
+    const quote = await demo.audience.quote(body);
+    const made = await demo.audience.buy({ ...body, expect: { total: Number(quote.data["total"]) } }, "paid-online-test-key-0000000000000000");
+    await demo.audience.choose(pay ? "paying" : "door");
+    if (pay) await demo.audience.payInPlace();
+    return made.data.id;
+  }
+
+  it("shows a payment taken online with its service, and gives no hand-recorded refund for it", async () => {
+    const { demo, drawer } = await boot();
+    const id = await paidOnline(demo);
+    const payment = demo.world.where("payments", (p) => p["order_id"] === id)[0]!;
+    Object.assign(payment, { provider: "payments-stripe" });
+    const dr = await drawer(id);
+    const pay = (dr["pays"] as V[])[0]!;
+    expect([bidi(pay["v"]), pay["chip"]]).toEqual(["$36.00 · Online · Tue 28 Jul · Mia Okada", "Online · Stripe"]);
+    const acts = (dr["acts"] as V[]).map((a) => a["id"]);
+    expect(acts).toContain("ro");
+    expect(acts).not.toContain("rf");
+    expect(dr["how"]).toBe("Online");
+  });
+
+  it("offers Refund only to someone who may give money back online", async () => {
+    const { demo, drawer } = await boot("orders", { name: "Theo", roles: ["box-office"] });
+    const id = await paidOnline(demo);
+    const acts = ((await drawer(id))["acts"] as V[]).map((a) => a["id"]);
+    expect(acts).not.toContain("ro");
+    expect(acts).not.toContain("rf");
+  });
+
+  it("refunds in two steps: the amount and why, then one sentence; the money goes back and the order reads Refunded", async () => {
+    const { app, demo, v, drawer, order } = await boot();
+    const id = await paidOnline(demo);
+    const dr = await drawer(id);
+    ((dr["acts"] as V[]).find((a) => a["id"] === "ro")!["go"] as () => void)();
+    let sh = (await v())["sh"] as V;
+    expect([sh["title"], bidi(sh["note"]), sh["submitLabel"]]).toEqual(["Refund on " + String((await order(id))["number"]), "Up to $36.00. It goes back to the card or PayPal account they paid with.", "Continue"]);
+    (sh["submit"] as () => void)();
+    sh = (await v())["sh"] as V;
+    expect(((sh["fields"] as V[]).find((f) => f["id"] === "bro-why")!)["err"]).toBe("Say why it goes back");
+    app.patchSheet({ reason: "Can't come" });
+    (((await v())["sh"] as V)["submit"] as () => void)();
+    sh = (await v())["sh"] as V;
+    expect(bidi(sh["body"])).toBe("Refund $36.00 online. Reason: Can't come. This can't be undone.");
+    await ((sh["btns"] as V[])[0]!["go"] as () => Promise<void>)();
+    await v();
+    const refund = demo.world.where("refunds", (r) => r["order_id"] === id)[0]!;
+    expect([refund["method"], refund["refund_state"], refund["amount"]]).toEqual(["online", "done", 36]);
+    const after = await drawer(id);
+    expect(bidi(after["st"])).toBe("Refunded $36.00 of $36.00");
+    expect(bidi((after["refs"] as V[])[0]!["v"])).toContain("Refund to the card or PayPal account");
+  });
+
+  it("leaves Refund owed when someone who may not refund cancels an order paid online", async () => {
+    const { demo, box, drawer, order } = await boot("orders", { name: "Theo", roles: ["box-office"] });
+    const id = await paidOnline(demo);
+    const tickets = demo.world.where("tickets", (t) => t["order_id"] === id).map((t) => t.id);
+    await box.cancelTickets(await order(id), tickets, true, false);
+    const dr = await drawer(id);
+    expect([dr["st"], bidi(dr["balTxt"])]).toEqual(["Refund owed", "Refund owed $36.00"]);
+    expect(demo.world.where("refunds", (r) => r["order_id"] === id)).toEqual([]);
+  });
+
+  it("refunds by itself when a box office manager cancels an order paid online", async () => {
+    const { demo, box, drawer, order } = await boot();
+    const id = await paidOnline(demo);
+    const tickets = demo.world.where("tickets", (t) => t["order_id"] === id).map((t) => t.id);
+    await box.cancelTickets(await order(id), tickets, true, false);
+    const dr = await drawer(id);
+    expect(dr["st"]).toBe("Refunded");
+    expect(demo.world.where("refunds", (r) => r["order_id"] === id).map((r) => r["refund_state"])).toEqual(["done"]);
+  });
+
+  it("copies a pay link only for an order that still owes money", async () => {
+    const { demo, drawer } = await boot();
+    const owes = await paidOnline(demo, false);
+    expect(((await drawer(owes))["acts"] as V[]).map((a) => a["id"])).toContain("pl");
+    const settled = demo.world.all("orders").find((o) => o["status"] === "paid" && Number(o["balance"]) === 0)!;
+    expect(((await drawer(settled.id))["acts"] as V[]).map((a) => a["id"])).not.toContain("pl");
+  });
+
+  it("hides the automatic refunds switch while the app takes no payments online, and shows it once it does", async () => {
+    const off = await boot("settings", undefined, { on: false, online: false, test: false, refund: false });
+    expect(((await off.v())["st"] as V)["payOn"]).toBe(false);
+    const on = await boot("settings");
+    const st = (await on.v())["st"] as V;
+    expect(st["payOn"]).toBe(true);
+    expect([((st["autoSw"] as V)["label"]), (st["autoSw"] as V)["on"]]).toEqual(["Refund cancellations automatically", true]);
+  });
+
+  it("says on the cancel-show sheet whether online money goes back by itself", async () => {
+    for (const [person, line] of [
+      [undefined, "1 buyer paid online. Their money goes back to their card automatically."],
+      [{ name: "Theo", roles: ["box-office"] }, "1 online payment will show ‘Refund owed’."],
+    ] as const) {
+      const { app, demo, v } = await boot("pc", person);
+      await paidOnline(demo);
+      const ev = demo.world.all("events").find((e) => e["name"] === "Cinder")!;
+      app.openSheet("bxCancelShow", { ev: ev.id, n: 3 });
+      expect(bidi(((await v())["sh"] as V)["note"])).toBe(line);
+    }
+  });
+
+  it("approves a refund request on an order paid online and sends the money back at once", async () => {
+    const { app, demo, v, drawer } = await boot();
+    const id = await paidOnline(demo);
+    const ticket = demo.world.where("tickets", (t) => t["order_id"] === id)[0]!;
+    await demo.audience.askRefund(ticket.id);
+    const dr = await drawer(id);
+    ((dr["acts"] as V[]).find((a) => a["id"] === "ap")!["go"] as () => void)();
+    const sh = (await v())["sh"] as V;
+    expect(bidi(sh["body"])).toContain("is refunded. It goes back to the card or PayPal account they paid with.");
+    await ((sh["btns"] as V[])[0]!["go"] as () => Promise<void>)();
+    await v();
+    expect(demo.world.where("refunds", (r) => r["order_id"] === id).map((r) => [r["method"], r["refund_state"], r["amount"]])).toEqual([["online", "done", 18]]);
+    void app;
+  });
+
+  it("reads exactly as before with no payments said: no pay link, no Refund", async () => {
+    const { demo, drawer } = await boot("orders", undefined, null);
+    const id = await paidOnline(demo, false);
+    const acts = ((await drawer(id))["acts"] as V[]).map((a) => a["id"]);
+    expect(acts.filter((a) => a === "pl" || a === "ro")).toEqual([]);
+  });
+});

@@ -13,7 +13,7 @@ import type { BoxShow } from "../boxWorld.ts";
 import { codeFace, fD, fT, money, ms, num } from "../fmt.ts";
 import type { WaveApp } from "../wave.ts";
 import { S, type V } from "./base.ts";
-import { fromLocal, localValue, ordersQuery, payHow } from "./boxOrders.ts";
+import { fromLocal, localValue, onlinePayments, ordersQuery, payHow, refundTo, serviceName } from "./boxOrders.ts";
 import type { SheetKit } from "./sheets.ts";
 
 type Opt = [string, string] | [string, string, boolean];
@@ -27,6 +27,22 @@ const METHODS = (): Opt[] => [
   ["card", tr("Card")],
   ["cash", tr("Cash")],
 ];
+
+/** The cancel-show sheet's line on the buyers who paid online, when there are any and the app takes payments. */
+function onlineCancelNote(box: Box, eventId: Id): V {
+  const pays = box.payments();
+  if (pays === null || !pays.on) return {};
+  const paidOnline = box.list("orders", { where: [{ column: "event_id", eq: eventId }, { column: "status", in: ["paid", "door", "awaiting_transfer", "overdue", "no_charge"] }, { column: "online_in", gt: 0 }], limit: 0 })?.total ?? 0;
+  if (paidOnline <= 0) return {};
+  const settings: Record<string, unknown> = box.world()?.settingsRow ?? {};
+  const auto = box.mayRefund() && settings["auto_refund"] !== false && settings["auto_refund"] !== 0;
+  return {
+    noteOn: true,
+    note: auto
+      ? plural(paidOnline, "{n} buyer paid online. Their money goes back to their card automatically.", "{n} buyers paid online. Their money goes back to their cards automatically.")
+      : plural(paidOnline, "{n} online payment will show ‘Refund owed’.", "{n} online payments will show ‘Refund owed’."),
+  };
+}
 
 export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown[]; groups: unknown[] }, sh: Record<string, unknown>, kit: SheetKit): void {
   const box = boxOf(app);
@@ -72,6 +88,11 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
   const paid = Number(order?.["paid_in"] ?? 0) + Number(order?.["collected"] ?? 0);
   const refunded = Number(order?.["refunded"] ?? 0);
   const live = tickets.filter((t) => LIVE_TICKET.includes(String(t["status"])));
+  // What was taken online and is not given back yet: it goes back online, never by hand.
+  const payments = order === undefined ? [] : (box.list("payments", { where: [{ column: "order_id", eq: order.id }] })?.rows ?? []);
+  const refunds = order === undefined ? [] : (box.list("refunds", { where: [{ column: "order_id", eq: order.id }] })?.rows ?? []);
+  const online = onlinePayments(payments, refunds);
+  const onlineLeft = online.reduce((a, x) => a + x.left, 0);
   const label = (t: Row) => `${String(t["holder_name"] ?? "") || tr("Name to add")} · ${codeFace(String(t["code"] ?? "—"))}`;
 
   if (k === "bxUser") {
@@ -237,7 +258,7 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
   }
 
   if (k === "bxRefund" && order !== undefined) {
-    const max = Math.round((paid - refunded) * 100) / 100;
+    const max = Math.round((paid - refunded - onlineLeft) * 100) / 100;
     const kind = sh["rkind"] === "goodwill" ? "goodwill" : "cancelled_tickets";
     Object.assign(o, {
       icon: "undo-2",
@@ -277,12 +298,74 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
     const asked = tickets.filter((t) => t["status"] === "refund_asked");
     const back = asked.reduce((a, t) => a + Number(t["due"] ?? t["price"] ?? 0), 0);
     const who = asked.map((t) => tr("{name}'s ticket ({code})", { name: String(t["holder_name"] ?? ""), code: codeFace(String(t["code"] ?? "")) })).join(", ");
+    // Paid online, approved by someone who may refund, with automatic refunds on: the money goes back at once.
+    const first = online.find((x) => x.left > 0);
+    const auto = first !== undefined && box.mayRefund() && w.settingsRow["auto_refund"] !== false && w.settingsRow["auto_refund"] !== 0;
+    const sendBack = auto ? Math.round(Math.min(back, first.left) * 100) / 100 : 0;
+    const key = String(sh["key"] ?? "") || mintKey("approve");
+    if (auto && sh["key"] !== key) set({ key });
     Object.assign(o, {
       icon: "check",
       title: tr("Approve the refund on {number}?", { number }),
-      body: asked.length === 1 ? tr("{who} is cancelled and {amount} becomes due back. {buyer} is told.", { who, amount: money(back), buyer }) : tr("{who} are cancelled and {amount} becomes due back. {buyer} is told.", { who, amount: money(back), buyer }),
-      btns: [P(tr("Approve"), () => void box.approve(asked.map((t) => t.id))), P(tr("Not yet"), () => app.closeSheet(), "g")],
+      body: auto
+        ? asked.length === 1
+          ? tr("{who} is cancelled and {amount} is refunded. It goes back to the card or PayPal account they paid with. {buyer} is told.", { who, amount: money(sendBack), buyer })
+          : tr("{who} are cancelled and {amount} is refunded. It goes back to the card or PayPal account they paid with. {buyer} is told.", { who, amount: money(sendBack), buyer })
+        : asked.length === 1
+          ? tr("{who} is cancelled and {amount} becomes due back. {buyer} is told.", { who, amount: money(back), buyer })
+          : tr("{who} are cancelled and {amount} becomes due back. {buyer} is told.", { who, amount: money(back), buyer }),
+      btns: [
+        P(tr("Approve"), () => void box.approve(asked.map((t) => t.id), auto ? { order, paymentId: first.payment.id, amount: sendBack, key: `${key}-${hashKey(String(sendBack))}` } : undefined)),
+        P(tr("Not yet"), () => app.closeSheet(), "g"),
+      ],
     });
+  }
+
+  // Money taken online sent back online: the amount and why, then one sentence of what happens, then Refund.
+  if (k === "bxRefundOnline" && order !== undefined) {
+    const chosen = online.find((x) => x.payment.id === sh["p"]) ?? online.find((x) => x.left > 0);
+    const left = chosen?.left ?? 0;
+    const amt = amountOf(sh["amount"]);
+    const service = serviceName(chosen?.payment["provider"]);
+    const kind = sh["rkind"] === "goodwill" ? "goodwill" : "cancelled_tickets";
+    const step = sh["step"] === 2 ? 2 : 1;
+    if (step === 1)
+      Object.assign(o, {
+        icon: "undo-2",
+        title: tr("Refund on {number}", { number }),
+        sub: [buyer, tr("paid online {amount}", { amount: money(Number(chosen?.payment["amount"] ?? 0)) }), refundTo(chosen?.payment["provider"])].join(" · "),
+        fields: [
+          fld("bro-amt", tr("Amount"), "amount", "text", { im: "decimal", style: monoFld("amount") }),
+          fld("bro-why", tr("Reason"), "reason", "text"),
+        ],
+        noteOn: true,
+        note: tr("Up to {amount}. It goes back to the card or PayPal account they paid with.", { amount: money(left) }),
+        submitLabel: tr("Continue"),
+        submit: (e?: { preventDefault: () => void }) => {
+          e?.preventDefault();
+          if (busy || chosen === undefined) return;
+          const err: Record<string, string> = {};
+          if (!(amt > 0) || amt > left + 0.001) err["amount"] = tr("Enter an amount up to {max}", { max: money(left) });
+          if (String(sh["reason"] ?? "").trim() === "") err["reason"] = tr("Say why it goes back");
+          if (Object.keys(err).length > 0) return set({ err });
+          set({ step: 2, err: {} });
+        },
+      });
+    else {
+      const key = String(sh["key"] ?? "") || mintKey("refund");
+      if (sh["key"] !== key) set({ key });
+      const reason = String(sh["reason"] ?? "").trim();
+      Object.assign(o, {
+        icon: "undo-2",
+        tone: "danger",
+        title: tr("Refund {amount}?", { amount: money(amt) }),
+        body: `${service === null ? tr("Refund {amount} online.", { amount: money(amt) }) : tr("Refund {amount} through {service}.", { amount: money(amt), service })} ${tr("Reason: {reason}.", { reason })} ${tr("This can't be undone.")}`,
+        btns: [
+          P(tr("Refund"), () => chosen !== undefined && !busy && void box.refundOnline(order, chosen.payment.id, amt, kind, reason, `${key}-${hashKey(`${String(amt)}:${kind}`)}`), "d"),
+          P(tr("Back"), () => set({ step: 1 }), "g"),
+        ],
+      });
+    }
   }
 
   if (k === "bxDecline" && order !== undefined) {
@@ -559,6 +642,8 @@ export function boxSheet(app: WaveApp, o: V & { fields: unknown[]; btns: unknown
       tone: "danger",
       title: tr("Cancel {name}?", { name: ev?.name ?? "" }),
       body: plural(n, "Every ticket stops working and {n} person gets your message. Then you'll see the list of refunds to make.", "Every ticket stops working and {n} people get your message. Then you'll see the list of refunds to make."),
+      // Paid online: whether their money goes back by itself, or waits for someone who may refund.
+      ...(!busy && ev !== undefined ? onlineCancelNote(box, ev.id) : {}),
       btns: [
         P(tr("Cancel the show"), () => ev !== undefined && !busy && void box.cancelShow(ev, { subject: String(sh["subj"] ?? ""), body: String(sh["body"] ?? "") }), "d"),
         P(tr("Keep the show"), () => app.closeSheet(), "g"),

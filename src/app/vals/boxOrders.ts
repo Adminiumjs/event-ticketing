@@ -14,7 +14,7 @@ import { posterOf } from "./audience.ts";
 import type { V } from "./base.ts";
 import { orderState, pill, when, type Tone } from "./box.ts";
 
-const ALL_STATUSES = ["held", "confirming", "offered", "door", "awaiting_transfer", "overdue", "released", "no_charge", "paid", "not_collected", "let_go", "expired", "cancelled"];
+const ALL_STATUSES = ["held", "paying", "confirming", "offered", "door", "awaiting_transfer", "overdue", "released", "no_charge", "paid", "not_collected", "let_go", "expired", "cancelled"];
 const NOT_LET_GO = ALL_STATUSES.filter((x) => x !== "let_go" && x !== "expired");
 
 /** Each chip of Orders, and the orders it counts. */
@@ -29,11 +29,13 @@ const CHIPS: { id: string; label: () => string; where: Where[] }[] = [
   { id: "awaiting", label: () => tr("Awaiting transfer"), where: [{ column: "status", eq: "awaiting_transfer" }, owesNothing, has] },
   { id: "overdue", label: () => tr("Transfer overdue"), where: [{ column: "status", eq: "overdue" }, owesNothing, has] },
   { id: "released", label: () => tr("Released"), where: [{ column: "status", eq: "released" }, owesNothing, { column: "refunded", lte: 0 }] },
-  { id: "checkout", label: () => tr("In checkout"), where: [{ column: "status", in: ["held", "confirming"] }] },
+  { id: "checkout", label: () => tr("In checkout"), where: [{ column: "status", in: ["held", "paying", "confirming"] }] },
   { id: "offered", label: () => tr("Offered"), where: [{ column: "status", eq: "offered" }] },
   { id: "nocharge", label: () => tr("No charge"), where: [{ column: "status", eq: "no_charge" }, owesNothing, has] },
   { id: "notcollected", label: () => tr("Didn't come"), where: [{ column: "status", eq: "not_collected" }, owesNothing] },
   { id: "refund", label: () => tr("Refund due"), where: [{ column: "balance", lt: 0 }] },
+  // Paid online and money to give back: someone who may refund sends it back online.
+  { id: "owed", label: () => tr("Refund owed"), where: [{ column: "balance", lt: 0 }, { column: "online_in", gt: 0 }] },
   { id: "refunded", label: () => tr("Refunded"), where: [{ column: "status", in: ["cancelled", "released", ...LIVE_ST] }, owesNothing, { column: "refunded", gt: 0 }, none] },
   { id: "cancelled", label: () => tr("Cancelled"), where: [{ column: "status", in: ["cancelled", ...LIVE_ST] }, owesNothing, { column: "refunded", lte: 0 }, none] },
   { id: "letgo", label: () => tr("Let go or expired"), where: [{ column: "status", in: ["let_go", "expired"] }] },
@@ -45,7 +47,10 @@ export function payHow(o: Row): string {
   if (Number(o["total"] ?? 0) <= 0 && Number(o["paid_in"] ?? 0) <= 0) return tr("No charge");
   if (st === "door" || st === "not_collected") return tr("At the door");
   if (["awaiting_transfer", "overdue", "confirming"].includes(st)) return tr("Bank transfer");
+  if (Number(o["online_in"] ?? 0) > 0) return tr("Online");
   switch (o["paid_method"]) {
+    case "online":
+      return tr("Online");
     case "card":
       return tr("Card");
     case "cash":
@@ -57,7 +62,34 @@ export function payHow(o: Row): string {
   }
 }
 
-const methodWord = (m: unknown): string => (m === "card" ? tr("Card") : m === "cash" ? tr("Cash") : tr("Bank transfer"));
+const methodWord = (m: unknown): string => (m === "card" ? tr("Card") : m === "cash" ? tr("Cash") : m === "online" ? tr("Online") : tr("Bank transfer"));
+
+/** The payment service a payment taken online came through, by its plain name; null when it is not one this app knows. */
+export function serviceName(provider: unknown): string | null {
+  if (provider === "payments-stripe") return "Stripe";
+  if (provider === "payments-paypal") return "PayPal";
+  return null;
+}
+
+/** Where money sent back online goes: never a card's digits, which Adminium does not keep. */
+export function refundTo(provider: unknown): string {
+  if (provider === "payments-paypal") return tr("Refund to PayPal");
+  if (provider === "payments-stripe") return tr("Refund to the card");
+  return tr("Refund to the card or PayPal account");
+}
+
+/** What is left of a payment taken online: its amount less the refunds that name it (one not sent back counts nothing). */
+export function onlineLeft(payment: Row, refunds: readonly Row[]): number {
+  const back = refunds
+    .filter((r) => r["payment_id"] === payment.id && !yes(r["voided"]) && r["refund_state"] !== "not-sent")
+    .reduce((a, r) => a + Number(r["amount"] ?? 0), 0);
+  return Math.round((Number(payment["amount"] ?? 0) - back) * 100) / 100;
+}
+
+/** The payments of an order taken online, with money left to send back. */
+export function onlinePayments(payments: readonly Row[], refunds: readonly Row[]): { payment: Row; left: number }[] {
+  return payments.filter((p) => p["method"] === "online" && !yes(p["voided"])).map((payment) => ({ payment, left: onlineLeft(payment, refunds) }));
+}
 
 export function boxOrderVals(app: WaveApp, box: Box, w: BoxWorld, B: Record<string, unknown>, _v: V): V {
   return {
@@ -215,18 +247,37 @@ function drawerVals(app: WaveApp, box: Box, w: BoxWorld): V {
     return { code: codeFace(String(t["code"] ?? "—")), holder: String(t["holder_name"] ?? "") || tr("Name to add"), type: typeName(t), st: x[0], stStyle: pill(x[1]) };
   });
 
-  const payRow = (p: Row, how: string, by: unknown, at: unknown, extra = "") => ({
+  const payRow = (p: Row, how: string, by: unknown, at: unknown, extra = "", chip = "") => ({
     k: `${String(p.id)}-${how}`,
     v: [money(p["amount"]), how, fD(at), String(by ?? ""), extra].filter((x) => x !== "").join(" · "),
+    chipOn: chip !== "",
+    chip,
   });
+  const buyerName = String(order["buyer_name"] ?? "");
+  const onlineChip = (provider: unknown) => {
+    const service = serviceName(provider);
+    return service === null ? tr("Online") : tr("Online · {service}", { service });
+  };
+  // A payment taken online is the buyer's, through the pay page: it carries no box-office name, only the service's.
   const pays = [
-    ...payments.map((p) => payRow(p, methodWord(p["method"]), p["recorded_by"], p["recorded_at"])),
+    ...payments.map((p) => (p["method"] === "online" ? payRow(p, methodWord(p["method"]), buyerName, p["recorded_at"], "", onlineChip(p["provider"])) : payRow(p, methodWord(p["method"]), p["recorded_by"], p["recorded_at"]))),
     ...collections.map((c) => payRow(c, c["method"] === "cash" ? tr("Cash at the door") : tr("Card at the door"), c["taken_by"], c["taken_at"], devices.get(c["device_id"] as Id) ?? "")),
     ...(w.settings.codesOn && order["code_id"] !== null && order["code_id"] !== undefined && Number(order["discount"] ?? 0) > 0
       ? [{ k: "code", v: tr("Code {code} · −{amount}", { code: String(order["code_text"] ?? ""), amount: money(order["discount"]) }) }]
       : []),
   ];
-  const refs = refunds.map((r) => payRow(r, methodWord(r["method"]), r["recorded_by"], r["recorded_at"], r["kind"] === "goodwill" ? tr("tickets kept") : ""));
+  const providerOf = (r: Row) => payments.find((p) => p.id === r["payment_id"])?.["provider"];
+  const sentWord = (r: Row) => (r["refund_state"] === "not-sent" ? tr("Refund not sent") : r["refund_state"] === "done" ? "" : tr("On its way"));
+  const byOf = (r: Row) => (r["recorded_by"] === null || r["recorded_by"] === undefined || r["recorded_by"] === "" ? "" : tr("by {by}", { by: String(r["recorded_by"]) }));
+  const refs = refunds.map((r) =>
+    r["method"] === "online"
+      ? { ...payRow(r, refundTo(providerOf(r)), byOf(r), r["recorded_at"], r["kind"] === "goodwill" ? tr("tickets kept") : ""), chipOn: sentWord(r) !== "", chip: sentWord(r) }
+      : payRow(r, methodWord(r["method"]), r["recorded_by"], r["recorded_at"], r["kind"] === "goodwill" ? tr("tickets kept") : ""),
+  );
+  const online = Number(order["online_in"] ?? 0) > 0;
+  const live = onlinePayments(payments, refunds).filter((x) => x.left > 0);
+  // The money the box office took by hand and has not given back: only that is recorded as a refund by hand.
+  const byHand = Math.round((paid - Number(order["online_in"] ?? 0) - refunds.filter((r) => r["method"] !== "online").reduce((x, r) => x + Number(r["counted"] ?? r["amount"] ?? 0), 0)) * 100) / 100;
 
   // The balance, in words (Adminium's balance: above 0 owed, below 0 due back).
   const liveN = liveTickets.length;
@@ -235,6 +286,7 @@ function drawerVals(app: WaveApp, box: Box, w: BoxWorld): V {
   else if (total === 0 && paid === 0 && !gone) balTxt = tr("No charge");
   else if (status === "released" && bal < 0) balTxt = tr("Released · {amount} came in after — refund due {due}", { amount: money(paid - refunded), due: money(-bal) });
   else if (bal > 0) balTxt = tr("Owes {amount}", { amount: money(bal) });
+  else if (bal < 0 && online) balTxt = tr("Refund owed {amount}", { amount: money(-bal) });
   else if (bal < 0) balTxt = tr("Refund due {amount}", { amount: money(-bal) });
   else if (refunded > 0) balTxt = tr("Refunded {refunded} of {paid} · {live}", { refunded: money(refunded), paid: money(paid), live: plural(liveN, "{n} ticket live", "{n} tickets live") });
   else if (gone) balTxt = tr("Nothing owing");
@@ -253,9 +305,15 @@ function drawerVals(app: WaveApp, box: Box, w: BoxWorld): V {
   // Only what WENT: a reminder queued for the day of the show has been emailed to nobody yet,
   // and used to read "An email emailed to …" the moment the order was paid.
   for (const m of mails) push(m["sent_at"], tr("{kind} emailed to {to}", { kind: mailWord(String(m["kind"])), to: String(m["to_address"] ?? "") }), "var(--fg-subtle)");
-  for (const p of payments) push(p["recorded_at"], tr("{amount} recorded · {how} · by {by}", { amount: money(p["amount"]), how: methodWord(p["method"]), by: String(p["recorded_by"] ?? "") }), "var(--pos)");
+  for (const p of payments) {
+    if (p["method"] === "online") push(p["recorded_at"], tr("{amount} paid online · {chip}", { amount: money(p["amount"]), chip: onlineChip(p["provider"]) }), "var(--pos)");
+    else push(p["recorded_at"], tr("{amount} recorded · {how} · by {by}", { amount: money(p["amount"]), how: methodWord(p["method"]), by: String(p["recorded_by"] ?? "") }), "var(--pos)");
+  }
   for (const c of collections) push(c["taken_at"], tr("{amount} taken at the door · by {by}", { amount: money(c["amount"]), by: String(c["taken_by"] ?? "") }), "var(--pos)");
-  for (const r of refunds) push(r["recorded_at"], tr("Refund of {amount} recorded · {how} · by {by}", { amount: money(r["amount"]), how: methodWord(r["method"]), by: String(r["recorded_by"] ?? "") }), "var(--info)");
+  for (const r of refunds) {
+    if (r["method"] === "online") push(r["recorded_at"], tr("Refund of {amount} sent back online · {how}", { amount: money(r["amount"]), how: [refundTo(providerOf(r)), byOf(r)].filter((x) => x !== "").join(" · ") }), "var(--info)");
+    else push(r["recorded_at"], tr("Refund of {amount} recorded · {how} · by {by}", { amount: money(r["amount"]), how: methodWord(r["method"]), by: String(r["recorded_by"] ?? "") }), "var(--info)");
+  }
   push(order["released_at"], tr("Released — tickets back on sale"), "var(--warn)");
   if (show?.status === "cancelled" && order["cancel_cause"] === "show") push(show.row["cancelled_at"], tr("{name} cancelled — tickets cancelled", { name: show.name }), "var(--danger)");
   else push(order["cancelled_at"], tr("Order cancelled"), "var(--danger)");
@@ -299,7 +357,19 @@ function drawerVals(app: WaveApp, box: Box, w: BoxWorld): V {
     ...(bal > 0 && (["door", "awaiting_transfer", "overdue", "not_collected"].includes(status) || status === "released")
       ? [act("mp", tr("Mark as paid"), "badge-check", () => app.openSheet("bxPaid", { o: id, amt: bal.toFixed(2), method: status === "door" ? "card" : "bank_transfer", note: "", err: {} }))]
       : []),
-    ...(paid - refunded > 0 ? [act("rf", tr("Record a refund"), "undo-2", () => app.openSheet("bxRefund", { o: id, amount: (bal < 0 ? -bal : paid - refunded).toFixed(2), how: String(payments[0]?.["method"] ?? collections[0]?.["method"] ?? "bank_transfer"), rkind: bal < 0 ? "cancelled_tickets" : "goodwill", note: "", err: {} }))] : []),
+    // The buyer pays what is still owed online, by the order's own pay link.
+    ...(bal > 0 && box.payOnline() && box.port.payLink !== undefined && PAY_LINK_STATES.includes(status) ? [act("pl", tr("Copy pay link"), "link", () => void box.copyPayLink(order))] : []),
+    // Money taken online goes back online, by someone who may give refunds; it is never recorded by hand.
+    ...(live.length > 0 && box.mayRefund()
+      ? [
+          act("ro", tr("Refund"), "undo-2", () => {
+            const first = live[0]!;
+            const amount = bal < 0 ? Math.min(-bal, first.left) : first.left;
+            app.openSheet("bxRefundOnline", { o: id, p: first.payment.id, amount: amount.toFixed(2), reason: "", rkind: bal < 0 ? "cancelled_tickets" : "goodwill", step: 1, err: {} });
+          }),
+        ]
+      : []),
+    ...(byHand > 0 ? [act("rf", tr("Record a refund"), "undo-2", () => app.openSheet("bxRefund", { o: id, amount: Math.min(bal < 0 ? -bal : paid - refunded, byHand).toFixed(2), how: String(payments.find((p) => p["method"] !== "online")?.["method"] ?? collections[0]?.["method"] ?? "bank_transfer"), rkind: bal < 0 ? "cancelled_tickets" : "goodwill", note: "", err: {} }))] : []),
     ...(liveOrder && !past && liveTickets.length > 0 ? [act("cx", tr("Cancel tickets"), "ticket-x", () => app.openSheet("bxCancel", { o: id, sel: {} }), true)] : []),
     ...(asked.length > 0
       ? [
@@ -716,6 +786,9 @@ export function codeSheetState(c: Row | null, zone: string): Record<string, unkn
   };
 }
 
+/** The orders a pay link is copied for: to pay at the door, waiting for a transfer, released, or not collected. */
+const PAY_LINK_STATES = ["door", "awaiting_transfer", "overdue", "released", "not_collected"];
+
 /** What each of the drawer's buttons writes: the table, and what is done to it. */
 const ACT_NEEDS: Record<string, [string, "create" | "update"]> = {
   rs: ["messages", "create"],
@@ -723,6 +796,8 @@ const ACT_NEEDS: Record<string, [string, "create" | "update"]> = {
   rc: ["messages", "create"],
   nm: ["tickets", "update"],
   mp: ["payments", "create"],
+  pl: ["orders", "update"],
+  ro: ["refunds", "create"],
   rf: ["refunds", "create"],
   cx: ["tickets", "update"],
   ap: ["tickets", "update"],

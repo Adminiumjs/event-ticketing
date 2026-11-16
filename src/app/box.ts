@@ -11,7 +11,7 @@
  */
 import { createElement, type ReactNode } from "react";
 
-import type { BoxOfficePort, EventChildren, StaffPerson } from "../data/ports.ts";
+import type { BoxOfficePort, EventChildren, StaffPayments, StaffPerson } from "../data/ports.ts";
 import { ApiError, isApiError, yes, type HistoryEntry, type Id, type ListQuery, type ListReply, type PoolCount, type Row, type Where } from "../data/wire.ts";
 import { tr } from "../i18n/tr.ts";
 import { boxWorldOf, type BoxShow, type BoxWorld } from "./boxWorld.ts";
@@ -160,7 +160,7 @@ const TOUCHES: Record<string, readonly string[]> = {
 export function readsOf(key: string): string[] {
   const m = /^box:(rows|list|count|history):([^:]+)/.exec(key);
   if (m !== null) return [m[2]!];
-  if (key === "box:me") return [];
+  if (key === "box:me" || key === "box:payments") return [];
   if (key.startsWith("box:pools:")) return [POOLS];
   if (key.startsWith("box:quote:") || key.startsWith("box:dquote:")) return [QUOTES];
   return ["*"];
@@ -216,6 +216,22 @@ export class Box {
 
   me(): StaffPerson | undefined {
     return this.app.get("box:me", () => this.port.me());
+  }
+  /**
+   * Payments online, as Adminium says: whether the app takes them and what this person may do. Null while it
+   * has not said, or says nothing (an older Adminium): then every screen reads as it always has.
+   */
+  payments(): StaffPayments | null {
+    return this.app.get("box:payments", async () => (await this.port.payments?.()) ?? null) ?? null;
+  }
+  /** Buyers can pay online now (or this person rehearses): a pay link may be copied. */
+  payOnline(): boolean {
+    const p = this.payments();
+    return p !== null && (p.online || p.test);
+  }
+  /** This person may send money back online. */
+  mayRefund(): boolean {
+    return this.payments()?.refund === true && this.port.refundOnline !== undefined;
   }
   /** Someone who works the door and not the box office: the door is all they see. */
   doorOnly(): boolean {
@@ -608,6 +624,36 @@ export class Box {
     await this.write(() => this.port.recordRefund(order.id, amount, method, kind, key), tr("Refund of {amount} recorded", { amount: money(amount) }), "undo-2", { tables: ["refunds"] });
   }
 
+  /** Money sent back online for a payment taken online: Adminium sends it through the payment service. */
+  async refundOnline(order: Row, paymentId: Id, amount: number, kind: "cancelled_tickets" | "goodwill", note: string, key?: string): Promise<void> {
+    const port = this.port;
+    if (port.refundOnline === undefined) return;
+    await this.write(
+      () => port.refundOnline!(order.id, paymentId, amount, kind, note === "" ? null : note, key),
+      tr("Refunded {amount}.", { amount: money(amount) }),
+      "undo-2",
+      { tables: ["refunds", "orders"], words: onlineRefusal },
+    );
+  }
+
+  /** An order's pay link, copied to the clipboard: the one its buyer holds while it works, else a new one. */
+  async copyPayLink(order: Row): Promise<void> {
+    const port = this.port;
+    if (port.payLink === undefined) return;
+    let until = 0;
+    const ok = await this.write(
+      async () => {
+        const link = await port.payLink!(order.id);
+        until = link.expiresAt;
+        await navigator.clipboard.writeText(link.url);
+      },
+      "",
+      "link",
+      { once: `paylink:${String(order.id)}`, keepSheet: true },
+    );
+    if (ok) this.app.toast(tr("Pay link copied. It works until {day}.", { day: fD(until) }), "link");
+  }
+
   /** A ticket's name changed; it keeps its code. */
   async rename(ticketId: Id, name: string): Promise<void> {
     await this.write(() => this.port.update("tickets", ticketId, { holder_name: name }), tr("Name changed"), "user-pen", { tables: ["tickets"] });
@@ -621,9 +667,21 @@ export class Box {
     }, plural(ids.length, "{n} ticket cancelled", "{n} tickets cancelled"), "ticket-x", { tables: ["tickets", "orders"] });
   }
 
-  /** A refund request approved: the asked tickets are cancelled and what is due back shows on the order. */
-  async approve(ids: Id[]): Promise<void> {
-    await this.write(() => this.port.cancelTickets(ids, "request"), tr("Approved — record the refund once it is paid back"), "check", { tables: ["tickets"] });
+  /**
+   * A refund request approved: the asked tickets are cancelled and what is due back shows on the order. With
+   * `online`, the money also goes back online at once, from the payment taken online (no more than is left of it).
+   */
+  async approve(ids: Id[], online?: { order: Row; paymentId: Id; amount: number; key: string }): Promise<void> {
+    const port = this.port;
+    await this.write(
+      async () => {
+        await port.cancelTickets(ids, "request");
+        if (online !== undefined && online.amount > 0 && port.refundOnline !== undefined) await port.refundOnline(online.order.id, online.paymentId, online.amount, "cancelled_tickets", null, online.key);
+      },
+      online === undefined ? tr("Approved — record the refund once it is paid back") : tr("Approved — {amount} goes back online", { amount: money(online.amount) }),
+      "check",
+      { tables: ["tickets", "refunds", "orders"], words: onlineRefusal },
+    );
   }
 
   /** A refund request declined: the tickets work again; the reason goes on the order's notes. */
@@ -1200,6 +1258,13 @@ export class Box {
   }
   /** The buttons whose write is on its way (a second press waits for none). */
   private readonly flying = new Set<string>();
+}
+
+/** A refusal of money sent back online, in words; anything else as every refusal is said. */
+function onlineRefusal(error: unknown): string | null {
+  if (!isApiError(error)) return null;
+  if (error.code === "PAYMENT_REFUND_NOT_ALLOWED") return tr("You can't give money back online. Ask a box office manager.");
+  return null;
 }
 
 /** "{n} ticket|{n} tickets", in the reader's language. */
