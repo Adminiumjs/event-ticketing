@@ -1485,5 +1485,7 @@
  "This show is cancelled. {amount} goes back to the card or PayPal account you paid with.": "此演出已取消。{amount} 会退回到你付款时使用的银行卡或 PayPal 账户。",
  "This show is cancelled. The box office will refund {amount}.": "此演出已取消。售票处会退还 {amount}。",
  "Refund approved. {amount} goes back to the card or PayPal account you paid with.": "退款已批准。{amount} 会退回到你付款时使用的银行卡或 PayPal 账户。",
- "Paid online": "已在线支付"
+ "Paid online": "已在线支付",
+ "Your bank is confirming the payment": "你的银行正在确认这笔付款",
+ "Some ways to pay take a few days. Please don't pay again. We'll email you when it has gone through.": "有些付款方式需要几天时间。请不要重复付款。付款完成后我们会发邮件通知你。"
 }

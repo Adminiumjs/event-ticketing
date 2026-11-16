@@ -347,6 +347,17 @@ export class AdminiumAudience implements AudiencePort {
     });
   }
 
+  payState(orderId?: Id): Promise<{ state: "none" | "open" | "confirming" | "paid" | "failed" | "expired"; test: boolean }> {
+    return answer(async () => {
+      const viaLink = this.byLink(orderId);
+      const id = orderId ?? this.openedId;
+      if (id === null) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
+      const client = viaLink ? this.client("link") : this.customer;
+      const said = await client.payments.state(viaLink ? this.refs.linkOrder : this.refs.myOrders, String(id));
+      return { state: said.state, test: said.test === true };
+    });
+  }
+
   choose(status: "paying" | "door" | "confirming" | "no_charge" | "let_go", keep?: number, orderId?: Id): Promise<Row> {
     return answer(async () => {
       const viaLink = this.byLink(orderId);

@@ -1485,5 +1485,7 @@
  "This show is cancelled. {amount} goes back to the card or PayPal account you paid with.": "Tato akce je zrušena. {amount} se vrátí na kartu nebo účet PayPal, kterým jste platili.",
  "This show is cancelled. The box office will refund {amount}.": "Tato akce je zrušena. Pokladna vám vrátí {amount}.",
  "Refund approved. {amount} goes back to the card or PayPal account you paid with.": "Vrácení schváleno. {amount} se vrátí na kartu nebo účet PayPal, kterým jste platili.",
- "Paid online": "Zaplaceno online"
+ "Paid online": "Zaplaceno online",
+ "Your bank is confirming the payment": "Vaše banka platbu potvrzuje",
+ "Some ways to pay take a few days. Please don't pay again. We'll email you when it has gone through.": "Některé způsoby platby trvají několik dní. Neplaťte prosím znovu. Až platba projde, pošleme vám e-mail."
 }

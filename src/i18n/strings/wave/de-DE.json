@@ -1485,5 +1485,7 @@
  "This show is cancelled. {amount} goes back to the card or PayPal account you paid with.": "Diese Show fällt aus. {amount} geht zurück auf die Karte oder das PayPal-Konto, mit dem du bezahlt hast.",
  "This show is cancelled. The box office will refund {amount}.": "Diese Show fällt aus. Die Kasse erstattet dir {amount}.",
  "Refund approved. {amount} goes back to the card or PayPal account you paid with.": "Erstattung genehmigt. {amount} geht zurück auf die Karte oder das PayPal-Konto, mit dem du bezahlt hast.",
- "Paid online": "Online bezahlt"
+ "Paid online": "Online bezahlt",
+ "Your bank is confirming the payment": "Deine Bank bestätigt die Zahlung",
+ "Some ways to pay take a few days. Please don't pay again. We'll email you when it has gone through.": "Manche Zahlungsarten dauern ein paar Tage. Bitte zahl nicht noch einmal. Wir schicken dir eine E-Mail, sobald sie durch ist."
 }

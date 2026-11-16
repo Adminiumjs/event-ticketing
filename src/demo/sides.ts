@@ -377,6 +377,13 @@ export class DemoAudience implements AudiencePort {
     });
   }
 
+  /** The demo's payments are taken in place: paid once one is, none before. */
+  async payState(orderId?: Id): Promise<{ state: "none" | "open" | "confirming" | "paid" | "failed" | "expired"; test: boolean }> {
+    const order = this.target(orderId);
+    const paid = this.engine.world.where("payments", (p) => p["order_id"] === order.id && p["method"] === "online").length > 0;
+    return { state: paid ? "paid" : "none", test: false };
+  }
+
   async choose(status: "paying" | "door" | "confirming" | "no_charge" | "let_go", keep?: number, orderId?: Id): Promise<Row> {
     const order = this.target(orderId);
     if (!CHOOSING.includes(String(order["status"]))) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");

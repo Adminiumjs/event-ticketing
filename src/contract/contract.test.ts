@@ -1792,6 +1792,8 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
           // Nobody switched the app on: no pay link, for the buyer or the box office.
           const refused = await refusal(() => aud.payLink());
           expect([refused?.status, refused?.code, refused?.params["reason"]]).toEqual([409, "PUBLIC_PAY_REFUSED", "off"]);
+          // Where its payment stands, as the buyer back from the pay page asks it: none was started.
+          expect(await aud.payState()).toEqual({ state: "none", test: false });
           // Another way to pay, while the hold runs: at the door.
           expect((await aud.choose("door"))["status"]).toBe("door");
         }, 180_000);

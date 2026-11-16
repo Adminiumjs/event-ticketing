@@ -1351,6 +1351,15 @@ export function AudienceView({ v }: { v: any }) {
                 <span style={st("font-weight:700;")}>{v.co.checkingTxt}</span>
               </div>
             ) : null}
+            {v.co.confirmingOn ? (
+              <div id="co-pay-say" role="status" tabIndex={-1} style={st(`${v.s.aInfo}outline:none;`)}>
+                <Icon name={"hourglass"} style={st("width:17px;height:17px;flex-shrink:0;margin-block-start:2px;color:var(--info);")} />
+                <span>
+                  <strong style={st("font-weight:800;")}>{v.co.confirmingTxt}</strong>
+                  {" "}{v.co.confirmingSub}
+                </span>
+              </div>
+            ) : null}
             {v.co.unfinishedOn ? (
               <div id="co-pay-say" role="alert" tabIndex={-1} style={st(`${v.s.aWarn}flex-direction:column; gap:12px; outline:none;`)}>
                 <span style={st("display:flex; gap:10px; align-items:flex-start;")}>
@@ -1738,7 +1747,7 @@ export function AudienceView({ v }: { v: any }) {
                             {v.co.takingTxt}
                           </div>
                         ) : (
-                          <button type="submit" className="wv-btn" disabled={v.co.busy || v.co.checkingOn} aria-busy={v.co.busy} style={st(`${v.s.btnP}width:100%; min-height:54px; font-size:16px;`)}>
+                          <button type="submit" className="wv-btn" disabled={v.co.busy || v.co.checkingOn || v.co.confirmingOn} aria-busy={v.co.busy} style={st(`${v.s.btnP}width:100%; min-height:54px; font-size:16px;`)}>
                             {v.co.ctaNow ? <Icon name={"lock"} style={st("width:16px;height:16px;")} /> : null}
                             {v.co.cta}
                           </button>

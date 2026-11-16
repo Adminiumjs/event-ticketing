@@ -163,6 +163,68 @@ describe("back from the pay page", () => {
   }, 30_000);
 });
 
+describe("back from the pay page, by where Adminium says the payment stands", () => {
+  /** The checkout paying online, the buyer away at the pay page, the tab's mark kept: then back, with `state` said. */
+  async function away(state: "open" | "confirming" | "failed" | "expired", advance = 0) {
+    const o = await open((demo) => linkOnly(demo.audience));
+    const { orderId } = await heldCinder(o);
+    const kept = new Map<string, string>();
+    (globalThis as { window?: unknown }).window = { location: { assign: () => undefined } };
+    (globalThis as { sessionStorage?: unknown }).sessionStorage = { getItem: (k: string) => kept.get(k) ?? null, setItem: (k: string, x: string) => void kept.set(k, x), removeItem: (k: string) => void kept.delete(k) };
+    const asked: string[] = [];
+    o.demo.audience.payState = async () => {
+      asked.push(state);
+      return { state, test: false };
+    };
+    await o.app.buyer.confirm();
+    if (advance > 0) o.demo.advance(advance);
+    o.app.setState({ co: null, scr: "home" });
+    return { ...o, orderId, asked, done: () => {
+      delete (globalThis as { window?: unknown }).window;
+      delete (globalThis as { sessionStorage?: unknown }).sessionStorage;
+    } };
+  }
+
+  it("says a bank is confirming it, and offers no second payment", async () => {
+    const o = await away("confirming");
+    try {
+      await o.app.buyer.returnFromPay();
+      const co = (await o.v())["co"] as V;
+      expect([o.app.state.co!.payStep, co["confirmingTxt"], co["unfinishedOn"]]).toEqual(["confirming", "Your bank is confirming the payment", false]);
+      expect(o.demo.world.get("orders", o.orderId)!["status"]).toBe("paying");
+    } finally {
+      o.done();
+    }
+  }, 30_000);
+
+  it("says it did not finish when the service says so, at once, and the hold runs on", async () => {
+    const o = await away("failed");
+    try {
+      await o.app.buyer.returnFromPay();
+      expect([o.app.state.co!.payStep, o.asked.length, o.app.state.co!.phase]).toEqual(["unfinished", 1, "held"]);
+    } finally {
+      o.done();
+    }
+  }, 30_000);
+
+  it("says the tickets went back on sale when the clock let the order go while the buyer was away", async () => {
+    const o = await away("expired", 11);
+    try {
+      await o.app.buyer.returnFromPay();
+      const co = (await o.v())["co"] as V;
+      expect([o.demo.world.get("orders", o.orderId)!["status"], o.app.state.co!.phase, co["gonePay"], co["gonePayTxt"]]).toEqual([
+        "expired",
+        "gone",
+        true,
+        "Your tickets went back on sale because the payment didn't finish in time. Nothing was taken.",
+      ]);
+      expect(o.asked).toEqual([]);
+    } finally {
+      o.done();
+    }
+  }, 30_000);
+});
+
 describe("a waitlist offer paid online", () => {
   it("claims Mia's two Velvet places with Pay now: paid, and the waitlist place claimed", async () => {
     const o = await open();

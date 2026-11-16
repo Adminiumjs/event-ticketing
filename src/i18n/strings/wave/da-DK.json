@@ -1485,5 +1485,7 @@
  "This show is cancelled. {amount} goes back to the card or PayPal account you paid with.": "Dette arrangement er aflyst. {amount} går tilbage til det kort eller den PayPal-konto, du betalte med.",
  "This show is cancelled. The box office will refund {amount}.": "Dette arrangement er aflyst. Billetlugen refunderer {amount}.",
  "Refund approved. {amount} goes back to the card or PayPal account you paid with.": "Refusion godkendt. {amount} går tilbage til det kort eller den PayPal-konto, du betalte med.",
- "Paid online": "Betalt online"
+ "Paid online": "Betalt online",
+ "Your bank is confirming the payment": "Din bank bekræfter betalingen",
+ "Some ways to pay take a few days. Please don't pay again. We'll email you when it has gone through.": "Nogle betalingsmåder tager et par dage. Betal ikke igen. Vi sender dig en mail, når betalingen er gået igennem."
 }

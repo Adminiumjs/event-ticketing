@@ -83,6 +83,12 @@ export interface AudiencePort {
    * moves). Only the demo's port has it; a real one sends the buyer to `payLink`.
    */
   payInPlace?(orderId?: Id): Promise<Row>;
+  /**
+   * Where the order's newest online payment stands, for the buyer back from the pay page: `none` (none started),
+   * `open` (the service has not said yet), `confirming` (a bank is confirming it), `paid`, `failed` or `expired`
+   * (nothing taken). Absent from a port that cannot say.
+   */
+  payState?(orderId?: Id): Promise<{ state: "none" | "open" | "confirming" | "paid" | "failed" | "expired"; test: boolean }>;
   /** The emailed confirm link: the transfer checkout goes on to waiting for the transfer. */
   confirmTransfer(token: string): Promise<Row>;
   /**

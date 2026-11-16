@@ -1485,5 +1485,7 @@
  "This show is cancelled. {amount} goes back to the card or PayPal account you paid with.": "تم إلغاء هذا الحفل. يعود {amount} إلى البطاقة أو حساب PayPal الذي دفعت به.",
  "This show is cancelled. The box office will refund {amount}.": "تم إلغاء هذا الحفل. سيرد شباك التذاكر {amount}.",
  "Refund approved. {amount} goes back to the card or PayPal account you paid with.": "تمت الموافقة على الاسترداد. يعود {amount} إلى البطاقة أو حساب PayPal الذي دفعت به.",
- "Paid online": "مدفوع عبر الإنترنت"
+ "Paid online": "مدفوع عبر الإنترنت",
+ "Your bank is confirming the payment": "يؤكد بنكك الدفع",
+ "Some ways to pay take a few days. Please don't pay again. We'll email you when it has gone through.": "بعض طرق الدفع تستغرق بضعة أيام. من فضلك لا تدفع مرة أخرى. سنرسل إليك بريدا إلكترونيا عندما يكتمل الدفع."
 }

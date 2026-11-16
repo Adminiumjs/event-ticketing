@@ -26,14 +26,17 @@ export type PayWay = "now" | "door" | "transfer";
  * Paying online, step by step: on the way to the pay page, back from it and asking whether the money came,
  * or back with nothing paid (the hold still running).
  */
-export type PayStep = "taking" | "checking" | "unfinished";
+export type PayStep = "taking" | "checking" | "confirming" | "unfinished";
 
 /** Where a tab going to the pay page keeps which order it is paying: the pay page sends it back to `/o`, bare. */
 const PAY_MARK = "wv.paying";
 /** A mark older than this is from another visit: nothing to come back to. */
 const PAY_MARK_MS = 3 * 3_600_000;
-/** Back from the pay page: how long the page asks whether the money came before saying it did not finish. */
-const CHECK_TRIES = 6;
+/**
+ * Back from the pay page: how often the page asks where the payment stands while the service has not said
+ * yet ("open"), and how many times before it says the payment did not finish.
+ */
+const CHECK_TRIES = 8;
 const CHECK_EVERY_MS = 1_500;
 /** The demo's hand-off to its pay page, shown for a moment before the order turns paid. */
 const DEMO_HANDOFF_MS = 1_300;
@@ -628,10 +631,23 @@ export class Buyer {
     }
     this.app.go("checkout", { co: { ...co, payStep: "checking" }, evId: co.evId, ...(mark.via === "me" ? { going: { orderId: o.order.id, via: "me" as const } } : {}) });
     focusLater("co-pay-say", 60);
+    const orderId = mark.via === "me" ? mark.orderId : undefined;
     for (let i = 0; i < CHECK_TRIES; i += 1) {
       const st = String(o.order["status"]);
       if (st === "paid") return this.after(o.order, this.s.co ?? co);
+      // Let go by the clock while the buyer was away (or moved on another way): the tickets went back on sale.
       if (st !== "paying") return this.expire();
+      // Where the payment stands, as Adminium says it: paid (the order follows), still open at the service,
+      // a bank confirming it, or not finished and nothing taken.
+      const said = await this.payState(orderId);
+      if (this.s.co?.payStep !== "checking") return;
+      if (said === "confirming") {
+        this.setCo({ payStep: "confirming", order: o.order, tickets: o.tickets });
+        focusLater("co-pay-say", 60);
+        return;
+      }
+      if (said === "failed" || said === "expired" || said === "none") break;
+      // Paid (the order is moved to paid in a moment), still open, or not said: asked again.
       await pause(CHECK_EVERY_MS);
       if (this.s.co?.payStep !== "checking") return;
       try {
@@ -640,9 +656,21 @@ export class Buyer {
         // Asked again on the next beat.
       }
     }
-    // Still paying, and the money has not come: nothing was taken, and the hold runs on.
+    if (o.order["status"] === "paid") return this.after(o.order, this.s.co ?? co);
+    if (o.order["status"] !== "paying") return this.expire();
+    // Still paying, and the money did not come: nothing was taken, and the hold runs on.
     this.setCo({ payStep: "unfinished", order: o.order, tickets: o.tickets });
     focusLater("co-pay-say", 60);
+  }
+
+  /** Where the order's payment stands, as Adminium says; null from a port that cannot say, or when it does not answer. */
+  private async payState(orderId?: Id): Promise<string | null> {
+    if (this.port.payState === undefined) return null;
+    try {
+      return (await this.port.payState(orderId)).state;
+    } catch {
+      return null;
+    }
   }
 
   /** A checkout made again from an order Adminium holds (the buyer back from the pay page). */
@@ -763,7 +791,8 @@ export class Buyer {
     }
     if (left <= 0) {
       // Paying online: a payment landing at the hold's end keeps the order, so Adminium's word is asked first.
-      if (co.payStep === "taking" || co.payStep === "checking") return;
+      // A bank confirming the payment: Adminium keeps the order while the money is on its way.
+      if (co.payStep === "taking" || co.payStep === "checking" || co.payStep === "confirming") return;
       if (co.payStep === "unfinished") return void this.settleAtHoldEnd();
       return this.expire();
     }
