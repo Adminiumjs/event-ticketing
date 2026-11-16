@@ -33,9 +33,11 @@ export const VERSION = "0.2.7";
  * database, each side served at its own mount and naming its install on every
  * call; and (0.3.60) orders paid online through its pay page, a state that
  * waits while a payment lands, and refunds sent back online as rows of the
- * app's own. Written from the version actually released, never guessed.
+ * app's own; and (0.3.61) where an order's payment stands, read by the buyer
+ * back from the pay page. Written from the version actually released, never
+ * guessed.
  */
-export const MIN_ADMINIUM = "0.3.60";
+export const MIN_ADMINIUM = "0.3.61";
 
 const ENV = {
   VITE_ADMINIUM_API_BASE_URL: { required: false, example: "https://admin.example.com" },
