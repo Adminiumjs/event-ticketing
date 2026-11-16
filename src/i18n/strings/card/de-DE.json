@@ -66,5 +66,6 @@
   "demo.toast.too-many": "Diese Adresse hat heute zu viele Links angefordert",
   "demo.toast.check-fails": "Der nächste Menschen-Check schlägt fehl",
   "demo.toast.signed-out": "Auf einem anderen Gerät abgemeldet",
-  "demo.toast.link": "Den Link in Mias E-Mail geöffnet"
+  "demo.toast.link": "Den Link in Mias E-Mail geöffnet",
+  "demo.toast.paid-online": "Demo: Es fließt kein Geld. {number} ist online bezahlt."
 }

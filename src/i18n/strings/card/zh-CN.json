@@ -66,5 +66,6 @@
   "demo.toast.too-many": "这个邮箱今天请求的链接过多",
   "demo.toast.check-fails": "下一次真人验证将失败",
   "demo.toast.signed-out": "已在另一台设备上退出登录",
-  "demo.toast.link": "已打开 Mia 邮件中的链接"
+  "demo.toast.link": "已打开 Mia 邮件中的链接",
+  "demo.toast.paid-online": "演示：不会产生任何付款。{number} 已在线支付。"
 }

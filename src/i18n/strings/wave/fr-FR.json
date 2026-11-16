@@ -1468,5 +1468,22 @@
  "{who} are cancelled and {amount} is refunded. It goes back to the card or PayPal account they paid with. {buyer} is told.": "{who} sont annulés et {amount} est remboursé. La somme revient sur la carte ou le compte PayPal utilisé pour payer. {buyer} est prévenu.",
  "{who} is cancelled and {amount} is refunded. It goes back to the card or PayPal account they paid with. {buyer} is told.": "{who} est annulé et {amount} est remboursé. La somme revient sur la carte ou le compte PayPal utilisé pour payer. {buyer} est prévenu.",
  "{n} buyer paid online. Their money goes back to their card automatically.|{n} buyers paid online. Their money goes back to their cards automatically.": "{n} acheteur a payé en ligne. Son argent revient automatiquement sur sa carte.|{n} acheteurs ont payé en ligne. Leur argent revient automatiquement sur leurs cartes.",
- "{n} online payment will show ‘Refund owed’.|{n} online payments will show ‘Refund owed’.": "{n} paiement en ligne affichera « Remboursement à faire ».|{n} paiements en ligne afficheront « Remboursement à faire »."
+ "{n} online payment will show ‘Refund owed’.|{n} online payments will show ‘Refund owed’.": "{n} paiement en ligne affichera « Remboursement à faire ».|{n} paiements en ligne afficheront « Remboursement à faire ».",
+ "Paying online isn't possible right now. Choose another way to pay.": "Le paiement en ligne n'est pas possible pour le moment. Choisissez un autre moyen de paiement.",
+ "We couldn't take you to the payment page just now. Try again.": "Nous n'avons pas pu vous emmener vers la page de paiement. Réessayez.",
+ "Pay now": "Payer maintenant",
+ "You'll pay on the Stripe or PayPal page.": "Vous payez sur la page Stripe ou PayPal.",
+ "Pay now · {amount}": "Payer maintenant · {amount}",
+ "Your tickets went back on sale because the payment didn't finish in time. Nothing was taken.": "Vos billets ont été remis en vente car le paiement n'a pas abouti à temps. Rien n'a été prélevé.",
+ "Test mode — only you see this. No money moves. This order is sample data and goes when you remove sample data.": "Mode test — vous seul voyez ceci. Aucun argent ne circule. Cette commande est une donnée d'exemple et disparaît quand vous supprimez les données d'exemple.",
+ "Taking you to the secure payment page…": "Redirection vers la page de paiement sécurisée…",
+ "Checking your payment…": "Vérification de votre paiement…",
+ "The payment didn't finish. Nothing was taken.": "Le paiement n'a pas abouti. Rien n'a été prélevé.",
+ "Your tickets are still held. Try again, or choose another way to pay.": "Vos billets sont toujours réservés. Réessayez, ou choisissez un autre moyen de paiement.",
+ "The payment didn't finish in time": "Le paiement n'a pas abouti à temps",
+ "Your tickets are in your email.": "Vos billets sont dans votre boîte mail.",
+ "This show is cancelled. {amount} goes back to the card or PayPal account you paid with.": "Ce spectacle est annulé. {amount} revient sur la carte ou le compte PayPal utilisé pour payer.",
+ "This show is cancelled. The box office will refund {amount}.": "Ce spectacle est annulé. La billetterie vous remboursera {amount}.",
+ "Refund approved. {amount} goes back to the card or PayPal account you paid with.": "Remboursement accepté. {amount} revient sur la carte ou le compte PayPal utilisé pour payer.",
+ "Paid online": "Payé en ligne"
 }

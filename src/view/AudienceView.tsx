@@ -1325,6 +1325,12 @@ export function AudienceView({ v }: { v: any }) {
             <h1 id="co-h" tabIndex={-1} style={st(`margin:0; font-size:${v.L.h2}; font-weight:800; letter-spacing:-.045em; outline:none;`)}>
               {tr("Checkout")}
             </h1>
+            {v.co.testOn ? (
+              <div role="note" style={st(`${v.s.aWarn}font-weight:700;`)}>
+                <Icon name={"flask-conical"} style={st("width:17px;height:17px;flex-shrink:0;margin-block-start:2px;color:var(--warn);")} />
+                <span>{v.co.testTxt}</span>
+              </div>
+            ) : null}
             {" "}
             <ol aria-label={tr("Progress")} style={st("display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; list-style:none; margin:0; padding:0;")}>
               {(v.co.steps ?? []).map((step: any, i_step: number) => (
@@ -1339,6 +1345,27 @@ export function AudienceView({ v }: { v: any }) {
               ))}
             </ol>
             {" "}
+            {v.co.checkingOn ? (
+              <div id="co-pay-say" role="status" tabIndex={-1} style={st(`${v.s.aInfo}outline:none;`)}>
+                <Icon name={"loader-circle"} style={st("width:17px;height:17px;flex-shrink:0;margin-block-start:2px;color:var(--info);animation:wv-turn 1s linear infinite;")} />
+                <span style={st("font-weight:700;")}>{v.co.checkingTxt}</span>
+              </div>
+            ) : null}
+            {v.co.unfinishedOn ? (
+              <div id="co-pay-say" role="alert" tabIndex={-1} style={st(`${v.s.aWarn}flex-direction:column; gap:12px; outline:none;`)}>
+                <span style={st("display:flex; gap:10px; align-items:flex-start;")}>
+                  <Icon name={"circle-alert"} style={st("width:17px;height:17px;flex-shrink:0;margin-block-start:2px;color:var(--warn);")} />
+                  <span>
+                    <strong style={st("font-weight:800;")}>{v.co.unfinishedTxt}</strong>
+                    {" "}{v.co.unfinishedSub}
+                  </span>
+                </span>
+                <button type="button" className="wv-btn" onClick={v.co.payAgain} style={st(`${v.s.btnP}align-self:flex-start; min-height:40px;`)}>
+                  <Icon name={"lock"} style={st("width:15px;height:15px;")} />
+                  {tr("Try again")}
+                </button>
+              </div>
+            ) : null}
             <div style={st(`display:grid; grid-template-columns:${v.co.cols}; gap:28px; align-items:start;`)}>
               <form onSubmit={v.co.submit} noValidate={true} style={st("min-width:0; display:flex; flex-direction:column; gap:22px;")}>
                 <fieldset style={st("margin:0; padding:20px; border-radius:18px; border:1px solid var(--border); background:var(--surface); display:flex; flex-direction:column; gap:14px;")}>
@@ -1705,9 +1732,17 @@ export function AudienceView({ v }: { v: any }) {
                         </div>
                       ) : null}
                       <div style={st("display:flex; flex-direction:column; gap:10px; padding-block-end:24px;")}>
-                        <button type="submit" className="wv-btn" disabled={v.co.busy} aria-busy={v.co.busy} style={st(`${v.s.btnP}width:100%; min-height:54px; font-size:16px;`)}>
-                          {v.co.cta}
-                        </button>
+                        {v.co.takingOn ? (
+                          <div role="status" aria-disabled="true" style={st(`${v.s.btnP}width:100%; min-height:54px; font-size:16px; opacity:.85; cursor:default;`)}>
+                            <Icon name={"loader-circle"} style={st("width:17px;height:17px;animation:wv-turn 1s linear infinite;")} />
+                            {v.co.takingTxt}
+                          </div>
+                        ) : (
+                          <button type="submit" className="wv-btn" disabled={v.co.busy || v.co.checkingOn} aria-busy={v.co.busy} style={st(`${v.s.btnP}width:100%; min-height:54px; font-size:16px;`)}>
+                            {v.co.ctaNow ? <Icon name={"lock"} style={st("width:16px;height:16px;")} /> : null}
+                            {v.co.cta}
+                          </button>
+                        )}
                         {" "}
                         <span style={st(`${v.s.hint}text-align:center;`)}>
                           {tr("We email your order straight away. No booking fees.")}
@@ -1717,7 +1752,19 @@ export function AudienceView({ v }: { v: any }) {
                   </>
                 ) : null}
                 {" "}
-                {v.co.goneOn ? (
+                {v.co.gonePay ? (
+                  <div role="alert" style={st(`${v.s.aWarn}flex-direction:column; gap:12px; position:relative; z-index:2;`)}>
+                    <span style={st("display:flex; gap:10px; align-items:flex-start;")}>
+                      <Icon name={"timer-off"} style={st("width:17px;height:17px;flex-shrink:0;margin-block-start:2px;color:var(--warn);")} />
+                      <span>{v.co.gonePayTxt}</span>
+                    </span>
+                    <button type="button" className="wv-btn" onClick={v.co.tryAgain} style={st(`${v.s.btnP}align-self:flex-start; min-height:40px;`)}>
+                      <Icon name={"refresh-cw"} style={st("width:15px;height:15px;")} />
+                      {tr("Try again")}
+                    </button>
+                  </div>
+                ) : null}
+                {v.co.goneMain ? (
                   <>
                     <div role="alert" style={st(`${v.s.aWarn}flex-direction:column; gap:12px; position:relative; z-index:2;`)}>
                       <span style={st("display:flex; gap:10px; align-items:flex-start;")}>

@@ -1468,5 +1468,22 @@
  "{who} are cancelled and {amount} is refunded. It goes back to the card or PayPal account they paid with. {buyer} is told.": "{who} werden storniert und {amount} wird erstattet. Es geht zurück auf die Karte oder das PayPal-Konto, mit dem bezahlt wurde. {buyer} wird informiert.",
  "{who} is cancelled and {amount} is refunded. It goes back to the card or PayPal account they paid with. {buyer} is told.": "{who} wird storniert und {amount} wird erstattet. Es geht zurück auf die Karte oder das PayPal-Konto, mit dem bezahlt wurde. {buyer} wird informiert.",
  "{n} buyer paid online. Their money goes back to their card automatically.|{n} buyers paid online. Their money goes back to their cards automatically.": "{n} Person hat online bezahlt. Ihr Geld geht automatisch zurück auf die Karte.|{n} Personen haben online bezahlt. Ihr Geld geht automatisch zurück auf ihre Karten.",
- "{n} online payment will show ‘Refund owed’.|{n} online payments will show ‘Refund owed’.": "{n} Online-Zahlung zeigt dann „Erstattung offen“.|{n} Online-Zahlungen zeigen dann „Erstattung offen“."
+ "{n} online payment will show ‘Refund owed’.|{n} online payments will show ‘Refund owed’.": "{n} Online-Zahlung zeigt dann „Erstattung offen“.|{n} Online-Zahlungen zeigen dann „Erstattung offen“.",
+ "Paying online isn't possible right now. Choose another way to pay.": "Online bezahlen geht gerade nicht. Wähl eine andere Zahlungsart.",
+ "We couldn't take you to the payment page just now. Try again.": "Wir konnten dich gerade nicht zur Zahlungsseite bringen. Versuch es noch mal.",
+ "Pay now": "Jetzt bezahlen",
+ "You'll pay on the Stripe or PayPal page.": "Du bezahlst auf der Seite von Stripe oder PayPal.",
+ "Pay now · {amount}": "Jetzt bezahlen · {amount}",
+ "Your tickets went back on sale because the payment didn't finish in time. Nothing was taken.": "Deine Tickets sind wieder im Verkauf, weil die Zahlung nicht rechtzeitig fertig wurde. Es wurde nichts abgebucht.",
+ "Test mode — only you see this. No money moves. This order is sample data and goes when you remove sample data.": "Testmodus — nur du siehst das. Es fließt kein Geld. Diese Bestellung ist Beispieldatenbestand und verschwindet, wenn du die Beispieldaten entfernst.",
+ "Taking you to the secure payment page…": "Wir bringen dich zur sicheren Zahlungsseite …",
+ "Checking your payment…": "Wir prüfen deine Zahlung …",
+ "The payment didn't finish. Nothing was taken.": "Die Zahlung wurde nicht abgeschlossen. Es wurde nichts abgebucht.",
+ "Your tickets are still held. Try again, or choose another way to pay.": "Deine Tickets sind weiter reserviert. Versuch es noch mal oder wähl eine andere Zahlungsart.",
+ "The payment didn't finish in time": "Die Zahlung wurde nicht rechtzeitig fertig",
+ "Your tickets are in your email.": "Deine Tickets sind in deinem E-Mail-Postfach.",
+ "This show is cancelled. {amount} goes back to the card or PayPal account you paid with.": "Diese Show fällt aus. {amount} geht zurück auf die Karte oder das PayPal-Konto, mit dem du bezahlt hast.",
+ "This show is cancelled. The box office will refund {amount}.": "Diese Show fällt aus. Die Kasse erstattet dir {amount}.",
+ "Refund approved. {amount} goes back to the card or PayPal account you paid with.": "Erstattung genehmigt. {amount} geht zurück auf die Karte oder das PayPal-Konto, mit dem du bezahlt hast.",
+ "Paid online": "Online bezahlt"
 }

@@ -437,6 +437,7 @@ export function mailWord(kind: string): string {
   const words: Record<string, string> = {
     tickets: tr("Tickets"),
     "tickets-paid": tr("Tickets"),
+    "tickets-online": tr("Tickets"),
     "transfer-confirm": tr("The confirm link"),
     "transfer-waiting": tr("The transfer details"),
     "transfer-reminder": tr("A transfer reminder"),

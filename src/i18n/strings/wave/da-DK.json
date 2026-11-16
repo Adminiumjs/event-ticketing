@@ -1468,5 +1468,22 @@
  "{who} are cancelled and {amount} is refunded. It goes back to the card or PayPal account they paid with. {buyer} is told.": "{who} annulleres, og {amount} refunderes. Pengene går tilbage til det kort eller den PayPal-konto, der blev betalt med. {buyer} får besked.",
  "{who} is cancelled and {amount} is refunded. It goes back to the card or PayPal account they paid with. {buyer} is told.": "{who} annulleres, og {amount} refunderes. Pengene går tilbage til det kort eller den PayPal-konto, der blev betalt med. {buyer} får besked.",
  "{n} buyer paid online. Their money goes back to their card automatically.|{n} buyers paid online. Their money goes back to their cards automatically.": "{n} køber betalte online. Pengene går automatisk tilbage til kortet.|{n} købere betalte online. Pengene går automatisk tilbage til deres kort.",
- "{n} online payment will show ‘Refund owed’.|{n} online payments will show ‘Refund owed’.": "{n} onlinebetaling viser „Refusion skyldes“.|{n} onlinebetalinger viser „Refusion skyldes“."
+ "{n} online payment will show ‘Refund owed’.|{n} online payments will show ‘Refund owed’.": "{n} onlinebetaling viser „Refusion skyldes“.|{n} onlinebetalinger viser „Refusion skyldes“.",
+ "Paying online isn't possible right now. Choose another way to pay.": "Det er ikke muligt at betale online lige nu. Vælg en anden betalingsmåde.",
+ "We couldn't take you to the payment page just now. Try again.": "Vi kunne ikke sende dig til betalingssiden lige nu. Prøv igen.",
+ "Pay now": "Betal nu",
+ "You'll pay on the Stripe or PayPal page.": "Du betaler på Stripe- eller PayPal-siden.",
+ "Pay now · {amount}": "Betal nu · {amount}",
+ "Your tickets went back on sale because the payment didn't finish in time. Nothing was taken.": "Dine billetter er sat til salg igen, fordi betalingen ikke blev gennemført i tide. Der blev ikke trukket noget.",
+ "Test mode — only you see this. No money moves. This order is sample data and goes when you remove sample data.": "Testtilstand — kun du kan se dette. Der flyttes ingen penge. Denne ordre er eksempeldata og forsvinder, når du fjerner eksempeldata.",
+ "Taking you to the secure payment page…": "Vi sender dig til den sikre betalingsside …",
+ "Checking your payment…": "Vi tjekker din betaling …",
+ "The payment didn't finish. Nothing was taken.": "Betalingen blev ikke gennemført. Der blev ikke trukket noget.",
+ "Your tickets are still held. Try again, or choose another way to pay.": "Dine billetter er stadig reserveret. Prøv igen, eller vælg en anden betalingsmåde.",
+ "The payment didn't finish in time": "Betalingen blev ikke gennemført i tide",
+ "Your tickets are in your email.": "Dine billetter ligger i din mail.",
+ "This show is cancelled. {amount} goes back to the card or PayPal account you paid with.": "Dette arrangement er aflyst. {amount} går tilbage til det kort eller den PayPal-konto, du betalte med.",
+ "This show is cancelled. The box office will refund {amount}.": "Dette arrangement er aflyst. Billetlugen refunderer {amount}.",
+ "Refund approved. {amount} goes back to the card or PayPal account you paid with.": "Refusion godkendt. {amount} går tilbage til det kort eller den PayPal-konto, du betalte med.",
+ "Paid online": "Betalt online"
 }

@@ -1468,5 +1468,22 @@
  "{who} are cancelled and {amount} is refunded. It goes back to the card or PayPal account they paid with. {buyer} is told.": "{who}将被取消，并退款 {amount}。款项会退回付款时使用的银行卡或 PayPal 账户。我们会通知 {buyer}。",
  "{who} is cancelled and {amount} is refunded. It goes back to the card or PayPal account they paid with. {buyer} is told.": "{who}将被取消，并退款 {amount}。款项会退回付款时使用的银行卡或 PayPal 账户。我们会通知 {buyer}。",
  "{n} buyer paid online. Their money goes back to their card automatically.|{n} buyers paid online. Their money goes back to their cards automatically.": "{n} 位买家在线付款。他们的钱会自动退回到他们的银行卡。",
- "{n} online payment will show ‘Refund owed’.|{n} online payments will show ‘Refund owed’.": "{n} 笔在线付款将显示“应退款”。"
+ "{n} online payment will show ‘Refund owed’.|{n} online payments will show ‘Refund owed’.": "{n} 笔在线付款将显示“应退款”。",
+ "Paying online isn't possible right now. Choose another way to pay.": "现在无法在线支付。请选择其他付款方式。",
+ "We couldn't take you to the payment page just now. Try again.": "暂时无法带你前往付款页面。请重试。",
+ "Pay now": "立即付款",
+ "You'll pay on the Stripe or PayPal page.": "你将在 Stripe 或 PayPal 页面付款。",
+ "Pay now · {amount}": "立即付款 · {amount}",
+ "Your tickets went back on sale because the payment didn't finish in time. Nothing was taken.": "付款没有及时完成，你的门票已重新开售。没有扣款。",
+ "Test mode — only you see this. No money moves. This order is sample data and goes when you remove sample data.": "测试模式——只有你能看到。不会产生任何付款。此订单是示例数据，移除示例数据时会一并删除。",
+ "Taking you to the secure payment page…": "正在前往安全付款页面…",
+ "Checking your payment…": "正在确认你的付款…",
+ "The payment didn't finish. Nothing was taken.": "付款没有完成。没有扣款。",
+ "Your tickets are still held. Try again, or choose another way to pay.": "你的门票仍为你保留。请重试，或选择其他付款方式。",
+ "The payment didn't finish in time": "付款没有及时完成",
+ "Your tickets are in your email.": "你的门票已发送到你的邮箱。",
+ "This show is cancelled. {amount} goes back to the card or PayPal account you paid with.": "此演出已取消。{amount} 会退回到你付款时使用的银行卡或 PayPal 账户。",
+ "This show is cancelled. The box office will refund {amount}.": "此演出已取消。售票处会退还 {amount}。",
+ "Refund approved. {amount} goes back to the card or PayPal account you paid with.": "退款已批准。{amount} 会退回到你付款时使用的银行卡或 PayPal 账户。",
+ "Paid online": "已在线支付"
 }
