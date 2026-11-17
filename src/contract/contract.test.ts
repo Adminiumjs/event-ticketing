@@ -1863,11 +1863,12 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
         it("tells a refund sent back online once, when it is done; a refund the box office records keeps its own email", async (ctx) => {
           needsWrites(() => ctx.skip());
           const manager = await staffPort(MANAGER);
-          const paid = (await manager.list("orders", { where: [{ column: "status", eq: "paid" }, { column: "paid_method", eq: "cash" }], limit: 1 })).rows[0]!;
+          // A sample order paid by bank transfer, its payment recorded by the box office.
+          const payment = (await manager.list("payments", { where: [{ column: "method", eq: "bank_transfer" }, { column: "voided", eq: false }], limit: 1 })).rows[0]!;
+          const paid = (await manager.list("orders", { where: [{ column: "id", eq: payment["order_id"] }] })).rows[0]!;
           touched.add(paid.id);
-          const payment = (await manager.list("payments", { where: [{ column: "order_id", eq: paid.id }], limit: 1 })).rows[0]!;
           // Recorded by hand: "Refund recorded", once, at the moment it is made.
-          const byHand = await manager.recordRefund(paid.id, 1, "cash", "goodwill", key("r-hand"));
+          const byHand = await manager.recordRefund(paid.id, 1, "bank_transfer", "goodwill", key("r-hand"));
           expect(await mails({ column: "refund_id", eq: byHand.id }, REFUND_MAILS)).toEqual(["refund-recorded made"]);
           // Sent back online: nothing when it is made, and none while it is not sent (the payment was not taken online).
           const online = await manager.refundOnline(paid.id, payment.id, 1, "goodwill", null, key("r-online"));
