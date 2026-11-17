@@ -65,7 +65,30 @@ export interface AudiencePort {
    * than offered: the rest go back to the waitlist. `orderId` names one of the
    * signed-in person's orders; without it, the order the link opened.
    */
-  choose(status: "door" | "confirming" | "no_charge" | "let_go", keep?: number, orderId?: Id): Promise<Row>;
+  choose(status: "paying" | "door" | "confirming" | "no_charge" | "let_go", keep?: number, orderId?: Id): Promise<Row>;
+  /**
+   * Whether the venue takes payments online right now, through Adminium's pay page: `online` shows "Pay now"
+   * (otherwise every screen reads as it always has); `test` while someone who manages payments rehearses the
+   * checkout on this address (no money moves, and the order is sample data). Absent from a port that cannot.
+   */
+  payments?(): Promise<{ online: boolean; test: boolean }>;
+  /**
+   * Where the buyer pays an order now: its pay link on Adminium's pay page, for the order the link opened or one
+   * of the signed-in person's (`orderId`). Refused `PUBLIC_PAY_REFUSED` (`params.reason`: off, nothing-due,
+   * not-now, not-payable) when it cannot be paid online.
+   */
+  payLink?(orderId?: Id): Promise<string>;
+  /**
+   * The demo's pay page, played in place: the order is paid at once and nothing leaves the page (no money
+   * moves). Only the demo's port has it; a real one sends the buyer to `payLink`.
+   */
+  payInPlace?(orderId?: Id): Promise<Row>;
+  /**
+   * Where the order's newest online payment stands, for the buyer back from the pay page: `none` (none started),
+   * `open` (the service has not said yet), `confirming` (a bank is confirming it), `paid`, `failed` or `expired`
+   * (nothing taken). Absent from a port that cannot say.
+   */
+  payState?(orderId?: Id): Promise<{ state: "none" | "open" | "confirming" | "paid" | "failed" | "expired"; test: boolean }>;
   /** The emailed confirm link: the transfer checkout goes on to waiting for the transfer. */
   confirmTransfer(token: string): Promise<Row>;
   /**
@@ -138,6 +161,18 @@ export type BankDoor = "link" | "confirm" | "me";
 export interface Person {
   email: string;
   name: string | null;
+}
+
+/**
+ * Whether the app takes payments online, and what this person may do with them, as Adminium says: `on` someone
+ * switched the app on; `online` buyers can pay online right now; `test` this person rehearses; `refund` they may
+ * send money back online.
+ */
+export interface StaffPayments {
+  on: boolean;
+  online: boolean;
+  test: boolean;
+  refund: boolean;
 }
 
 /** Who is signed in to the box office or the door, and what they may do. */
@@ -220,6 +255,18 @@ export interface BoxOfficePort {
   /** Money recorded; `key` makes a retry of the same press land on the same payment, never a second one. */
   recordPayment(orderId: Id, amount: number, method: "bank_transfer" | "card" | "cash", note?: string | null, key?: string): Promise<Row>;
   recordRefund(orderId: Id, amount: number, method: "bank_transfer" | "card" | "cash", kind: "cancelled_tickets" | "goodwill", key?: string): Promise<Row>;
+  /**
+   * Payments online: whether the app takes them and what this person may do (null, or absent, from an Adminium
+   * that does not say: then no payment control shows and the screens read as they always have).
+   */
+  payments?(): Promise<StaffPayments | null>;
+  /** An order's pay link to copy: the one its buyer already holds while it works, else a new one. */
+  payLink?(orderId: Id): Promise<{ url: string; expiresAt: number }>;
+  /**
+   * Money sent back online: a refund row naming the payment taken online (`paymentId`), which Adminium sends
+   * back through the payment service and stamps. Refused unless this person may give refunds.
+   */
+  refundOnline?(orderId: Id, paymentId: Id, amount: number, kind: "cancelled_tickets" | "goodwill", note: string | null, key?: string): Promise<Row>;
   /** Tickets cancelled (on a show with a waitlist, handed to it). */
   cancelTickets(ticketIds: Id[], cause: "box_office" | "request"): Promise<void>;
   declineRefund(ticketId: Id): Promise<Row>;

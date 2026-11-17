@@ -66,5 +66,6 @@
   "demo.toast.too-many": "This address has asked for too many links today",
   "demo.toast.check-fails": "The next person check fails",
   "demo.toast.signed-out": "Signed out on another device",
-  "demo.toast.link": "Opened the link in Mia's email"
+  "demo.toast.link": "Opened the link in Mia's email",
+  "demo.toast.paid-online": "Demo: no money moves. {number} is paid online."
 }

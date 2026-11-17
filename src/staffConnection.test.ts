@@ -130,6 +130,8 @@ describe("loadStaffConfig", () => {
       publicKeys: { kiosk: "adm_pub_k" },
       access: { tables: { tickets: ["read", "update"] }, roles: [{ slug: "pos-cashier", name: "POS cashier" }] },
       addOns: { invoices: { version: "1.0.3", settings: { business_name: "Harbour Café" } } },
+      // An Adminium that says nothing of payments: no payment control shows.
+      payments: null,
     });
   });
 

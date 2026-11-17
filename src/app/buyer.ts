@@ -19,7 +19,67 @@ import type { WaveApp } from "./wave.ts";
 import type { Show } from "./world.ts";
 import { focusLater } from "./focus.ts";
 
-export type PayWay = "door" | "transfer";
+/** How the buyer pays: online now (on Adminium's pay page), at the door, or by bank transfer. */
+export type PayWay = "now" | "door" | "transfer";
+
+/**
+ * Paying online, step by step: on the way to the pay page, back from it and asking whether the money came,
+ * or back with nothing paid (the hold still running).
+ */
+export type PayStep = "taking" | "checking" | "confirming" | "unfinished";
+
+/** Where a tab going to the pay page keeps which order it is paying: the pay page sends it back to `/o`, bare. */
+const PAY_MARK = "wv.paying";
+/** A mark older than this is from another visit: nothing to come back to. */
+const PAY_MARK_MS = 3 * 3_600_000;
+/**
+ * Back from the pay page: how often the page asks where the payment stands while the service has not said
+ * yet ("open"), and how many times before it says the payment did not finish.
+ */
+const CHECK_TRIES = 8;
+const CHECK_EVERY_MS = 1_500;
+/** The demo's hand-off to its pay page, shown for a moment before the order turns paid. */
+const DEMO_HANDOFF_MS = 1_300;
+
+interface PayMark {
+  orderId: Id;
+  via: "link" | "me";
+  at: number;
+}
+
+function tabStore(): Storage | null {
+  try {
+    return typeof sessionStorage === "undefined" ? null : sessionStorage;
+  } catch {
+    return null;
+  }
+}
+function keepPayMark(mark: PayMark): void {
+  try {
+    tabStore()?.setItem(PAY_MARK, JSON.stringify(mark));
+  } catch {
+    // Storage refused: coming back opens the venue's front page.
+  }
+}
+function readPayMark(now: number): PayMark | null {
+  try {
+    const raw = tabStore()?.getItem(PAY_MARK);
+    if (raw === null || raw === undefined) return null;
+    const m = JSON.parse(raw) as Partial<PayMark>;
+    if ((typeof m.orderId !== "number" && typeof m.orderId !== "string") || (m.via !== "link" && m.via !== "me") || typeof m.at !== "number" || now - m.at > PAY_MARK_MS) return null;
+    return { orderId: m.orderId, via: m.via, at: m.at };
+  } catch {
+    return null;
+  }
+}
+function dropPayMark(): void {
+  try {
+    tabStore()?.removeItem(PAY_MARK);
+  } catch {
+    // Nothing kept.
+  }
+}
+const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export interface Co {
   evId: Id;
@@ -55,6 +115,12 @@ export interface Co {
   /** "Send it again" on the confirm email: what the last press came to, and when it may be pressed again. */
   again: null | "sent" | "wait" | "limit" | "down";
   againAt: number;
+  /** Paying online: on the way to the pay page, checking on the way back, or back with nothing paid. */
+  payStep: PayStep | null;
+  /** The hold ran out while the buyer was paying online: the page says the payment did not finish in time. */
+  payGone: boolean;
+  /** Paying online could not start (the venue stopped taking payments online meanwhile): the other ways stay. */
+  payOff: boolean;
 }
 
 export interface Si {
@@ -169,7 +235,12 @@ export class Buyer {
       nameAsk: false,
       again: null,
       againAt: 0,
+      payStep: null,
+      payGone: false,
+      payOff: false,
     };
+    // Whether "Pay now" is offered, asked before the hold so it is first among the ways to pay.
+    this.paysOnline();
     this.app.go("checkout", { co, evId: show.id });
     if (me !== null) void this.hold();
     else
@@ -294,18 +365,30 @@ export class Buyer {
     this.setCo({ busy: false, errs: { hold: tr("We couldn't hold those tickets. Try again.") } });
   }
 
-  /** The ways every chosen type can be paid for this show (none when nothing is to pay). */
-  payOptions(show: Show, lines: Co["lines"]): PayWay[] {
+  /**
+   * Whether the venue takes payments online right now, as Adminium says (`test` while a payment manager
+   * rehearses the checkout here); undefined while it is being asked, null from a port that cannot say.
+   */
+  paysOnline(): { online: boolean; test: boolean } | null | undefined {
+    const port = this.port;
+    if (port.payments === undefined) return null;
+    return this.app.get("aud:pay:state", () => port.payments!());
+  }
+
+  /** The ways every chosen type can be paid for this show (none when nothing is to pay); paying online first, when the venue takes it. */
+  payOptions(show: Show, lines: Co["lines"], off = false): PayWay[] {
     const w = this.app.world();
     if (w === null) return [];
     const types = lines.map((l) => show.types.find((t) => t.id === l.typeId)).filter((t) => t !== undefined);
     if (types.every((t) => t.price === 0)) return [];
-    let o: PayWay[] = ["door", "transfer"];
+    let o: ("door" | "transfer")[] = ["door", "transfer"];
     for (const t of types) {
       if (t.price === 0) continue;
       const p = pays(this.app, w, show, t);
       o = o.filter((x) => p.includes(x));
     }
+    const online = this.paysOnline();
+    if (!off && online !== null && online !== undefined && (online.online || online.test)) return ["now", ...o];
     return o;
   }
 
@@ -371,11 +454,14 @@ export class Buyer {
         ...(Object.keys(co.orderAnswers).length > 0 ? { answers: co.orderAnswers } : {}),
       }, via);
       const free = Number(co.order?.["total"] ?? 0) <= 0;
-      if (co.claim) {
-        const moved = await this.port.choose(free ? "no_charge" : co.pay === "transfer" ? "confirming" : "door", co.tix.length, via);
-        return this.after(moved, co);
+      const way = free ? "no_charge" : co.pay === "now" ? "paying" : co.pay === "transfer" ? "confirming" : "door";
+      // Already paying online (back with nothing paid, or Try again): straight to the pay page again.
+      if (way === "paying" && co.order?.["status"] === "paying") return this.payNow(via);
+      const moved = co.claim ? await this.port.choose(way, co.tix.length, via) : await this.port.choose(way);
+      if (way === "paying") {
+        this.setCo({ order: moved });
+        return this.payNow(via);
       }
-      const moved = await this.port.choose(free ? "no_charge" : co.pay === "transfer" ? "confirming" : "door");
       this.after(moved, co);
     } catch (error) {
       const c = isApiError(error) ? error.code : null;
@@ -388,6 +474,7 @@ export class Buyer {
   }
 
   private after(moved: Row, co: Co): void {
+    dropPayMark();
     this.app.refresh("aud:");
     if (moved["status"] === "confirming") {
       this.app.setState({ co: { ...co, busy: false, phase: "mail", order: moved, heldUntil: ms(moved["held_until"]) ?? co.heldUntil } });
@@ -462,9 +549,206 @@ export class Buyer {
   expire(): void {
     const co = this.s.co;
     if (co === null) return;
-    this.app.setState({ co: { ...co, busy: false, phase: "gone", heldUntil: null } });
+    // Paying online when it ran out: the payment did not finish in time (nothing was taken).
+    const paying = co.payStep !== null || co.order?.["status"] === "paying";
+    if (paying) dropPayMark();
+    this.app.setState({ co: { ...co, busy: false, phase: "gone", heldUntil: null, payStep: null, payGone: paying } });
     this.app.openSheet("holdGone");
     this.app.refresh("aud:left:");
+  }
+
+  // ── paying online ───────────────────────────────────────────────────────
+
+  /**
+   * "Pay now": the order is paying online, so the buyer goes to its pay link, Adminium's pay page, and comes
+   * back to `/o`. This tab remembers which order it is paying; the hold keeps running while they are away. The
+   * demo's port plays its pay page in place: a moment's hand-off, then the order is paid.
+   */
+  private async payNow(orderId?: Id): Promise<void> {
+    const co = this.s.co;
+    if (co === null) return;
+    this.setCo({ busy: false, payStep: "taking", payOff: false, errs: {} });
+    const port = this.port;
+    try {
+      if (port.payInPlace !== undefined) {
+        await pause(DEMO_HANDOFF_MS);
+        const paid = await port.payInPlace(orderId);
+        this.after(paid, this.s.co ?? co);
+        this.app.demo?.paidOnline?.(String(paid["number"] ?? ""));
+        return;
+      }
+      if (port.payLink === undefined) throw new Error("this port takes no payments online");
+      const url = await port.payLink(orderId);
+      const id = orderId ?? co.orderId;
+      if (id !== null) keepPayMark({ orderId: id, via: orderId === undefined ? "link" : "me", at: this.app.now });
+      if (typeof window !== "undefined") window.location.assign(url);
+    } catch (error) {
+      // Not payable online now (the venue stopped, or a payment check paused it): the other ways are still there.
+      const refused = isApiError(error) && error.code === "PUBLIC_PAY_REFUSED";
+      const show = this.app.world()?.byId.get(co.evId);
+      const others = show === undefined ? [] : this.payOptions(show, co.lines, true);
+      this.app.refresh("aud:pay:");
+      this.setCo({ busy: false, payStep: null, payOff: true, pay: others[0] ?? null, errs: { confirm: refused ? tr("Paying online isn't possible right now. Choose another way to pay.") : tr("We couldn't take you to the payment page just now. Try again.") } });
+      focusLater("co-err", 40);
+    }
+  }
+
+  /** Back from the pay page with nothing paid: "Try again" goes to the same pay page. */
+  payAgain(): void {
+    const co = this.s.co;
+    if (co === null || co.phase !== "held" || co.busy) return;
+    const via = co.claim && this.s.going?.via === "me" ? co.orderId ?? undefined : undefined;
+    this.setCo({ pay: "now" });
+    void this.payNow(via);
+  }
+
+  /**
+   * Back from the pay page (`/o` with no code): the order this tab was paying, read again until Adminium has
+   * moved it — paid (its page), let go by the clock (the hold ran out), or still paying with nothing taken.
+   */
+  async returnFromPay(): Promise<void> {
+    const mark = readPayMark(this.app.now);
+    if (mark === null) return;
+    const read = (): Promise<OrderWithTickets> => (mark.via === "me" ? this.port.myOrder(mark.orderId) : this.port.order());
+    let o: OrderWithTickets;
+    try {
+      o = await read();
+    } catch {
+      dropPayMark();
+      return;
+    }
+    if (o.order["status"] === "paid") {
+      dropPayMark();
+      this.app.go("going", { going: { orderId: o.order.id, via: mark.via } });
+      return;
+    }
+    // The venue's shows, read once the page starts: the checkout is drawn from its show.
+    for (let i = 0; i < 40 && this.app.world() === null && !this.app.venueFailed(); i += 1) await pause(150);
+    const co = this.coOf(o);
+    if (co === null) {
+      dropPayMark();
+      return;
+    }
+    this.app.go("checkout", { co: { ...co, payStep: "checking" }, evId: co.evId, ...(mark.via === "me" ? { going: { orderId: o.order.id, via: "me" as const } } : {}) });
+    focusLater("co-pay-say", 60);
+    const orderId = mark.via === "me" ? mark.orderId : undefined;
+    for (let i = 0; i < CHECK_TRIES; i += 1) {
+      const st = String(o.order["status"]);
+      if (st === "paid") return this.after(o.order, this.s.co ?? co);
+      // Let go by the clock while the buyer was away (or moved on another way): the tickets went back on sale.
+      if (st !== "paying") return this.expire();
+      // Where the payment stands, as Adminium says it: paid (the order follows), still open at the service,
+      // a bank confirming it, or not finished and nothing taken.
+      const said = await this.payState(orderId);
+      if (this.s.co?.payStep !== "checking") return;
+      if (said === "confirming") {
+        this.setCo({ payStep: "confirming", order: o.order, tickets: o.tickets });
+        focusLater("co-pay-say", 60);
+        return;
+      }
+      if (said === "failed" || said === "expired" || said === "none") break;
+      // Paid (the order is moved to paid in a moment), still open, or not said: asked again.
+      await pause(CHECK_EVERY_MS);
+      if (this.s.co?.payStep !== "checking") return;
+      try {
+        o = await read();
+      } catch {
+        // Asked again on the next beat.
+      }
+    }
+    if (o.order["status"] === "paid") return this.after(o.order, this.s.co ?? co);
+    if (o.order["status"] !== "paying") return this.expire();
+    // Still paying, and the money did not come: nothing was taken, and the hold runs on.
+    this.setCo({ payStep: "unfinished", order: o.order, tickets: o.tickets });
+    focusLater("co-pay-say", 60);
+  }
+
+  /** Where the order's payment stands, as Adminium says; null from a port that cannot say, or when it does not answer. */
+  private async payState(orderId?: Id): Promise<string | null> {
+    if (this.port.payState === undefined) return null;
+    try {
+      return (await this.port.payState(orderId)).state;
+    } catch {
+      return null;
+    }
+  }
+
+  /** A checkout made again from an order Adminium holds (the buyer back from the pay page). */
+  private coOf(o: OrderWithTickets): Co | null {
+    const show = this.app.world()?.byId.get(o.order["event_id"] as Id);
+    if (show === undefined) return null;
+    const tickets = o.tickets.filter((t) => t["status"] === "valid");
+    const lines: Co["lines"] = [];
+    for (const t of tickets) {
+      const l = lines.find((x) => x.typeId === t["ticket_type_id"]);
+      if (l !== undefined) l.q += 1;
+      else lines.push({ typeId: t["ticket_type_id"] as Id, q: 1 });
+    }
+    const claim = o.order["waitlist_id"] !== null && o.order["waitlist_id"] !== undefined && o.order["offer_until"] !== null && o.order["offer_until"] !== undefined;
+    return {
+      evId: show.id,
+      lines,
+      tix: tickets.map((t) => ({ typeId: t["ticket_type_id"] as Id, name: String(t["holder_name"] ?? ""), answers: {} })),
+      buyer: { name: String(o.order["buyer_name"] ?? ""), email: String(o.order["email"] ?? "") },
+      optIn: o.order["opt_in"] === true,
+      access: "",
+      orderAnswers: {},
+      pay: "now",
+      errs: {},
+      phase: "held",
+      holdQ: null,
+      orderId: o.order.id,
+      order: o.order,
+      tickets,
+      heldUntil: ms(o.order["offer_until"]) ?? ms(o.order["held_until"]),
+      claim,
+      clientKey: mintKey(),
+      check: "ok",
+      sumOpen: false,
+      busy: false,
+      said: [],
+      codeDropped: false,
+      nameAsk: false,
+      again: null,
+      againAt: 0,
+      payStep: null,
+      payGone: false,
+      payOff: false,
+    };
+  }
+
+  /** The hold ran out while paying online: "Try again" holds the same tickets again, if they are still there. */
+  tryAgain(): void {
+    const co = this.s.co;
+    const show = co === null ? undefined : this.app.world()?.byId.get(co.evId);
+    if (co === null || show === undefined) return this.checkAgain();
+    this.app.setState({ sel: { ...this.s.sel, ...Object.fromEntries(co.lines.map((l) => [`${String(show.id)}:${String(l.typeId)}`, l.q])) }, co: null });
+    this.startCheckout(show);
+    const fresh = this.s.co;
+    if (fresh === null) return;
+    // The buyer's details and the names as they were: only the hold is new.
+    this.app.setState({ co: { ...fresh, buyer: co.buyer, tix: fresh.tix.map((x, i) => ({ ...x, name: co.tix[i]?.name ?? "" })), optIn: co.optIn, access: co.access, check: "ok" } });
+    if (this.signedIn() === null) void this.hold();
+  }
+
+  /** The hold's end while back from the pay page with nothing paid: the order as Adminium has it now. */
+  private settling = false;
+  private async settleAtHoldEnd(): Promise<void> {
+    if (this.settling) return;
+    this.settling = true;
+    try {
+      const co = this.s.co;
+      const via = co?.claim === true && this.s.going?.via === "me" ? co.orderId ?? undefined : undefined;
+      const o = via === undefined ? await this.port.order() : await this.port.myOrder(via);
+      if (o.order["status"] === "paid") return this.after(o.order, this.s.co ?? co!);
+      if (o.order["status"] !== "paying") return this.expire();
+      // Still paying past its hold: a payment is landing, and Adminium keeps the order while it does.
+      this.setCo({ payStep: "checking", heldUntil: this.app.now + CHECK_EVERY_MS * CHECK_TRIES });
+    } catch {
+      this.expire();
+    } finally {
+      this.settling = false;
+    }
   }
 
   checkAgain(): void {
@@ -480,6 +764,7 @@ export class Buyer {
     const sel = { ...this.s.sel };
     for (const l of co.lines) delete sel[`${String(co.evId)}:${String(l.typeId)}`];
     if (co.phase === "held" || co.phase === "mail") {
+      dropPayMark();
       try {
         await this.port.choose("let_go");
       } catch {
@@ -504,7 +789,13 @@ export class Buyer {
       }
       return;
     }
-    if (left <= 0) return this.expire();
+    if (left <= 0) {
+      // Paying online: a payment landing at the hold's end keeps the order, so Adminium's word is asked first.
+      // A bank confirming the payment: Adminium keeps the order while the money is on its way.
+      if (co.payStep === "taking" || co.payStep === "checking" || co.payStep === "confirming") return;
+      if (co.payStep === "unfinished") return void this.settleAtHoldEnd();
+      return this.expire();
+    }
     for (const [at, words] of [
       [120_000, tr("2 minutes left — confirm to keep your tickets.")],
       [30_000, tr("30 seconds left.")],
@@ -771,6 +1062,9 @@ export class Buyer {
         nameAsk: false,
         again: null,
         againAt: 0,
+        payStep: null,
+        payGone: false,
+        payOff: false,
       },
     });
   }

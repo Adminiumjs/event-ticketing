@@ -9,7 +9,7 @@
  * DEMO BUILD ONLY — nothing in a real build imports it.
  */
 import { broadcastKind } from "../data/messageKinds.ts";
-import type { AudiencePort, BankDoor, BoxOfficePort, DoorPort, EventChildren, OrderWithTickets, Person, StaffPerson, Venue } from "../data/ports.ts";
+import type { AudiencePort, BankDoor, BoxOfficePort, DoorPort, EventChildren, OrderWithTickets, Person, StaffPayments, StaffPerson, Venue } from "../data/ports.ts";
 import { cancelShowOrders, offerPlan, recipientKey } from "../data/boxSteps.ts";
 import { ApiError, type ClaimReply, type Config, type HistoryEntry, type Id, type ListQuery, type ListReply, type OrderBody, type OrderReply, type PoolCount, type QuoteReply, type Row, type TypeLeft, type Where, ticketRows } from "../data/wire.ts";
 import { toMs } from "../lib/venueTime.ts";
@@ -150,6 +150,10 @@ export function meets(row: Row, w: Where): boolean {
 
 /** The staff's hand in a change the server makes itself (a forget's renewed links). */
 const SERVER: Writer = { origin: "staff", name: null, roles: [] };
+/** Adminium writing a payment taken on its pay page, and the order's move to paid that follows. */
+const PAY_PAGE: Writer = { origin: "automation", name: "Online payment", roles: [] };
+/** The order states a buyer chooses how to pay from: a checkout, paying online, a claim being confirmed, an offer. */
+const CHOOSING = ["held", "paying", "confirming", "offered"];
 
 /** A buyer found by the address typed, or made (and never told which). */
 function identity(engine: Engine, email: string, name: string | null): Id {
@@ -350,9 +354,40 @@ export class DemoAudience implements AudiencePort {
     return order;
   }
 
-  async choose(status: "door" | "confirming" | "no_charge" | "let_go", keep?: number, orderId?: Id): Promise<Row> {
+  /** The demo takes payments online: on its card, "Demo: no money moves". */
+  async payments(): Promise<{ online: boolean; test: boolean }> {
+    return { online: true, test: false };
+  }
+
+  /**
+   * The demo's pay page, played in place: what is owed is taken at once as a payment online (the demo's own
+   * reference, no service), and the order moves to paid as Adminium moves it when the money lands — its tickets
+   * email goes out. Refused as the server refuses a start for an order that is not paying online, or owes nothing.
+   */
+  async payInPlace(orderId?: Id): Promise<Row> {
     const order = this.target(orderId);
-    if (!["held", "confirming", "offered"].includes(String(order["status"]))) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
+    if (order["status"] !== "paying") throw new ApiError(409, "PUBLIC_PAY_REFUSED", { reason: "not-now" });
+    const owed = Number(order["balance"] ?? 0);
+    if (!(owed > 0)) throw new ApiError(409, "PUBLIC_PAY_REFUSED", { reason: "nothing-due" });
+    const engine = this.engine;
+    return engine.transaction(() => {
+      engine.create("payments", { order_id: order.id, amount: owed, method: "online", payment_ref: `demo_${randomCode(16)}`, provider: "demo", currency: engine.world.currency }, PAY_PAGE);
+      // A payment taken online writes "Online" with its move to paid.
+      engine.update("orders", order.id, { status: "paid", paid_method: "online" }, PAY_PAGE);
+      return shown(engine.world.get("orders", order.id)!, orderId === undefined ? READ.linkOrder : READ.myOrders);
+    });
+  }
+
+  /** The demo's payments are taken in place: paid once one is, none before. */
+  async payState(orderId?: Id): Promise<{ state: "none" | "open" | "confirming" | "paid" | "failed" | "expired"; test: boolean }> {
+    const order = this.target(orderId);
+    const paid = this.engine.world.where("payments", (p) => p["order_id"] === order.id && p["method"] === "online").length > 0;
+    return { state: paid ? "paid" : "none", test: false };
+  }
+
+  async choose(status: "paying" | "door" | "confirming" | "no_charge" | "let_go", keep?: number, orderId?: Id): Promise<Row> {
+    const order = this.target(orderId);
+    if (!CHOOSING.includes(String(order["status"]))) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
     const engine = this.engine;
     return engine.transaction(() => {
       // Claiming part of an offer: the tickets not kept go back to the waitlist's places.
@@ -682,7 +717,7 @@ export class DemoBoxOffice implements BoxOfficePort {
   private readonly person: StaffPerson;
   private retries = new Map<string, Id>();
 
-  constructor(engine: Engine, person: StaffPerson = { name: "Priya", roles: ["box-office"], email: "priya@waveform.example" }) {
+  constructor(engine: Engine, person: StaffPerson = { name: "Priya", roles: ["box-office-manager"], email: "priya@waveform.example" }) {
     this.engine = engine;
     this.person = person;
   }
@@ -896,6 +931,24 @@ export class DemoBoxOffice implements BoxOfficePort {
 
   async recordRefund(orderId: Id, amount: number, method: "bank_transfer" | "card" | "cash", kind: "cancelled_tickets" | "goodwill", key?: string): Promise<Row> {
     return this.keyed("refunds", { order_id: orderId, amount, method, kind }, key);
+  }
+
+  /** The demo takes payments online (no money moves); a box office manager may send it back. */
+  async payments(): Promise<StaffPayments | null> {
+    const refund = (MANIFEST_RULES.roles as readonly { key: string; refund: boolean }[]).some((r) => r.refund && this.person.roles.includes(r.key));
+    return { on: true, online: true, test: false, refund };
+  }
+
+  /** The demo's pay link: a page of its own, never Adminium's (nothing is paid through it). */
+  async payLink(orderId: Id): Promise<{ url: string; expiresAt: number }> {
+    const order = this.engine.world.get("orders", orderId);
+    if (order === undefined) throw new ApiError(404, "NOT_FOUND", { table: "orders", id: orderId });
+    if (!(Number(order["balance"] ?? 0) > 0)) throw new ApiError(409, "NOTHING_DUE");
+    return { url: `https://pay.example/demo/${String(order["link_token"] ?? order.id)}`, expiresAt: this.engine.now + 30 * 86_400_000 };
+  }
+
+  async refundOnline(orderId: Id, paymentId: Id, amount: number, kind: "cancelled_tickets" | "goodwill", note: string | null, key?: string): Promise<Row> {
+    return this.keyed("refunds", { order_id: orderId, payment_id: paymentId, amount, method: "online", kind, note }, key);
   }
 
   /** Money written once per press: a press sent again answers the row it made. */

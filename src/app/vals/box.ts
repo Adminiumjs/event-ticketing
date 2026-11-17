@@ -243,6 +243,8 @@ export function orderState(o: Row, now: number): { txt: string; k: Tone; id: str
   const bal = Number(o["balance"] ?? 0);
   const paid = Number(o["paid_in"] ?? 0) + Number(o["collected"] ?? 0);
   const refunded = Number(o["refunded"] ?? 0);
+  // Money to give back on an order paid online is sent back online: one word for it, wherever it shows.
+  const due = Number(o["online_in"] ?? 0) > 0 ? { txt: tr("Refund owed"), k: "danger" as Tone, id: "owed" } : { txt: tr("Refund due"), k: "danger" as Tone, id: "refund" };
   switch (st) {
     case "let_go":
     case "expired":
@@ -250,12 +252,14 @@ export function orderState(o: Row, now: number): { txt: string; k: Tone; id: str
     case "held":
     case "confirming":
       return { txt: st === "confirming" ? tr("Confirming by email") : tr("In checkout"), k: "info", id: "checkout" };
+    case "paying":
+      return { txt: tr("Paying online"), k: "info", id: "checkout" };
     case "offered":
       return { txt: tr("Offered"), k: "accent", id: "offered" };
     case "released":
-      return bal < 0 ? { txt: tr("Refund due"), k: "danger", id: "refund" } : { txt: tr("Released"), k: "muted", id: "released" };
+      return bal < 0 ? due : { txt: tr("Released"), k: "muted", id: "released" };
     case "cancelled":
-      if (bal < 0) return { txt: tr("Refund due"), k: "danger", id: "refund" };
+      if (bal < 0) return due;
       return paid > 0 && refunded >= paid ? { txt: tr("Refunded"), k: "muted", id: "refunded" } : { txt: tr("Cancelled"), k: "muted", id: "cancelled" };
     case "not_collected":
       return { txt: tr("Didn't come"), k: "muted", id: "notcollected" };
@@ -263,7 +267,7 @@ export function orderState(o: Row, now: number): { txt: string; k: Tone; id: str
   }
   // Every ticket gone (cancelled, or handed to the waitlist): the order is over.
   if (Number(o["ticket_count"] ?? 1) <= 0 && bal >= 0) return refunded > 0 ? { txt: tr("Refunded"), k: "muted", id: "refunded" } : { txt: tr("Cancelled"), k: "muted", id: "cancelled" };
-  if (bal < 0) return { txt: tr("Refund due"), k: "danger", id: "refund" };
+  if (bal < 0) return due;
   if (refunded > 0) return { txt: tr("Refunded {refunded} of {paid}", { refunded: money(refunded), paid: money(paid) }), k: "muted", id: "paid" };
   if (st === "door") return { txt: tr("Pay at the door"), k: "info", id: "door" };
   if (st === "awaiting_transfer") return { txt: tr("Awaiting transfer"), k: "warn", id: "awaiting" };

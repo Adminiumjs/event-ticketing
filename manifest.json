@@ -3,7 +3,7 @@
   "manifestVersion": 1,
   "key": "events",
   "name": "Event Ticketing",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "publisher": {
     "id": "adminium",
     "name": "Adminium",
@@ -18,7 +18,7 @@
     "hospitality"
   ],
   "compatibility": {
-    "minAdminiumVersion": "0.3.49",
+    "minAdminiumVersion": "0.3.62",
     "engines": [
       "sqlite",
       "postgres",
@@ -315,6 +315,21 @@
               "ar-EG": "تحويل بنكي",
               "zh-CN": "银行转账",
               "zh-TW": "銀行轉帳"
+            }
+          },
+          {
+            "ref": "auto_refund",
+            "type": "bool",
+            "default": true,
+            "label": {
+              "en-US": "Refund cancellations automatically",
+              "de-DE": "Stornierungen automatisch erstatten",
+              "fr-FR": "Rembourser automatiquement les annulations",
+              "da-DK": "Refundér afbestillinger automatisk",
+              "cs-CZ": "Peníze za zrušení vracet automaticky",
+              "ar-EG": "استرداد الإلغاءات تلقائيا",
+              "zh-CN": "取消时自动退款",
+              "zh-TW": "取消時自動退款"
             }
           },
           {
@@ -4045,8 +4060,99 @@
                   ]
                 }
               },
+              {
+                "to": "paying",
+                "requires": {
+                  "where": [
+                    {
+                      "column": "total",
+                      "gt": 0
+                    }
+                  ]
+                }
+              },
               "offered",
               "let_go",
+              "expired",
+              {
+                "to": "cancelled",
+                "requires": {
+                  "where": [
+                    {
+                      "column": "cancel_cause",
+                      "isNull": false
+                    }
+                  ]
+                }
+              }
+            ],
+            "paying": [
+              {
+                "to": "paid",
+                "requires": {
+                  "where": [
+                    {
+                      "column": "balance",
+                      "lte": 0
+                    }
+                  ]
+                }
+              },
+              {
+                "to": "door",
+                "requires": {
+                  "setting": [
+                    {
+                      "table": "settings",
+                      "column": "door_on",
+                      "eq": true
+                    }
+                  ],
+                  "where": [
+                    {
+                      "column": "no_door",
+                      "lte": 0
+                    }
+                  ],
+                  "noPaymentInFlight": true
+                }
+              },
+              {
+                "to": "confirming",
+                "requires": {
+                  "setting": [
+                    {
+                      "table": "settings",
+                      "column": "transfer_on",
+                      "eq": true
+                    }
+                  ],
+                  "time": {
+                    "before": {
+                      "column": "doors_at",
+                      "minus": {
+                        "days": {
+                          "table": "settings",
+                          "column": "transfer_cutoff_days"
+                        }
+                      }
+                    }
+                  },
+                  "where": [
+                    {
+                      "column": "no_transfer",
+                      "lte": 0
+                    }
+                  ],
+                  "noPaymentInFlight": true
+                }
+              },
+              {
+                "to": "let_go",
+                "requires": {
+                  "noPaymentInFlight": true
+                }
+              },
               "expired",
               {
                 "to": "cancelled",
@@ -4160,6 +4266,17 @@
                     {
                       "column": "total",
                       "lte": 0
+                    }
+                  ]
+                }
+              },
+              {
+                "to": "paying",
+                "requires": {
+                  "where": [
+                    {
+                      "column": "total",
+                      "gt": 0
                     }
                   ]
                 }
@@ -4324,6 +4441,19 @@
               }
             },
             {
+              "from": "paying",
+              "to": "expired",
+              "at": {
+                "column": "offer_until",
+                "or": [
+                  {
+                    "column": "held_until"
+                  }
+                ]
+              },
+              "waitsForPayment": true
+            },
+            {
               "from": "confirming",
               "to": "expired",
               "at": {
@@ -4427,6 +4557,15 @@
             },
             {
               "on": {
+                "to": "paying"
+              },
+              "via": "waitlist_id",
+              "set": {
+                "status": "claimed"
+              }
+            },
+            {
+              "on": {
                 "to": "expired"
               },
               "via": "waitlist_id",
@@ -4449,6 +4588,7 @@
             "column": "status",
             "values": [
               "held",
+              "paying",
               "confirming",
               "offered",
               "door",
@@ -4524,6 +4664,7 @@
             "type": "enum",
             "enum": [
               "held",
+              "paying",
               "confirming",
               "offered",
               "door",
@@ -4560,6 +4701,16 @@
                     "ar-EG": "في إتمام الشراء",
                     "zh-CN": "结账中",
                     "zh-TW": "結帳中"
+                  },
+                  "paying": {
+                    "en-US": "Paying online",
+                    "de-DE": "Zahlt online",
+                    "fr-FR": "Paiement en ligne en cours",
+                    "da-DK": "Betaler online",
+                    "cs-CZ": "Platí online",
+                    "ar-EG": "يدفع عبر الإنترنت",
+                    "zh-CN": "正在在线支付",
+                    "zh-TW": "正在線上付款"
                   },
                   "confirming": {
                     "en-US": "Confirming by email",
@@ -5251,6 +5402,12 @@
                       {
                         "eq": [
                           "status",
+                          "paying"
+                        ]
+                      },
+                      {
+                        "eq": [
+                          "status",
                           "confirming"
                         ]
                       },
@@ -5282,12 +5439,6 @@
                         "eq": [
                           "status",
                           "no_charge"
-                        ]
-                      },
-                      {
-                        "eq": [
-                          "status",
-                          "paid"
                         ]
                       }
                     ]
@@ -5321,9 +5472,19 @@
                   {
                     "if": [
                       {
-                        "eq": [
-                          "status",
-                          "not_collected"
+                        "or": [
+                          {
+                            "eq": [
+                              "status",
+                              "paid"
+                            ]
+                          },
+                          {
+                            "eq": [
+                              "status",
+                              "not_collected"
+                            ]
+                          }
                         ]
                       },
                       {
@@ -5432,6 +5593,33 @@
             }
           },
           {
+            "ref": "online_in",
+            "type": "decimal",
+            "scale": "currency",
+            "nullable": true,
+            "label": {
+              "en-US": "Paid online",
+              "de-DE": "Online bezahlt",
+              "fr-FR": "Payé en ligne",
+              "da-DK": "Betalt online",
+              "cs-CZ": "Zaplaceno online",
+              "ar-EG": "مدفوع عبر الإنترنت",
+              "zh-CN": "在线支付",
+              "zh-TW": "線上付款"
+            },
+            "rules": {
+              "rollup": {
+                "from": "payments",
+                "via": "order_id",
+                "sum": "amount",
+                "where": {
+                  "column": "method",
+                  "eq": "online"
+                }
+              }
+            }
+          },
+          {
             "ref": "refunded",
             "type": "decimal",
             "scale": "currency",
@@ -5450,11 +5638,34 @@
               "rollup": {
                 "from": "refunds",
                 "via": "order_id",
-                "sum": "amount",
+                "sum": "counted",
                 "where": {
                   "column": "voided",
                   "eq": false
                 }
+              }
+            }
+          },
+          {
+            "ref": "back_elsewhere",
+            "type": "decimal",
+            "scale": "currency",
+            "nullable": true,
+            "label": {
+              "en-US": "Given back at the payment service",
+              "de-DE": "Beim Zahlungsdienst zurückgegeben",
+              "fr-FR": "Rendu via le service de paiement",
+              "da-DK": "Givet tilbage hos betalingstjenesten",
+              "cs-CZ": "Vráceno u platební služby",
+              "ar-EG": "أُعيد لدى خدمة الدفع",
+              "zh-CN": "在支付服务处退回",
+              "zh-TW": "在付款服務退回"
+            },
+            "rules": {
+              "rollup": {
+                "from": "payments",
+                "via": "order_id",
+                "sum": "refunded_elsewhere"
               }
             }
           },
@@ -5503,9 +5714,19 @@
                     ]
                   },
                   {
-                    "coalesce": [
-                      "refunded",
-                      0
+                    "add": [
+                      {
+                        "coalesce": [
+                          "refunded",
+                          0
+                        ]
+                      },
+                      {
+                        "coalesce": [
+                          "back_elsewhere",
+                          0
+                        ]
+                      }
                     ]
                   }
                 ]
@@ -5699,11 +5920,16 @@
                     }
                   }
                 },
-                "on": {
-                  "columns": [
-                    "status"
-                  ]
-                }
+                "on": [
+                  "create",
+                  {
+                    "column": "status",
+                    "values": [
+                      "held",
+                      "confirming"
+                    ]
+                  }
+                ]
               }
             }
           },
@@ -6179,26 +6405,42 @@
                       {
                         "gt": [
                           {
-                            "add": [
-                              {
-                                "coalesce": [
-                                  "paid_in",
-                                  0
-                                ]
-                              },
-                              {
-                                "coalesce": [
-                                  "collected",
-                                  0
-                                ]
-                              }
+                            "coalesce": [
+                              "online_in",
+                              0
                             ]
                           },
                           0
                         ]
                       },
-                      1,
-                      2
+                      3,
+                      {
+                        "if": [
+                          {
+                            "gt": [
+                              {
+                                "add": [
+                                  {
+                                    "coalesce": [
+                                      "paid_in",
+                                      0
+                                    ]
+                                  },
+                                  {
+                                    "coalesce": [
+                                      "collected",
+                                      0
+                                    ]
+                                  }
+                                ]
+                              },
+                              0
+                            ]
+                          },
+                          1,
+                          2
+                        ]
+                      }
                     ]
                   },
                   0
@@ -6212,7 +6454,8 @@
             "enum": [
               "bank_transfer",
               "card",
-              "cash"
+              "cash",
+              "online"
             ],
             "label": {
               "en-US": "Paid by",
@@ -6257,6 +6500,16 @@
                     "ar-EG": "نقدا",
                     "zh-CN": "现金",
                     "zh-TW": "現金"
+                  },
+                  "online": {
+                    "en-US": "Online",
+                    "de-DE": "Online",
+                    "fr-FR": "En ligne",
+                    "da-DK": "Online",
+                    "cs-CZ": "Online",
+                    "ar-EG": "عبر الإنترنت",
+                    "zh-CN": "线上",
+                    "zh-TW": "線上"
                   }
                 }
               }
@@ -6294,32 +6547,48 @@
                       {
                         "if": [
                           {
-                            "eq": [
-                              "paid_method",
-                              "bank_transfer"
+                            "gt": [
+                              {
+                                "coalesce": [
+                                  "online_in",
+                                  0
+                                ]
+                              },
+                              0
                             ]
                           },
-                          2,
+                          3,
                           {
                             "if": [
                               {
-                                "or": [
-                                  {
-                                    "eq": [
-                                      "paid_method",
-                                      "card"
-                                    ]
-                                  },
-                                  {
-                                    "eq": [
-                                      "paid_method",
-                                      "cash"
-                                    ]
-                                  }
+                                "eq": [
+                                  "paid_method",
+                                  "bank_transfer"
                                 ]
                               },
-                              1,
-                              0
+                              2,
+                              {
+                                "if": [
+                                  {
+                                    "or": [
+                                      {
+                                        "eq": [
+                                          "paid_method",
+                                          "card"
+                                        ]
+                                      },
+                                      {
+                                        "eq": [
+                                          "paid_method",
+                                          "cash"
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  1,
+                                  0
+                                ]
+                              }
                             ]
                           }
                         ]
@@ -6569,6 +6838,7 @@
               "column": "status",
               "values": [
                 "held",
+                "paying",
                 "confirming",
                 "offered",
                 "door",
@@ -7021,6 +7291,7 @@
             "type": "enum",
             "enum": [
               "held",
+              "paying",
               "confirming",
               "offered",
               "door",
@@ -7063,6 +7334,16 @@
                     "ar-EG": "في إتمام الشراء",
                     "zh-CN": "结账中",
                     "zh-TW": "結帳中"
+                  },
+                  "paying": {
+                    "en-US": "Paying online",
+                    "de-DE": "Zahlt online",
+                    "fr-FR": "Paiement en ligne en cours",
+                    "da-DK": "Betaler online",
+                    "cs-CZ": "Platí online",
+                    "ar-EG": "يدفع عبر الإنترنت",
+                    "zh-CN": "正在在线支付",
+                    "zh-TW": "正在線上付款"
                   },
                   "confirming": {
                     "en-US": "Confirming by email",
@@ -9921,7 +10202,8 @@
             "enum": [
               "bank_transfer",
               "card",
-              "cash"
+              "cash",
+              "online"
             ],
             "label": {
               "en-US": "How",
@@ -9966,6 +10248,16 @@
                     "ar-EG": "نقدا",
                     "zh-CN": "现金",
                     "zh-TW": "現金"
+                  },
+                  "online": {
+                    "en-US": "Online",
+                    "de-DE": "Online",
+                    "fr-FR": "En ligne",
+                    "da-DK": "Online",
+                    "cs-CZ": "Online",
+                    "ar-EG": "عبر الإنترنت",
+                    "zh-CN": "线上",
+                    "zh-TW": "線上"
                   }
                 }
               }
@@ -10130,6 +10422,71 @@
             },
             "nullable": true,
             "unique": true
+          },
+          {
+            "ref": "payment_ref",
+            "type": "text",
+            "maxLength": 64,
+            "label": {
+              "en-US": "Payment reference",
+              "de-DE": "Zahlungsreferenz",
+              "fr-FR": "Référence du paiement",
+              "da-DK": "Betalingsreference",
+              "cs-CZ": "Reference platby",
+              "ar-EG": "مرجع الدفع",
+              "zh-CN": "付款编号",
+              "zh-TW": "付款編號"
+            },
+            "nullable": true,
+            "unique": true
+          },
+          {
+            "ref": "provider",
+            "type": "text",
+            "maxLength": 64,
+            "label": {
+              "en-US": "Taken through",
+              "de-DE": "Bezahlt über",
+              "fr-FR": "Encaissé via",
+              "da-DK": "Betalt via",
+              "cs-CZ": "Přijato přes",
+              "ar-EG": "تم التحصيل عبر",
+              "zh-CN": "收款渠道",
+              "zh-TW": "收款管道"
+            },
+            "nullable": true
+          },
+          {
+            "ref": "currency",
+            "type": "text",
+            "maxLength": 3,
+            "label": {
+              "en-US": "Currency",
+              "de-DE": "Währung",
+              "fr-FR": "Devise",
+              "da-DK": "Valuta",
+              "cs-CZ": "Měna",
+              "ar-EG": "العملة",
+              "zh-CN": "币种",
+              "zh-TW": "幣別"
+            },
+            "nullable": true
+          },
+          {
+            "ref": "refunded_elsewhere",
+            "type": "decimal",
+            "scale": "currency",
+            "label": {
+              "en-US": "Given back at the payment service",
+              "de-DE": "Beim Zahlungsdienst zurückgegeben",
+              "fr-FR": "Rendu via le service de paiement",
+              "da-DK": "Givet tilbage hos betalingstjenesten",
+              "cs-CZ": "Vráceno u platební služby",
+              "ar-EG": "أُعيد لدى خدمة الدفع",
+              "zh-CN": "在支付服务处退回",
+              "zh-TW": "在付款服務退回"
+            },
+            "nullable": true
           }
         ]
       },
@@ -10279,7 +10636,18 @@
                       }
                     ]
                   },
-                  1,
+                  {
+                    "if": [
+                      {
+                        "eq": [
+                          "refund_state",
+                          "not-sent"
+                        ]
+                      },
+                      0,
+                      1
+                    ]
+                  },
                   0
                 ]
               }
@@ -10291,7 +10659,8 @@
             "enum": [
               "bank_transfer",
               "card",
-              "cash"
+              "cash",
+              "online"
             ],
             "label": {
               "en-US": "How",
@@ -10336,6 +10705,16 @@
                     "ar-EG": "نقدا",
                     "zh-CN": "现金",
                     "zh-TW": "現金"
+                  },
+                  "online": {
+                    "en-US": "Online",
+                    "de-DE": "Online",
+                    "fr-FR": "En ligne",
+                    "da-DK": "Online",
+                    "cs-CZ": "Online",
+                    "ar-EG": "عبر الإنترنت",
+                    "zh-CN": "线上",
+                    "zh-TW": "線上"
                   }
                 }
               }
@@ -10484,6 +10863,186 @@
             },
             "nullable": true,
             "unique": true
+          },
+          {
+            "ref": "payment_id",
+            "type": "fk",
+            "references": "payments",
+            "label": {
+              "en-US": "Payment refunded",
+              "de-DE": "Erstattete Zahlung",
+              "fr-FR": "Paiement remboursé",
+              "da-DK": "Refunderet betaling",
+              "cs-CZ": "Vrácená platba",
+              "ar-EG": "الدفعة المستردة",
+              "zh-CN": "被退款的付款",
+              "zh-TW": "退款的付款"
+            },
+            "nullable": true
+          },
+          {
+            "ref": "provider_ref",
+            "type": "text",
+            "maxLength": 64,
+            "label": {
+              "en-US": "Refund reference",
+              "de-DE": "Erstattungsreferenz",
+              "fr-FR": "Référence du remboursement",
+              "da-DK": "Refusionsreference",
+              "cs-CZ": "Reference vrácení",
+              "ar-EG": "مرجع الاسترداد",
+              "zh-CN": "退款编号",
+              "zh-TW": "退款編號"
+            },
+            "nullable": true
+          },
+          {
+            "ref": "refund_state",
+            "type": "enum",
+            "enum": [
+              "asked",
+              "pending",
+              "done",
+              "not-sent"
+            ],
+            "label": {
+              "en-US": "Refund sent",
+              "de-DE": "Erstattung gesendet",
+              "fr-FR": "Remboursement envoyé",
+              "da-DK": "Refusion sendt",
+              "cs-CZ": "Peníze odeslány zpět",
+              "ar-EG": "تم إرسال المبلغ المسترد",
+              "zh-CN": "退款已发出",
+              "zh-TW": "退款已送出"
+            },
+            "nullable": true,
+            "rules": {
+              "enumLabels": {
+                "labels": {
+                  "asked": {
+                    "en-US": "Asked",
+                    "de-DE": "Gefragt",
+                    "fr-FR": "Demandé",
+                    "da-DK": "Stilles",
+                    "cs-CZ": "Ptát se",
+                    "ar-EG": "يُسأل",
+                    "zh-CN": "询问范围",
+                    "zh-TW": "詢問方式"
+                  },
+                  "pending": {
+                    "en-US": "On its way",
+                    "de-DE": "Unterwegs",
+                    "fr-FR": "En cours",
+                    "da-DK": "På vej",
+                    "cs-CZ": "Na cestě",
+                    "ar-EG": "في الطريق",
+                    "zh-CN": "处理中",
+                    "zh-TW": "處理中"
+                  },
+                  "done": {
+                    "en-US": "Sent",
+                    "de-DE": "Gesendet",
+                    "fr-FR": "Envoyé",
+                    "da-DK": "Sendt",
+                    "cs-CZ": "Odesláno",
+                    "ar-EG": "أُرسلت",
+                    "zh-CN": "已发送",
+                    "zh-TW": "已寄出"
+                  },
+                  "not-sent": {
+                    "en-US": "Not sent",
+                    "de-DE": "Nicht gesendet",
+                    "fr-FR": "Non envoyé",
+                    "da-DK": "Ikke sendt",
+                    "cs-CZ": "Neodesláno",
+                    "ar-EG": "لم تُرسل",
+                    "zh-CN": "未发送",
+                    "zh-TW": "未寄出"
+                  }
+                },
+                "tones": {
+                  "asked": "info",
+                  "pending": "info",
+                  "done": "pos",
+                  "not-sent": "danger"
+                }
+              }
+            }
+          },
+          {
+            "ref": "counted",
+            "type": "decimal",
+            "scale": "currency",
+            "nullable": true,
+            "label": {
+              "en-US": "Counted",
+              "de-DE": "Angerechnet",
+              "fr-FR": "Pris en compte",
+              "da-DK": "Medregnet",
+              "cs-CZ": "Započteno",
+              "ar-EG": "المحتسب",
+              "zh-CN": "计入金额",
+              "zh-TW": "計入金額"
+            },
+            "rules": {
+              "formula": {
+                "if": [
+                  {
+                    "eq": [
+                      "refund_state",
+                      "not-sent"
+                    ]
+                  },
+                  0,
+                  {
+                    "coalesce": [
+                      "amount",
+                      0
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "ref": "refund_email",
+            "type": "int",
+            "nullable": true,
+            "label": {
+              "en-US": "Refund email",
+              "de-DE": "E-Mail zur Erstattung",
+              "fr-FR": "E-mail de remboursement",
+              "da-DK": "Mail om refusion",
+              "cs-CZ": "E-mail o vrácení peněz",
+              "ar-EG": "رسالة الاسترداد",
+              "zh-CN": "退款邮件",
+              "zh-TW": "退款信件"
+            },
+            "rules": {
+              "formula": {
+                "if": [
+                  {
+                    "eq": [
+                      "voided",
+                      true
+                    ]
+                  },
+                  0,
+                  {
+                    "if": [
+                      {
+                        "eq": [
+                          "method",
+                          "online"
+                        ]
+                      },
+                      0,
+                      1
+                    ]
+                  }
+                ]
+              }
+            }
           }
         ]
       },
@@ -11767,6 +12326,7 @@
             "enum": [
               "tickets",
               "tickets-paid",
+              "tickets-online",
               "transfer-confirm",
               "transfer-confirm-offer",
               "transfer-waiting",
@@ -11783,6 +12343,7 @@
               "moved",
               "cancelled-paid",
               "cancelled-unpaid",
+              "cancelled-online",
               "moved-holder",
               "cancelled-holder",
               "tonight",
@@ -11790,6 +12351,7 @@
               "tonight-holder",
               "tomorrow-holder",
               "refund-recorded",
+              "refund-sent",
               "tickets-cancelled",
               "refund-declined",
               "broadcast",
@@ -11827,6 +12389,16 @@
                     "ar-EG": "تذاكرك (مدفوعة في شباك التذاكر)",
                     "zh-CN": "你的门票（已在售票处付款）",
                     "zh-TW": "你的票券（已在售票處付款）"
+                  },
+                  "tickets-online": {
+                    "en-US": "Your tickets (paid online)",
+                    "de-DE": "Deine Tickets (online bezahlt)",
+                    "fr-FR": "Vos billets (payés en ligne)",
+                    "da-DK": "Dine billetter (betalt online)",
+                    "cs-CZ": "Vaše vstupenky (zaplaceno online)",
+                    "ar-EG": "تذاكرك (مدفوعة عبر الإنترنت)",
+                    "zh-CN": "你的门票（已在线支付）",
+                    "zh-TW": "你的票券（已線上付款）"
                   },
                   "transfer-confirm": {
                     "en-US": "Confirm your order",
@@ -11988,6 +12560,16 @@
                     "zh-CN": "你的演出已取消（未付款）",
                     "zh-TW": "你的演出已取消（未付款）"
                   },
+                  "cancelled-online": {
+                    "en-US": "Your show is cancelled (paid online)",
+                    "de-DE": "Deine Show fällt aus (online bezahlt)",
+                    "fr-FR": "Votre spectacle est annulé (payé en ligne)",
+                    "da-DK": "Dit arrangement er aflyst (betalt online)",
+                    "cs-CZ": "Vaše akce je zrušena (zaplaceno online)",
+                    "ar-EG": "تم إلغاء حفلك (مدفوع عبر الإنترنت)",
+                    "zh-CN": "你的演出已取消（已在线支付）",
+                    "zh-TW": "你的演出已取消（已線上付款）"
+                  },
                   "moved-holder": {
                     "en-US": "Your show has moved (a friend's ticket)",
                     "de-DE": "Deine Show wurde verlegt (Ticket von Freunden)",
@@ -12057,6 +12639,16 @@
                     "ar-EG": "سُجّل الاسترداد",
                     "zh-CN": "退款已记录",
                     "zh-TW": "退款已登記"
+                  },
+                  "refund-sent": {
+                    "en-US": "Refund sent",
+                    "de-DE": "Erstattung gesendet",
+                    "fr-FR": "Remboursement envoyé",
+                    "da-DK": "Refusion sendt",
+                    "cs-CZ": "Peníze odeslány zpět",
+                    "ar-EG": "تم إرسال المبلغ المسترد",
+                    "zh-CN": "退款已发出",
+                    "zh-TW": "退款已送出"
                   },
                   "tickets-cancelled": {
                     "en-US": "Tickets cancelled",
@@ -15935,6 +16527,140 @@
       ]
     },
     {
+      "key": "box-office-manager",
+      "name": "Box office manager",
+      "permissions": [
+        "app:@:staff",
+        "table:@settings:read",
+        "table:@settings:create",
+        "table:@settings:update",
+        "table:@settings:delete",
+        "table:@rooms:read",
+        "table:@rooms:create",
+        "table:@rooms:update",
+        "table:@rooms:delete",
+        "table:@events:read",
+        "table:@events:create",
+        "table:@events:update",
+        "table:@events:delete",
+        "table:@event_days:read",
+        "table:@event_days:create",
+        "table:@event_days:update",
+        "table:@event_days:delete",
+        "table:@acts:read",
+        "table:@acts:create",
+        "table:@acts:update",
+        "table:@acts:delete",
+        "table:@ticket_types:read",
+        "table:@ticket_types:create",
+        "table:@ticket_types:update",
+        "table:@ticket_types:delete",
+        "table:@codes:read",
+        "table:@codes:create",
+        "table:@codes:update",
+        "table:@codes:delete",
+        "table:@customers:read",
+        "table:@customers:create",
+        "table:@customers:update",
+        "table:@customers:delete",
+        "table:@questions:read",
+        "table:@questions:create",
+        "table:@questions:update",
+        "table:@questions:delete",
+        "table:@orders:read",
+        "table:@orders:create",
+        "table:@orders:update",
+        "table:@tickets:read",
+        "table:@tickets:create",
+        "table:@tickets:update",
+        "table:@check_ins:read",
+        "table:@check_ins:create",
+        "table:@check_ins:update",
+        "table:@door_collections:read",
+        "table:@door_collections:create",
+        "table:@door_collections:update",
+        "table:@payments:read",
+        "table:@payments:create",
+        "table:@payments:update",
+        "table:@refunds:read",
+        "table:@refunds:create",
+        "table:@refunds:update",
+        "table:@guest_list:read",
+        "table:@guest_list:create",
+        "table:@guest_list:update",
+        "table:@guest_list:delete",
+        "table:@waitlist:read",
+        "table:@waitlist:create",
+        "table:@waitlist:update",
+        "table:@waitlist:delete",
+        "table:@reminders:read",
+        "table:@reminders:create",
+        "table:@reminders:update",
+        "table:@reminders:delete",
+        "table:@broadcasts:read",
+        "table:@broadcasts:create",
+        "table:@broadcasts:update",
+        "table:@broadcasts:delete",
+        "table:@messages:read",
+        "table:@messages:create",
+        "table:@messages:update",
+        "table:@devices:read",
+        "table:@devices:create",
+        "table:@devices:update",
+        "table:@devices:delete",
+        "page:@events-overview:view",
+        "page:@events-overview:edit",
+        "page:@events-shows:view",
+        "page:@events-shows:edit",
+        "page:@events-ticket-types:view",
+        "page:@events-ticket-types:edit",
+        "page:@events-orders:view",
+        "page:@events-orders:edit",
+        "page:@events-tickets:view",
+        "page:@events-tickets:edit",
+        "page:@events-check-ins:view",
+        "page:@events-check-ins:edit",
+        "page:@events-door-payments:view",
+        "page:@events-door-payments:edit",
+        "page:@events-payments:view",
+        "page:@events-payments:edit",
+        "page:@events-refunds:view",
+        "page:@events-refunds:edit",
+        "page:@events-guest-lists:view",
+        "page:@events-guest-lists:edit",
+        "page:@events-waitlists:view",
+        "page:@events-waitlists:edit",
+        "page:@events-reminders:view",
+        "page:@events-reminders:edit",
+        "page:@events-codes:view",
+        "page:@events-codes:edit",
+        "page:@events-customers:view",
+        "page:@events-customers:edit",
+        "page:@events-messages:view",
+        "page:@events-messages:edit",
+        "page:@events-broadcasts:view",
+        "page:@events-broadcasts:edit",
+        "page:@events-settings:view",
+        "page:@events-settings:edit",
+        "page:@events-rooms:view",
+        "page:@events-rooms:edit",
+        "page:@events-acts:view",
+        "page:@events-acts:edit",
+        "page:@events-questions:view",
+        "page:@events-questions:edit",
+        "page:@events-doors:view",
+        "page:@events-doors:edit",
+        "table:@orders:read_pii",
+        "table:@customers:read_pii",
+        "table:@tickets:read_pii",
+        "table:@waitlist:read_pii",
+        "table:@reminders:read_pii",
+        "table:@messages:read_pii",
+        "table:@guest_list:read_pii",
+        "payments:@:refund"
+      ]
+    },
+    {
       "key": "door",
       "name": "Door",
       "screensOnly": true,
@@ -16050,6 +16776,7 @@
         "ticket_count",
         "collected",
         "paid_in",
+        "online_in",
         "refunded",
         "balance",
         "held_until",
@@ -16073,6 +16800,7 @@
       ],
       "writableValues": {
         "status": [
+          "paying",
           "confirming",
           "door",
           "no_charge",
@@ -16082,6 +16810,7 @@
       "writableWhen": {
         "status": [
           "held",
+          "paying",
           "confirming",
           "offered",
           "door",
@@ -16197,6 +16926,7 @@
               "column": "order_status",
               "in": [
                 "held",
+                "paying",
                 "confirming",
                 "offered",
                 "awaiting_transfer",
@@ -16257,6 +16987,7 @@
         ],
         "order_status": [
           "held",
+          "paying",
           "confirming",
           "offered",
           "door",
@@ -16282,6 +17013,7 @@
               "column": "order_status",
               "in": [
                 "held",
+                "paying",
                 "confirming",
                 "offered",
                 "awaiting_transfer",
@@ -16378,6 +17110,7 @@
               "column": "order_status",
               "in": [
                 "held",
+                "paying",
                 "confirming",
                 "offered",
                 "awaiting_transfer",
@@ -16472,6 +17205,7 @@
               "column": "order_status",
               "in": [
                 "held",
+                "paying",
                 "confirming",
                 "offered",
                 "awaiting_transfer",
@@ -16904,6 +17638,7 @@
         "ticket_count",
         "collected",
         "paid_in",
+        "online_in",
         "refunded",
         "balance",
         "held_until",
@@ -17177,6 +17912,7 @@
         "ticket_count",
         "collected",
         "paid_in",
+        "online_in",
         "refunded",
         "balance",
         "held_until",
@@ -17200,6 +17936,7 @@
       ],
       "writableValues": {
         "status": [
+          "paying",
           "confirming",
           "door",
           "no_charge",
@@ -17209,6 +17946,7 @@
       "writableWhen": {
         "status": [
           "held",
+          "paying",
           "confirming",
           "offered",
           "door",
@@ -17325,6 +18063,7 @@
               "column": "order_status",
               "in": [
                 "held",
+                "paying",
                 "confirming",
                 "offered",
                 "awaiting_transfer",
@@ -17386,6 +18125,7 @@
         ],
         "order_status": [
           "held",
+          "paying",
           "confirming",
           "offered",
           "door",
@@ -17411,6 +18151,7 @@
               "column": "order_status",
               "in": [
                 "held",
+                "paying",
                 "confirming",
                 "offered",
                 "awaiting_transfer",
@@ -17508,6 +18249,7 @@
               "column": "order_status",
               "in": [
                 "held",
+                "paying",
                 "confirming",
                 "offered",
                 "awaiting_transfer",
@@ -17603,6 +18345,7 @@
               "column": "order_status",
               "in": [
                 "held",
+                "paying",
                 "confirming",
                 "offered",
                 "awaiting_transfer",
@@ -17809,6 +18552,7 @@
     "kinds": {
       "tickets": "events-tickets",
       "tickets-paid": "events-tickets-paid",
+      "tickets-online": "events-tickets-online",
       "transfer-confirm": "events-transfer-confirm",
       "transfer-confirm-offer": "events-transfer-confirm-offer",
       "transfer-waiting": "events-transfer-waiting",
@@ -17826,12 +18570,14 @@
       "moved-holder": "events-moved-holder",
       "cancelled-paid": "events-cancelled-paid",
       "cancelled-unpaid": "events-cancelled-unpaid",
+      "cancelled-online": "events-cancelled-online",
       "cancelled-holder": "events-cancelled-holder",
       "tonight": "events-tonight",
       "tomorrow": "events-tomorrow",
       "tonight-holder": "events-tonight-holder",
       "tomorrow-holder": "events-tomorrow-holder",
       "refund-recorded": "events-refund-recorded",
+      "refund-sent": "events-refund-sent",
       "tickets-cancelled": "events-tickets-cancelled",
       "refund-declined": "events-refund-declined",
       "broadcast": "events-broadcast",
@@ -17840,6 +18586,7 @@
     "classes": {
       "tickets": "service",
       "tickets-paid": "service",
+      "tickets-online": "service",
       "transfer-confirm": "service",
       "transfer-confirm-offer": "service",
       "transfer-waiting": "service",
@@ -17857,12 +18604,14 @@
       "moved-holder": "service",
       "cancelled-paid": "service",
       "cancelled-unpaid": "service",
+      "cancelled-online": "service",
       "cancelled-holder": "service",
       "tonight": "service",
       "tomorrow": "service",
       "tonight-holder": "service",
       "tomorrow-holder": "service",
       "refund-recorded": "service",
+      "refund-sent": "service",
       "tickets-cancelled": "service",
       "refund-declined": "service",
       "broadcast": "service",
@@ -17952,6 +18701,19 @@
         }
       },
       {
+        "kind": "tickets-online",
+        "link": "order_id",
+        "onChange": {
+          "table": "orders",
+          "column": "status",
+          "to": "paid",
+          "where": {
+            "column": "paid_email",
+            "eq": 3
+          }
+        }
+      },
+      {
         "kind": "waitlist-offer",
         "link": "order_id",
         "onChange": {
@@ -17985,6 +18747,20 @@
           "where": {
             "column": "cancel_email",
             "eq": 2
+          }
+        }
+      },
+      {
+        "kind": "cancelled-online",
+        "link": "order_id",
+        "hold": true,
+        "onChange": {
+          "table": "orders",
+          "column": "cancel_cause",
+          "to": "show",
+          "where": {
+            "column": "cancel_email",
+            "eq": 3
           }
         }
       },
@@ -18265,9 +19041,18 @@
         "onCreate": {
           "table": "refunds",
           "where": {
-            "column": "voided",
-            "eq": false
+            "column": "refund_email",
+            "eq": 1
           }
+        }
+      },
+      {
+        "kind": "refund-sent",
+        "link": "refund_id",
+        "onChange": {
+          "table": "refunds",
+          "column": "refund_state",
+          "to": "done"
         }
       },
       {
@@ -19337,6 +20122,499 @@
                 "paras": [
                   "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 入場 · {{order.event.starts_at.time}} 演出開始 · {{order.room.name}}。{{order.event.age_note}}",
                   "已全額付清：{{order.total}}。入場時請出示每張票的代碼。"
+                ]
+              }
+            },
+            {
+              "block": "email.rows",
+              "id": "tickets",
+              "data": {
+                "from": {
+                  "link": "order",
+                  "table": "tickets",
+                  "via": "order_id",
+                  "orderBy": "position",
+                  "where": {
+                    "column": "status",
+                    "in": [
+                      "valid",
+                      "offered",
+                      "refund_asked"
+                    ]
+                  },
+                  "limit": 12
+                },
+                "row": {
+                  "title": "{{row.holder_name}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
+                  "image": "{{row.code.qr}}"
+                }
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "查看我的訂單",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "訂單 {{order.number}}。按下按鈕即可開啟你的訂單，請保留這封信。 {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        }
+      }
+    },
+    {
+      "key": "events-tickets-online",
+      "name": {
+        "en-US": "Your tickets (paid online)",
+        "de-DE": "Deine Tickets (online bezahlt)",
+        "fr-FR": "Vos billets (payés en ligne)",
+        "da-DK": "Dine billetter (betalt online)",
+        "cs-CZ": "Vaše vstupenky (zaplaceno online)",
+        "ar-EG": "تذاكرك (مدفوعة عبر الإنترنت)",
+        "zh-CN": "你的门票（已在线支付）",
+        "zh-TW": "你的票券（已線上付款）"
+      },
+      "vars": [
+        "manage_url",
+        "order.event.age_note",
+        "order.event.doors_at.date",
+        "order.event.doors_at.time",
+        "order.event.name",
+        "order.event.starts_at.time",
+        "order.link_token",
+        "order.number",
+        "order.room.name",
+        "order.total",
+        "practice.address",
+        "practice.contact_email"
+      ],
+      "locales": {
+        "en-US": {
+          "subject": "Your tickets for {{order.event.name}} · {{order.number}}",
+          "preheader": "Paid online · {{order.total}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "You're going to {{order.event.name}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{order.event.doors_at.date}} · Doors {{order.event.doors_at.time}} · on stage {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
+                  "Paid online: {{order.total}}. Your tickets work now. Show each ticket's code at the door."
+                ]
+              }
+            },
+            {
+              "block": "email.rows",
+              "id": "tickets",
+              "data": {
+                "from": {
+                  "link": "order",
+                  "table": "tickets",
+                  "via": "order_id",
+                  "orderBy": "position",
+                  "where": {
+                    "column": "status",
+                    "in": [
+                      "valid",
+                      "offered",
+                      "refund_asked"
+                    ]
+                  },
+                  "limit": 12
+                },
+                "row": {
+                  "title": "{{row.holder_name}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
+                  "image": "{{row.code.qr}}"
+                }
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "See my order",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Order {{order.number}}. The button opens your order — keep this email. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "de-DE": {
+          "subject": "Deine Tickets für {{order.event.name}} · {{order.number}}",
+          "preheader": "Online bezahlt · {{order.total}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Du bist dabei: {{order.event.name}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{order.event.doors_at.date}} · Einlass {{order.event.doors_at.time}} · Beginn {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
+                  "Online bezahlt: {{order.total}}. Deine Tickets gelten ab sofort. Zeig am Einlass den Code jedes Tickets."
+                ]
+              }
+            },
+            {
+              "block": "email.rows",
+              "id": "tickets",
+              "data": {
+                "from": {
+                  "link": "order",
+                  "table": "tickets",
+                  "via": "order_id",
+                  "orderBy": "position",
+                  "where": {
+                    "column": "status",
+                    "in": [
+                      "valid",
+                      "offered",
+                      "refund_asked"
+                    ]
+                  },
+                  "limit": 12
+                },
+                "row": {
+                  "title": "{{row.holder_name}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
+                  "image": "{{row.code.qr}}"
+                }
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Meine Bestellung ansehen",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Bestellung {{order.number}}. Der Button öffnet deine Bestellung – heb diese E-Mail gut auf. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "fr-FR": {
+          "subject": "Vos billets pour {{order.event.name}} · {{order.number}}",
+          "preheader": "Payé en ligne · {{order.total}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Vous venez à {{order.event.name}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{order.event.doors_at.date}} · Ouverture des portes à {{order.event.doors_at.time}} · sur scène à {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
+                  "Payé en ligne : {{order.total}}. Vos billets sont valables dès maintenant. Présentez le code de chaque billet à l'entrée."
+                ]
+              }
+            },
+            {
+              "block": "email.rows",
+              "id": "tickets",
+              "data": {
+                "from": {
+                  "link": "order",
+                  "table": "tickets",
+                  "via": "order_id",
+                  "orderBy": "position",
+                  "where": {
+                    "column": "status",
+                    "in": [
+                      "valid",
+                      "offered",
+                      "refund_asked"
+                    ]
+                  },
+                  "limit": 12
+                },
+                "row": {
+                  "title": "{{row.holder_name}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
+                  "image": "{{row.code.qr}}"
+                }
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Voir ma commande",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Commande {{order.number}}. Le bouton ouvre votre commande : gardez cet e-mail. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "da-DK": {
+          "subject": "Dine billetter til {{order.event.name}} · {{order.number}}",
+          "preheader": "Betalt online · {{order.total}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Du skal til {{order.event.name}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{order.event.doors_at.date}} · Dørene åbner {{order.event.doors_at.time}} · på scenen {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
+                  "Betalt online: {{order.total}}. Dine billetter gælder nu. Vis hver billets kode ved døren."
+                ]
+              }
+            },
+            {
+              "block": "email.rows",
+              "id": "tickets",
+              "data": {
+                "from": {
+                  "link": "order",
+                  "table": "tickets",
+                  "via": "order_id",
+                  "orderBy": "position",
+                  "where": {
+                    "column": "status",
+                    "in": [
+                      "valid",
+                      "offered",
+                      "refund_asked"
+                    ]
+                  },
+                  "limit": 12
+                },
+                "row": {
+                  "title": "{{row.holder_name}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
+                  "image": "{{row.code.qr}}"
+                }
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Se min ordre",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Ordre {{order.number}}. Knappen åbner din ordre – gem denne mail. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "cs-CZ": {
+          "subject": "Vaše vstupenky na {{order.event.name}} · {{order.number}}",
+          "preheader": "Zaplaceno online · {{order.total}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Jdete na {{order.event.name}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{order.event.doors_at.date}} · Otevíráme v {{order.event.doors_at.time}} · na pódiu od {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
+                  "Zaplaceno online: {{order.total}}. Vaše vstupenky teď platí. U vchodu ukažte kód každé vstupenky."
+                ]
+              }
+            },
+            {
+              "block": "email.rows",
+              "id": "tickets",
+              "data": {
+                "from": {
+                  "link": "order",
+                  "table": "tickets",
+                  "via": "order_id",
+                  "orderBy": "position",
+                  "where": {
+                    "column": "status",
+                    "in": [
+                      "valid",
+                      "offered",
+                      "refund_asked"
+                    ]
+                  },
+                  "limit": 12
+                },
+                "row": {
+                  "title": "{{row.holder_name}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
+                  "image": "{{row.code.qr}}"
+                }
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Zobrazit objednávku",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Objednávka {{order.number}}. Tlačítko otevře vaši objednávku – tento e-mail si uschovejte. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "ar-EG": {
+          "subject": "تذاكرك لحضور {{order.event.name}} · {{order.number}}",
+          "preheader": "دُفع عبر الإنترنت · {{order.total}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "أنت على موعد مع {{order.event.name}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{order.event.doors_at.date}} · فتح الأبواب {{order.event.doors_at.time}} · على المسرح {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
+                  "دُفع عبر الإنترنت: {{order.total}}. تذاكرك صالحة الآن. اعرض رمز كل تذكرة عند الباب."
+                ]
+              }
+            },
+            {
+              "block": "email.rows",
+              "id": "tickets",
+              "data": {
+                "from": {
+                  "link": "order",
+                  "table": "tickets",
+                  "via": "order_id",
+                  "orderBy": "position",
+                  "where": {
+                    "column": "status",
+                    "in": [
+                      "valid",
+                      "offered",
+                      "refund_asked"
+                    ]
+                  },
+                  "limit": 12
+                },
+                "row": {
+                  "title": "{{row.holder_name}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
+                  "image": "{{row.code.qr}}"
+                }
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "عرض طلبي",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "الطلب {{order.number}}. الزر يفتح طلبك، فاحتفظ بهذه الرسالة. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "zh-CN": {
+          "subject": "你的 {{order.event.name}} 门票 · {{order.number}}",
+          "preheader": "已在线支付 · {{order.total}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "{{order.event.name}}，不见不散"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 开门 · {{order.event.starts_at.time}} 开演 · {{order.room.name}}。{{order.event.age_note}}",
+                  "已在线支付：{{order.total}}。你的门票现已生效。入场时请出示每张票的票码。"
+                ]
+              }
+            },
+            {
+              "block": "email.rows",
+              "id": "tickets",
+              "data": {
+                "from": {
+                  "link": "order",
+                  "table": "tickets",
+                  "via": "order_id",
+                  "orderBy": "position",
+                  "where": {
+                    "column": "status",
+                    "in": [
+                      "valid",
+                      "offered",
+                      "refund_asked"
+                    ]
+                  },
+                  "limit": 12
+                },
+                "row": {
+                  "title": "{{row.holder_name}}",
+                  "meta": "{{row.name}} · {{row.code.grouped}}",
+                  "image": "{{row.code.qr}}"
+                }
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "查看我的订单",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "订单 {{order.number}}。点击按钮即可打开订单，请保留这封邮件。 {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "zh-TW": {
+          "subject": "你的 {{order.event.name}} 票券 · {{order.number}}",
+          "preheader": "已線上付款 · {{order.total}}",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "{{order.event.name}}，等你來！"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "{{order.event.doors_at.date}} · {{order.event.doors_at.time}} 入場 · {{order.event.starts_at.time}} 演出開始 · {{order.room.name}}。{{order.event.age_note}}",
+                  "已線上付款：{{order.total}}。你的票券現在已經可以使用。入場時請出示每張票的票碼。"
                 ]
               }
             },
@@ -24868,6 +26146,287 @@
       }
     },
     {
+      "key": "events-cancelled-online",
+      "name": {
+        "en-US": "Your show is cancelled (paid online)",
+        "de-DE": "Deine Show fällt aus (online bezahlt)",
+        "fr-FR": "Votre spectacle est annulé (payé en ligne)",
+        "da-DK": "Dit arrangement er aflyst (betalt online)",
+        "cs-CZ": "Vaše akce je zrušena (zaplaceno online)",
+        "ar-EG": "تم إلغاء حفلك (مدفوع عبر الإنترنت)",
+        "zh-CN": "你的演出已取消（已在线支付）",
+        "zh-TW": "你的演出已取消（已線上付款）"
+      },
+      "vars": [
+        "manage_url",
+        "order.event.doors_at.date",
+        "order.event.name",
+        "order.link_token",
+        "order.number",
+        "order.online_in",
+        "practice.address",
+        "practice.contact_email"
+      ],
+      "locales": {
+        "en-US": {
+          "subject": "{{order.event.name}} on {{order.event.doors_at.date}} is cancelled",
+          "preheader": "Your money goes back to you",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "{{order.event.name}} is cancelled"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "We're sorry — {{order.event.name}} on {{order.event.doors_at.date}} is cancelled.",
+                  "You paid {{order.online_in}} online. It goes back to the card or PayPal account you paid with."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "See my order",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "You have tickets for this show · order {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "de-DE": {
+          "subject": "{{order.event.name}} am {{order.event.doors_at.date}} fällt aus",
+          "preheader": "Du bekommst dein Geld zurück",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "{{order.event.name}} fällt aus"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Es tut uns leid – {{order.event.name}} am {{order.event.doors_at.date}} fällt aus.",
+                  "Du hast {{order.online_in}} online bezahlt. Das Geld geht zurück auf die Karte oder das PayPal-Konto, mit dem du bezahlt hast."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Meine Bestellung ansehen",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Du hast Tickets für diese Show · Bestellung {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "fr-FR": {
+          "subject": "{{order.event.name}} du {{order.event.doors_at.date}} est annulé",
+          "preheader": "Vous serez remboursé",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "{{order.event.name}} est annulé"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Nous sommes désolés : {{order.event.name}} du {{order.event.doors_at.date}} est annulé.",
+                  "Vous avez payé {{order.online_in}} en ligne. La somme revient sur la carte ou le compte PayPal utilisé pour payer."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Voir ma commande",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Vous avez des billets pour ce spectacle · commande {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "da-DK": {
+          "subject": "{{order.event.name}} {{order.event.doors_at.date}} er aflyst",
+          "preheader": "Du får dine penge tilbage",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "{{order.event.name}} er aflyst"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Vi beklager – {{order.event.name}} {{order.event.doors_at.date}} er aflyst.",
+                  "Du betalte {{order.online_in}} online. Pengene går tilbage til det kort eller den PayPal-konto, du betalte med."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Se min ordre",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Du har billetter til dette arrangement · ordre {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "cs-CZ": {
+          "subject": "Akce {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena",
+          "preheader": "Peníze dostanete zpět",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Akce {{order.event.name}} je zrušena"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Je nám líto – akce {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena.",
+                  "Zaplatili jste {{order.online_in}} online. Peníze se vrátí na kartu nebo účet PayPal, kterým jste platili."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Zobrazit objednávku",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Máte vstupenky na tuto akci · objednávka {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "ar-EG": {
+          "subject": "أُلغي {{order.event.name}} المقرر في {{order.event.doors_at.date}}",
+          "preheader": "ستسترد أموالك",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "أُلغي {{order.event.name}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "نأسف لإبلاغك بإلغاء {{order.event.name}} المقرر في {{order.event.doors_at.date}}.",
+                  "دفعت {{order.online_in}} عبر الإنترنت. سيعود المبلغ إلى البطاقة أو حساب PayPal الذي دفعت به."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "عرض طلبي",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "لديك تذاكر لهذا الحفل · الطلب {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "zh-CN": {
+          "subject": "{{order.event.doors_at.date}} 的 {{order.event.name}} 已取消",
+          "preheader": "你的钱会退还给你",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "{{order.event.name}} 已取消"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "非常抱歉，{{order.event.doors_at.date}} 的 {{order.event.name}} 已取消。",
+                  "你在线支付了 {{order.online_in}}。这笔钱会退回到你付款时使用的银行卡或 PayPal 账户。"
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "查看我的订单",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "你有这场演出的门票 · 订单 {{order.number}}。 {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "zh-TW": {
+          "subject": "{{order.event.doors_at.date}} 的 {{order.event.name}} 已取消",
+          "preheader": "你的款項將退還給你",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "{{order.event.name}} 已取消"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "很抱歉，{{order.event.doors_at.date}} 的 {{order.event.name}} 已取消。",
+                  "你已線上付款 {{order.online_in}}。這筆款項會退回到你付款時使用的信用卡或 PayPal 帳戶。"
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "查看我的訂單",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "你持有這場演出的票 · 訂單 {{order.number}}。 {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        }
+      }
+    },
+    {
       "key": "events-cancelled-holder",
       "name": {
         "en-US": "Your show is cancelled (a friend's ticket)",
@@ -26878,6 +28437,278 @@
       }
     },
     {
+      "key": "events-refund-sent",
+      "name": {
+        "en-US": "Refund sent",
+        "de-DE": "Erstattung gesendet",
+        "fr-FR": "Remboursement envoyé",
+        "da-DK": "Refusion sendt",
+        "cs-CZ": "Peníze odeslány zpět",
+        "ar-EG": "تم إرسال المبلغ المسترد",
+        "zh-CN": "退款已发出",
+        "zh-TW": "退款已送出"
+      },
+      "vars": [
+        "manage_url",
+        "order.event.name",
+        "order.link_token",
+        "order.number",
+        "practice.address",
+        "practice.contact_email",
+        "refund.amount"
+      ],
+      "locales": {
+        "en-US": {
+          "subject": "Your refund for {{order.event.name}} · {{order.number}}",
+          "preheader": "{{refund.amount}} back to you",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Refund sent"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "We've sent {{refund.amount}} back to the card or PayPal account you paid with, for order {{order.number}}. It can take a few days to show."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "See my order",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Order {{order.number}} · {{order.event.name}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "de-DE": {
+          "subject": "Deine Erstattung für {{order.event.name}} · {{order.number}}",
+          "preheader": "{{refund.amount}} zurück an dich",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Erstattung gesendet"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Wir haben {{refund.amount}} für Bestellung {{order.number}} zurück auf die Karte oder das PayPal-Konto geschickt, mit dem du bezahlt hast. Es kann ein paar Tage dauern, bis du es siehst."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Meine Bestellung ansehen",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Bestellung {{order.number}} · {{order.event.name}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "fr-FR": {
+          "subject": "Votre remboursement pour {{order.event.name}} · {{order.number}}",
+          "preheader": "{{refund.amount}} vous est remboursé",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Remboursement envoyé"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Nous avons renvoyé {{refund.amount}} sur la carte ou le compte PayPal utilisé pour la commande {{order.number}}. Cela peut prendre quelques jours avant d'apparaître."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Voir ma commande",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Commande {{order.number}} · {{order.event.name}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "da-DK": {
+          "subject": "Din refusion for {{order.event.name}} · {{order.number}}",
+          "preheader": "{{refund.amount}} tilbage til dig",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Refusion sendt"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Vi har sendt {{refund.amount}} tilbage til det kort eller den PayPal-konto, du betalte ordre {{order.number}} med. Der kan gå et par dage, før du kan se det."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Se min ordre",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Ordre {{order.number}} · {{order.event.name}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "cs-CZ": {
+          "subject": "Vrácení peněz za {{order.event.name}} · {{order.number}}",
+          "preheader": "{{refund.amount}} zpět pro vás",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Peníze odeslány zpět"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Poslali jsme {{refund.amount}} za objednávku {{order.number}} zpět na kartu nebo účet PayPal, kterým jste platili. Může trvat několik dní, než se objeví."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Zobrazit objednávku",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Objednávka {{order.number}} · {{order.event.name}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "ar-EG": {
+          "subject": "استرداد مبلغك لحضور {{order.event.name}} · {{order.number}}",
+          "preheader": "{{refund.amount}} يعود إليك",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "تم إرسال المبلغ المسترد"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "أرسلنا {{refund.amount}} عن الطلب {{order.number}} إلى البطاقة أو حساب PayPal الذي دفعت به. قد يستغرق ظهوره بضعة أيام."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "عرض طلبي",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "الطلب {{order.number}} · {{order.event.name}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "zh-CN": {
+          "subject": "你的 {{order.event.name}} 退款 · {{order.number}}",
+          "preheader": "{{refund.amount}} 已退给你",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "退款已发出"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "我们已将订单 {{order.number}} 的 {{refund.amount}} 退回到你付款时使用的银行卡或 PayPal 账户。到账可能需要几天时间。"
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "查看我的订单",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "订单 {{order.number}} · {{order.event.name}}。 {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "zh-TW": {
+          "subject": "你的 {{order.event.name}} 退款 · {{order.number}}",
+          "preheader": "{{refund.amount}} 已退還給你",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "退款已送出"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "我們已將訂單 {{order.number}} 的 {{refund.amount}} 退回到你付款時使用的信用卡或 PayPal 帳戶。可能需要幾天才會顯示。"
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "查看我的訂單",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "訂單 {{order.number}} · {{order.event.name}}。 {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        }
+      }
+    },
+    {
       "key": "events-tickets-cancelled",
       "name": {
         "en-US": "Tickets cancelled",
@@ -27973,6 +29804,113 @@
       }
     }
   ],
+  "payments": {
+    "payables": [
+      {
+        "table": "orders",
+        "label": "number",
+        "amount": {
+          "column": "total"
+        },
+        "currency": {
+          "connection": true
+        },
+        "due": {
+          "column": "balance"
+        },
+        "payments": {
+          "kind": "table",
+          "table": "payments",
+          "link": "order_id",
+          "amount": "amount",
+          "paidAt": "recorded_at",
+          "method": {
+            "column": "method",
+            "values": {
+              "*": "online"
+            }
+          },
+          "voided": "voided",
+          "reference": "payment_ref",
+          "provider": "provider",
+          "currency": "currency",
+          "refundedElsewhere": "refunded_elsewhere"
+        },
+        "status": {
+          "column": "status",
+          "paid": "paid",
+          "from": [
+            "paying",
+            "door",
+            "awaiting_transfer",
+            "overdue",
+            "released",
+            "not_collected"
+          ],
+          "set": {
+            "paid_method": "online"
+          }
+        },
+        "customerEmail": "email",
+        "payableWhen": [
+          {
+            "column": "status",
+            "in": [
+              "paying",
+              "door",
+              "awaiting_transfer",
+              "overdue",
+              "released",
+              "not_collected"
+            ]
+          }
+        ],
+        "returnTo": "/o",
+        "receipt": "engine",
+        "onlyOnline": true,
+        "instantOnly": true,
+        "refunds": {
+          "model": "rows",
+          "table": "refunds",
+          "payment": "payment_id",
+          "amount": "amount",
+          "when": [
+            {
+              "column": "method",
+              "eq": "online"
+            }
+          ],
+          "providerRef": "provider_ref",
+          "state": "refund_state",
+          "openIn": "/",
+          "auto": {
+            "values": {
+              "method": "online",
+              "kind": "cancelled_tickets"
+            }
+          }
+        },
+        "refundOn": {
+          "moves": [
+            {
+              "from": [
+                "paid"
+              ],
+              "to": "cancelled",
+              "by": [
+                "system",
+                "refund-right"
+              ]
+            }
+          ],
+          "switch": {
+            "table": "settings",
+            "column": "auto_refund"
+          }
+        }
+      }
+    ]
+  },
   "sampleData": {
     "file": "seeds/events.sample.json"
   }

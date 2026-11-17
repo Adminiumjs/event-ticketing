@@ -9,6 +9,8 @@
  *   tickets-paid           paid by card or cash before any email carried the
  *                          tickets (at the box office, or an unpaid transfer
  *                          settled there);
+ *   tickets-online         paid online, through Adminium's pay page: the
+ *                          tickets (Adminium sends the receipt itself);
  *   transfer-confirm       the buyer chose a bank transfer: the confirm link,
  *                          emailed only here (the order waits for it);
  *   transfer-confirm-offer the same for a waitlist offer claimed by transfer,
@@ -26,12 +28,17 @@
  *   on-sale-presale        a reminder before a presale opens, at its own time;
  *   cancelled-paid/-unpaid the show is cancelled (held until the box office
  *                          sends them), with or without money to give back;
+ *   cancelled-online       the same for an order paid online: the money goes
+ *                          back to the card or PayPal account it came from;
  *   cancelled-holder       the same, to a friend holding one of the tickets;
  *   tonight / tomorrow     the running order before the show: at noon on the
  *                          day, or at 18:00 the evening before a daytime show
  *                          (never to an order with no ticket left, nor to a
  *                          friend holding a ticket of an order that is gone);
- *   refund-recorded        money given back, one email for each refund;
+ *   refund-recorded        money given back by the box office, one email for
+ *                          each refund;
+ *   refund-sent            money sent back online, once the payment service
+ *                          has it on its way: one email for each refund;
  *   tickets-cancelled      the box office cancelled tickets, or a refund request
  *                          was approved, or the buyer cancelled unpaid ones;
  *   refund-declined        a refund request was declined.
@@ -58,6 +65,7 @@
 export const KINDS = [
   "tickets",
   "tickets-paid",
+  "tickets-online",
   "transfer-confirm",
   "transfer-confirm-offer",
   "transfer-waiting",
@@ -75,12 +83,14 @@ export const KINDS = [
   "moved-holder",
   "cancelled-paid",
   "cancelled-unpaid",
+  "cancelled-online",
   "cancelled-holder",
   "tonight",
   "tomorrow",
   "tonight-holder",
   "tomorrow-holder",
   "refund-recorded",
+  "refund-sent",
   "tickets-cancelled",
   "refund-declined",
   "broadcast",
@@ -165,10 +175,12 @@ export const OUTBOX = {
     { kind: "transfer-waiting", ...byOrder, ...onOrder("status", "awaiting_transfer") },
     { kind: "transfer-released", ...byOrder, ...onOrder("status", "released") },
     { kind: "payment-received", ...byOrder, ...onOrder("status", "paid", { column: "paid_email", eq: 2 }) },
+    { kind: "tickets-online", ...byOrder, ...onOrder("status", "paid", { column: "paid_email", eq: 3 }) },
     { kind: "waitlist-offer", ...byOrder, ...onOrder("status", "offered") },
     // The show's cancellation, held until the box office sends it: the cause is written with the move.
     { kind: "cancelled-paid", ...byOrder, hold: true, ...onOrder("cancel_cause", "show", { column: "cancel_email", eq: 1 }) },
     { kind: "cancelled-unpaid", ...byOrder, hold: true, ...onOrder("cancel_cause", "show", { column: "cancel_email", eq: 2 }) },
+    { kind: "cancelled-online", ...byOrder, hold: true, ...onOrder("cancel_cause", "show", { column: "cancel_email", eq: 3 }) },
     { kind: "cancelled-holder", ...byTicket, ...toHolder, hold: true, ...onTicket("order_cancel_cause", "show", accepted) },
     // Before the show: at noon on the day, or at 18:00 the evening before doors earlier than 16:00.
     { kind: "tonight", ...byOrder, ...TONIGHT, due: { date: "doors_at", days: 0, at: "12:00" }, dropWhen: GONE, ...onOrder("status", CONFIRMED, { column: "eve_email", eq: false }) },
@@ -188,7 +200,9 @@ export const OUTBOX = {
       onChange: { table: "tickets", via: "order_id", column: "cancel_cause", to: ["box_office", "request", "buyer"] },
     },
     // One email for each refund, saying its own amount: the refund is what the message is about (its order is linked too).
-    { kind: "refund-recorded", link: "refund_id", onCreate: { table: "refunds", where: { column: "voided", eq: false } } },
+    { kind: "refund-recorded", link: "refund_id", onCreate: { table: "refunds", where: { column: "refund_email", eq: 1 } } },
+    // Sent back online: once Adminium stamps the refund done (the payment service has the money on its way back).
+    { kind: "refund-sent", link: "refund_id", onChange: { table: "refunds", column: "refund_state", to: "done" } },
     // An hour (by default) before a sale opens, and before a presale.
     {
       kind: "on-sale",

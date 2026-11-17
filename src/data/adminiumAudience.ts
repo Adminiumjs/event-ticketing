@@ -32,6 +32,8 @@ export interface AudienceConfig {
   tables?: Readonly<Record<string, string>>;
   /** Whether an add-on that draws receipts is attached to the app (the hosted page's configuration says). */
   receipts?: boolean;
+  /** Someone who manages payments rehearsing the checkout: their staff session's token, carried on every write. */
+  rehearsal?: { csrfToken: string };
 }
 
 export interface AudienceOptions {
@@ -47,7 +49,7 @@ const SHOWS_PER_ASK = 20;
 /** The order states a person's own list shows (a checkout still open or let go is not an order yet). */
 const LIVE_OR_PAST = ["door", "awaiting_transfer", "overdue", "no_charge", "paid", "offered", "released", "cancelled", "not_collected"];
 /** The columns the public door answers as decimal strings, read as numbers here. */
-const MONEY = new Set(["price", "subtotal", "discount", "adjusted", "total", "collected", "paid_in", "refunded", "balance", "due", "code_value", "live_price", "live_discount", "received", "owed_door", "owed_transfer", "owed_overdue"]);
+const MONEY = new Set(["price", "subtotal", "discount", "adjusted", "total", "collected", "paid_in", "online_in", "refunded", "balance", "due", "code_value", "live_price", "live_discount", "received", "owed_door", "owed_transfer", "owed_overdue"]);
 
 /** A row as the screens read one: ids and money as numbers. */
 export function rowOf(row: ClientRow): Row {
@@ -149,6 +151,8 @@ export class AdminiumAudience implements AudiencePort {
         publishableKey,
         ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
         ...(kept === undefined ? {} : { session: kept }),
+        // A rehearsal's writes are the staff member's own, on the staff address: they carry their session's token.
+        ...(config.rehearsal === undefined ? {} : { csrfToken: config.rehearsal.csrfToken }),
         onSessionChange: (session) => keepSession(storage, key, session),
         onSessionEnded: (reason) => {
           for (const listener of this.endedListeners) listener(String(reason));
@@ -325,7 +329,36 @@ export class AdminiumAudience implements AudiencePort {
     });
   }
 
-  choose(status: "door" | "confirming" | "no_charge" | "let_go", keep?: number, orderId?: Id): Promise<Row> {
+  payments(): Promise<{ online: boolean; test: boolean }> {
+    return answer(async () => {
+      const said = await this.customer.payments.available();
+      return { online: said.online, test: said.test === true };
+    });
+  }
+
+  payLink(orderId?: Id): Promise<string> {
+    return answer(async () => {
+      // Through the door the order is read by: its own link, or the signed-in person's orders.
+      const viaLink = this.byLink(orderId);
+      const id = orderId ?? this.openedId;
+      if (id === null) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
+      const client = viaLink ? this.client("link") : this.customer;
+      return (await client.payments.start(viaLink ? this.refs.linkOrder : this.refs.myOrders, String(id))).payUrl;
+    });
+  }
+
+  payState(orderId?: Id): Promise<{ state: "none" | "open" | "confirming" | "paid" | "failed" | "expired"; test: boolean }> {
+    return answer(async () => {
+      const viaLink = this.byLink(orderId);
+      const id = orderId ?? this.openedId;
+      if (id === null) throw new ApiError(404, "PUBLIC_REF_NOT_FOUND");
+      const client = viaLink ? this.client("link") : this.customer;
+      const said = await client.payments.state(viaLink ? this.refs.linkOrder : this.refs.myOrders, String(id));
+      return { state: said.state, test: said.test === true };
+    });
+  }
+
+  choose(status: "paying" | "door" | "confirming" | "no_charge" | "let_go", keep?: number, orderId?: Id): Promise<Row> {
     return answer(async () => {
       const viaLink = this.byLink(orderId);
       const client = viaLink ? this.client("link") : this.customer;

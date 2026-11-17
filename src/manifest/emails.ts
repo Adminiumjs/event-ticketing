@@ -86,6 +86,18 @@ export const EMAIL_EN: EmailWords = {
     button: "See my order",
     foot: KEEP,
   },
+  "tickets-online": {
+    name: "Your tickets (paid online)",
+    subject: "Your tickets for {{order.event.name}} · {{order.number}}",
+    preheader: "Paid online · {{order.total}}",
+    heading: "You're going to {{order.event.name}}",
+    paras: [
+      "{{order.event.doors_at.date}} · Doors {{order.event.doors_at.time}} · on stage {{order.event.starts_at.time}} · {{order.room.name}}. {{order.event.age_note}}",
+      "Paid online: {{order.total}}. Your tickets work now. Show each ticket's code at the door.",
+    ],
+    button: "See my order",
+    foot: KEEP,
+  },
   "transfer-confirm": {
     name: "Confirm your order",
     subject: "Confirm your order for {{order.event.name}} · {{order.number}}",
@@ -269,6 +281,18 @@ export const EMAIL_EN: EmailWords = {
     button: "See my order",
     foot: HAVE,
   },
+  "cancelled-online": {
+    name: "Your show is cancelled (paid online)",
+    subject: "{{order.event.name}} on {{order.event.doors_at.date}} is cancelled",
+    preheader: "Your money goes back to you",
+    heading: "{{order.event.name}} is cancelled",
+    paras: [
+      "We're sorry — {{order.event.name}} on {{order.event.doors_at.date}} is cancelled.",
+      "You paid {{order.online_in}} online. It goes back to the card or PayPal account you paid with.",
+    ],
+    button: "See my order",
+    foot: HAVE,
+  },
   "cancelled-holder": {
     name: "Your show is cancelled (a friend's ticket)",
     subject: "{{ticket.event.name}} on {{ticket.event.doors_at.date}} is cancelled",
@@ -319,6 +343,15 @@ export const EMAIL_EN: EmailWords = {
     preheader: "{{refund.amount}} back to you",
     heading: "Refund recorded",
     paras: ["We've recorded {{refund.amount}} back to you for order {{order.number}}. It reaches you {{practice.refund_payback_text}}."],
+    button: "See my order",
+    foot: "Order {{order.number}} · {{order.event.name}}.",
+  },
+  "refund-sent": {
+    name: "Refund sent",
+    subject: "Your refund for {{order.event.name}} · {{order.number}}",
+    preheader: "{{refund.amount}} back to you",
+    heading: "Refund sent",
+    paras: ["We've sent {{refund.amount}} back to the card or PayPal account you paid with, for order {{order.number}}. It can take a few days to show."],
     button: "See my order",
     foot: "Order {{order.number}} · {{order.event.name}}.",
   },
@@ -375,7 +408,7 @@ const TICKET_ROWS: Block = {
 };
 
 /** The emails that carry the order's tickets. */
-const WITH_TICKETS: ReadonlySet<Kind> = new Set(["tickets", "tickets-paid", "payment-received", "tonight", "tomorrow"]);
+const WITH_TICKETS: ReadonlySet<Kind> = new Set(["tickets", "tickets-paid", "tickets-online", "payment-received", "tonight", "tomorrow"]);
 /** The emails that carry the receipt, when an add-on draws one: without it they go as they are, minus the line saying so. */
 const WITH_RECEIPT: ReadonlySet<Kind> = new Set(["payment-received"]);
 /** The receipt each of those carries. */

@@ -149,6 +149,8 @@ export class WaveApp {
     doorDevice?: string;
     /** The demo's scan pad: the next ticket in the queue at the door, as a code. */
     nextScan?: (eventDayId: Id) => string | null;
+    /** The demo's pay step done: it says no money moved. */
+    paidOnline?: (orderNumber: string) => void;
   } | null = null;
   /** The buyer's side: checkout, their orders, signing in. */
   readonly buyer: Buyer = new Buyer(this);
@@ -401,7 +403,8 @@ export class WaveApp {
   // ── arriving from a link ────────────────────────────────────────────────
 
   /**
-   * The page a link opens: an order's own link (`…/o#code`), a ticket sent to a friend (`…/t#code`), a
+   * The page a link opens: an order's own link (`…/o#code`), the way back from the pay page (`…/o`), a
+   * ticket sent to a friend (`…/t#code`), a
    * transfer's confirm link (`…/confirm#code`), a sign-in link (`…/c#code`), a show (`…/events/{slug}`);
    * anything else under the site is What's on, an unknown show the page nobody found. `path` is the
    * path under the site's own base: the base itself may say `events` (it is the app's key).
@@ -412,6 +415,12 @@ export class WaveApp {
     const tail = under.split("/").pop() ?? "";
     const show = /^events\/([^/]+)$/.exec(under)?.[1];
     if (tail === "o" && code !== "") return this.buyer.openByLink(code);
+    // Back from the pay page (it sends the buyer to `/o`, bare): the order this tab was paying.
+    // Not awaited: the page draws while it asks whether the money came.
+    if (tail === "o") {
+      void this.buyer.returnFromPay();
+      return;
+    }
     if (tail === "t" && code !== "") return this.go("friend", { fr: { token: code, name: "", err: null, busy: false } });
     if (tail === "confirm" && code !== "") return this.go("confirm", { confirm: { token: code, busy: false, done: false } });
     if (tail === "c" && code !== "") return this.buyer.openSignInLink(code);

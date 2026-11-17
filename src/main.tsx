@@ -86,12 +86,13 @@ function showStartupFailure(mount: HTMLElement, detail: string, code: string | n
  * opens the box office.
  */
 async function bootDemo(mount: HTMLElement): Promise<void> {
-  const [{ DemoAdminium }, { WaveApp }, { WaveRoot }, { startDemoBridge, goToScreen, applyDemoMessage }, { prepareScreen, runShortcut }] = await Promise.all([
+  const [{ DemoAdminium }, { WaveApp }, { WaveRoot }, { startDemoBridge, goToScreen, applyDemoMessage }, { prepareScreen, runShortcut }, { cardWord }] = await Promise.all([
     import("./demo/adminium.ts"),
     import("./app/wave.ts"),
     import("./app/WaveRoot.tsx"),
     import("./demoBridge.ts"),
     import("./demoShortcuts.ts"),
+    import("./i18n/strings/card.ts"),
   ]);
   const demo = new DemoAdminium();
   const params = new URLSearchParams(window.location.search);
@@ -100,7 +101,12 @@ async function bootDemo(mount: HTMLElement): Promise<void> {
   const theme = params.get("theme") === "light" ? "light" : "dark";
   const frame = params.get("frame") === "phone" ? "phone" : "auto";
   const app = new WaveApp({ audience: demo.audience, boxOffice: demo.boxOffice, door: demo.door }, persona, { lang, theme, frame });
-  app.demo = { onClock: (fn) => demo.onClock(fn), doorDevice: "Door 1", nextScan: (dayId) => demo.nextInQueue(dayId) };
+  app.demo = {
+    onClock: (fn) => demo.onClock(fn),
+    doorDevice: "Door 1",
+    nextScan: (dayId) => demo.nextInQueue(dayId),
+    paidOnline: (number) => app.toast(cardWord(app.state.lang, "demo.toast.paid-online", { number }), "badge-check"),
+  };
   // The browser pass drives the demo as the card does: a screen, a shortcut, a card message.
   const card = {
     go: async (screen: string) => {

@@ -13,6 +13,7 @@ import { ADD_ONS } from "./add-ons.ts";
 import { DOCUMENTS } from "./documents.ts";
 import { emailTemplates } from "./emails.ts";
 import { KINDS, OUTBOX } from "./outbox.ts";
+import { PAYMENTS } from "./payments.ts";
 import { PEOPLE } from "./people.ts";
 import { NAV_GROUPS, pages } from "./pages.ts";
 import { PUBLIC_ACCESS, PUBLIC_KEYS } from "./public.ts";
@@ -20,7 +21,7 @@ import { ROLES } from "./roles.ts";
 import { TABLES } from "./tables.ts";
 
 /** This release, a patch over 0.2.x (the version moved 0.1.3 → 0.2.0 once: its tables were new). */
-export const VERSION = "0.2.6";
+export const VERSION = "0.2.7";
 
 /**
  * The Adminium release that first reads everything below: places counted by
@@ -30,9 +31,15 @@ export const VERSION = "0.2.6";
  * venue's people, each email's class, the tables the law keeps and the
  * checkout's tick kept in the consent log; and (0.3.49) one install per
  * database, each side served at its own mount and naming its install on every
- * call. Written from the version actually released, never guessed.
+ * call; and (0.3.60) orders paid online through its pay page, a state that
+ * waits while a payment lands, and refunds sent back online as rows of the
+ * app's own; and (0.3.61) where an order's payment stands, read by the buyer
+ * back from the pay page; and (0.3.62) "Online" written with the move to paid,
+ * no move off paying while a payment lands, more emails, and a refund's
+ * stamp announced. Written from the version actually released, never
+ * guessed.
  */
-export const MIN_ADMINIUM = "0.3.49";
+export const MIN_ADMINIUM = "0.3.62";
 
 const ENV = {
   VITE_ADMINIUM_API_BASE_URL: { required: false, example: "https://admin.example.com" },
@@ -97,6 +104,7 @@ export function buildManifest(): Record<string, unknown> {
     outbox: OUTBOX,
     people: PEOPLE,
     emailTemplates: emailTemplates(KINDS),
+    payments: PAYMENTS,
     sampleData: { file: "seeds/events.sample.json" },
   };
 }

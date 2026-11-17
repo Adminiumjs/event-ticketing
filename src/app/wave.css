@@ -76,6 +76,7 @@ details[open] .wv-chev{transform:rotate(180deg);}
 @keyframes wv-slide{from{transform:translateY(-10px);opacity:0}to{transform:none;opacity:1}}
 @keyframes wv-wave{from{background-position:0 50%}to{background-position:240px 50%}}
 @keyframes wv-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes wv-turn{to{transform:rotate(360deg)}}
 @keyframes wv-breathe{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(.96);opacity:.55}}
 @keyframes wv-fill{from{clip-path:circle(0% at 50% 50%)}to{clip-path:circle(150% at 50% 50%)}}
 .wv-screen{animation:wv-fade .24s ease;}

@@ -194,9 +194,10 @@ function checkoutVals(app: WaveApp, w: World): V {
   const orderQs = questions
     .filter((q) => q["per"] === "order")
     .map((q) => qVals(q, "qo", co.orderAnswers[String(q.id)] ?? "", (v) => b.setCoField({ orderAnswers: { ...co.orderAnswers, [String(q.id)]: v }, errs: { ...co.errs, qo: null } }), co.errs["qo"] ?? null));
-  const opts = b.payOptions(show, co.lines);
+  const opts = b.payOptions(show, co.lines, co.payOff);
   const due = transferDeadline(app, show);
   const PD = {
+    now: { title: tr("Pay now"), icon: "lock", desc: tr("You'll pay on the Stripe or PayPal page.") },
     door: { title: tr("Pay at the door"), icon: "door-open", desc: tr("Bring {total} on the night — card or cash.", { total: money(total ?? 0) }) },
     transfer: {
       title: tr("Pay by bank transfer"),
@@ -217,7 +218,18 @@ function checkoutVals(app: WaveApp, w: World): V {
   });
   const unit = isWorkshop(show) || free ? places : ticketsW;
   const nm = unit(count);
-  const cta = free ? (count > 1 ? tr("Get my tickets") : tr("Get my ticket")) : co.pay === "transfer" ? tr("Confirm — {n}, pay by transfer", { n: nm }) : tr("Confirm — {n}, pay at the door", { n: nm });
+  const payNow = !free && co.pay === "now";
+  const cta = free
+    ? count > 1
+      ? tr("Get my tickets")
+      : tr("Get my ticket")
+    : payNow
+      ? tr("Pay now · {amount}", { amount: money(total ?? 0) })
+      : co.pay === "transfer"
+        ? tr("Confirm — {n}, pay by transfer", { n: nm })
+        : tr("Confirm — {n}, pay at the door", { n: nm });
+  const online = b.paysOnline();
+  const step = co.payStep;
   const errN = Object.entries(co.errs).filter(([k, v]) => v !== null && v !== undefined && (k.startsWith("t") || k.startsWith("q"))).length;
   const warn = left < 120_000;
   const q = co.holdQ;
@@ -287,6 +299,26 @@ function checkoutVals(app: WaveApp, w: World): V {
     mailOn: ph === "mail",
     dim: ph === "gone" ? "color:var(--fg-subtle); pointer-events:none;" : "",
     goneTxt: tr("Your {n} minutes ran out, so they went back on sale for everyone.", { n: w.settings.holdMinutes }),
+    // Paying online when the hold ran out: said as the payment that did not finish in time, with Try again.
+    goneMain: ph === "gone" && !co.payGone,
+    gonePay: ph === "gone" && co.payGone,
+    gonePayTxt: tr("Your tickets went back on sale because the payment didn't finish in time. Nothing was taken."),
+    tryAgain: () => b.tryAgain(),
+    // A payment manager rehearsing the checkout here: said once, at the top.
+    testOn: online?.test === true && ph !== "details",
+    testTxt: tr("Test mode — only you see this. No money moves. This order is sample data and goes when you remove sample data."),
+    ctaNow: payNow,
+    takingOn: step === "taking",
+    takingTxt: tr("Taking you to the secure payment page…"),
+    checkingOn: step === "checking",
+    checkingTxt: tr("Checking your payment…"),
+    confirmingOn: step === "confirming",
+    confirmingTxt: tr("Your bank is confirming the payment"),
+    confirmingSub: tr("Some ways to pay take a few days. Please don't pay again. We'll email you when it has gone through."),
+    unfinishedOn: step === "unfinished",
+    unfinishedTxt: tr("The payment didn't finish. Nothing was taken."),
+    unfinishedSub: tr("Your tickets are still held. Try again, or choose another way to pay."),
+    payAgain: () => b.payAgain(),
     hold: () => void b.hold(),
     holdOff: (guest && co.check !== "ok") || co.busy,
     busy: co.busy,
@@ -440,8 +472,11 @@ function goingVals(app: WaveApp, w: World): V {
   });
   const email = String(order["email"] ?? "");
   const paidAmt = n(order["paid_in"]) - n(order["refunded"]);
+  // Paid online, through the pay page: its money goes back to the card or PayPal account it came from.
+  const online = order["paid_method"] === "online" || n(order["online_in"]) > 0.004;
+  const back = n(order["refunded"]);
   let heading = tr("You're going!");
-  let sub = tr("We've emailed your order to {email}.", { email });
+  let sub = paid && online ? tr("Your tickets are in your email.") : tr("We've emailed your order to {email}.", { email });
   let note = "";
   let noteOn = false;
   let noteStyle = S.aInfo;
@@ -459,6 +494,12 @@ function goingVals(app: WaveApp, w: World): V {
     noteIcon = "circle-x";
     noteColor = "var(--danger)";
     seeOn = true;
+  } else if (canc && online && (back > 0.004 || paidAmt > 0.004)) {
+    heading = tr("{name} is cancelled", { name: show.name });
+    sub =
+      back > 0.004
+        ? tr("This show is cancelled. {amount} goes back to the card or PayPal account you paid with.", { amount: money(back) })
+        : tr("This show is cancelled. The box office will refund {amount}.", { amount: money(paidAmt) });
   } else if (canc) {
     heading = tr("{name} is cancelled", { name: show.name });
     sub =
@@ -474,6 +515,14 @@ function goingVals(app: WaveApp, w: World): V {
     heading = tr("This one's happened");
     sub = tr("This one's happened. Nothing was paid at the door, so there's nothing to pay.");
   } else if (waiting) heading = tr("Awaiting payment");
+  else if (online && back > 0.004) {
+    // A refund request approved on an order paid online: the money went back where it came from.
+    note = tr("Refund approved. {amount} goes back to the card or PayPal account you paid with.", { amount: money(back) });
+    noteOn = true;
+    noteStyle = S.aPos;
+    noteIcon = "circle-check-big";
+    noteColor = "var(--pos)";
+  }
   const balance = n(order["balance"]);
   const door = app.state.going?.via === "me" ? "me" : "link";
   const bankRows = waiting ? app.get(`aud:bank:${door}:${String(order.id)}`, () => app.ports.audience!.bank(door)) : undefined;
@@ -505,7 +554,7 @@ function goingVals(app: WaveApp, w: World): V {
       ? tr("Your tickets go back on sale at {time} unless the box office has seen your payment.", { time: `${fD(releaseAt(app, order))}, ${fT(releaseAt(app, order))}` })
       : tr("Send {amount} by bank transfer with the reference below. Your tickets appear here once we've seen the payment. If it hasn't arrived by the deadline, the tickets go back on sale.", { amount: money(balance) }),
     paidOn: paid && !canc,
-    paidHow: paidWords(order["paid_method"]),
+    paidHow: online ? tr("Paid online") : paidWords(order["paid_method"]),
     paidDate: fD(order["paid_at"]),
     receiptOn: paid && app.receipts,
     receipt: () => void app.receipt(order),
@@ -554,6 +603,8 @@ function paidWords(method: unknown): string {
       return tr("Paid · Card");
     case "cash":
       return tr("Paid · Cash");
+    case "online":
+      return tr("Paid online");
     default:
       return tr("Paid");
   }
@@ -968,6 +1019,8 @@ function friendVals(app: WaveApp, w: World): V {
 function offerVals(app: WaveApp, w: World): V {
   const s = app.state;
   if (s.scr !== "offer") return { qs: [] };
+  // Whether the claim's checkout offers Pay now, asked while the offer is on screen.
+  app.buyer.paysOnline();
   const o = app.buyer.going();
   if (o === undefined) return { qs: [], loadOn: true, p: {} };
   const show = w.byId.get(o.order["event_id"] as Id);
@@ -1114,13 +1167,25 @@ export function accountSheet(app: WaveApp, w: World, o: V & { list: unknown[]; b
   const anyErr = ((sh["err"] ?? {}) as Record<string, string | null>)["any"] ?? null;
   if (anyErr !== null) Object.assign(o, { noteOn: true, note: anyErr });
   if (k === "holdGone")
-    Object.assign(o, {
-      icon: "timer-off",
-      tone: "warn",
-      title: tr("We let those tickets go"),
-      body: tr("Your {n} minutes ran out, so the tickets went back on sale for everyone. They may still be there.", { n: w.settings.holdMinutes }),
-      btns: [P(tr("Check again"), () => b.checkAgain())],
-    });
+    Object.assign(
+      o,
+      app.state.co?.payGone === true
+        ? {
+            // Paying online when the hold ran out: nothing was taken, and Try again holds the same tickets if they are still there.
+            icon: "timer-off",
+            tone: "warn",
+            title: tr("The payment didn't finish in time"),
+            body: tr("Your tickets went back on sale because the payment didn't finish in time. Nothing was taken."),
+            btns: [P(tr("Try again"), () => b.tryAgain())],
+          }
+        : {
+            icon: "timer-off",
+            tone: "warn",
+            title: tr("We let those tickets go"),
+            body: tr("Your {n} minutes ran out, so the tickets went back on sale for everyone. They may still be there.", { n: w.settings.holdMinutes }),
+            btns: [P(tr("Check again"), () => b.checkAgain())],
+          },
+    );
   if (k === "keepHold") {
     const co = app.state.co;
     const left = co?.heldUntil === null || co === null ? 0 : Math.max(0, co.heldUntil - app.now);

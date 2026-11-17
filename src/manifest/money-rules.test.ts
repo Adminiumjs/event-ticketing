@@ -116,10 +116,14 @@ describe("the emails a payment sends", () => {
   });
 
   it("tells each refund, with its own amount", () => {
-    expect(producers("refund-recorded")).toEqual([{ kind: "refund-recorded", link: "refund_id", onCreate: { table: "refunds", where: { column: "voided", eq: false } } }]);
+    // Recorded by the box office: when it is made. Sent back online: once Adminium stamps it done.
+    expect(producers("refund-recorded")).toEqual([{ kind: "refund-recorded", link: "refund_id", onCreate: { table: "refunds", where: { column: "refund_email", eq: 1 } } }]);
+    expect(producers("refund-sent")).toEqual([{ kind: "refund-sent", link: "refund_id", onChange: { table: "refunds", column: "refund_state", to: "done" } }]);
     for (const [tag, w] of Object.entries(emailWords())) {
-      const words = JSON.stringify(w["refund-recorded"]);
-      expect([tag, words.includes("{{refund.amount}}"), words.includes("{{order.refunded}}")]).toEqual([tag, true, false]);
+      for (const kind of ["refund-recorded", "refund-sent"] as const) {
+        const words = JSON.stringify(w[kind]);
+        expect([tag, kind, words.includes("{{refund.amount}}"), words.includes("{{order.refunded}}")]).toEqual([tag, kind, true, false]);
+      }
     }
   });
 

@@ -7,10 +7,12 @@ straight; the door scans each code on a phone and lets people in. Adminium
 decides every price, total, order number, ticket code and status — the pages
 only ask.
 
-**One venue, its rooms, nothing taken online.** Nobody pays on the site and
-nothing is sent by text message: an order is paid at the door, by bank
-transfer before its deadline, or costs nothing when the show does. Every ticket
-is general admission; the different kinds of ticket are **ticket types**.
+**One venue, its rooms.** An order is paid at the door, by bank transfer
+before its deadline, or costs nothing when the show does; and, once someone
+who manages payments in Adminium switches the app on, online at checkout
+through Adminium's pay page (Stripe or PayPal). Nothing is sent by text
+message. Every ticket is general admission; the different kinds of ticket are
+**ticket types**.
 
 The demo is dressed as **Waveform**, a fictional independent music venue with
 two rooms and one weekend festival, at 16:30 on a Tuesday in July: tonight's
@@ -22,7 +24,7 @@ pay back.
 
 ## What it needs
 
-- Adminium **0.3.8** or later, on SQLite, Postgres or MySQL.
+- Adminium **0.3.62** or later, on SQLite, Postgres or MySQL.
 - Nothing else. **Invoices & Receipts** is offered at install: with it, an
   order paid in full gets its receipt by email, and the buyer can open it from
   their order.
@@ -38,7 +40,8 @@ pay back.
   tickets for a few minutes, so the last place in a room is sold once. Pay at
   the door, by bank transfer (confirmed from an email — which the buyer can have
   sent again — and due by a deadline), or take a place at no charge when the
-  show costs nothing.
+  show costs nothing. With payments online switched on, **Pay now** comes
+  first (see "Paying online" below).
 - An email in the buyer's language with the order's own link; the tickets with
   their codes, on screen and on the phone at the door. An unpaid transfer's
   tickets carry no code until it is paid.
@@ -65,8 +68,10 @@ on two phones lets one person in, and a weekend pass lets its holder in once a
 day. What is owed is collected in cash or by card and the order is paid.
 Scans made with no signal are kept on the device and sent when it returns.
 
-**Roles.** The box office runs the venue; the door scans, collects what is
-owed and sells at the door, and reads no more than the evening needs.
+**Roles.** The box office runs the venue; the box office manager does the
+same and may also send money back to buyers who paid online; the door scans,
+collects what is owed and sells at the door, and reads no more than the
+evening needs.
 
 **In the dashboard** (the Event Ticketing section): the Overview (tickets sold
 for coming shows, what is owed at the door, awaiting transfer, refunds to make,
@@ -78,11 +83,44 @@ words, when its day starts, the ways to pay, a transfer's days and deadline,
 how long a checkout holds, an offer and a friend's hours, refunds, check-in
 and the emails.
 
+## Paying online
+
+Event Ticketing takes payments online through Adminium's own pay page, with
+the Stripe or PayPal account the venue connects in Adminium. Nothing changes
+until someone who manages payments switches the app on in **Studio →
+Payments → Apps**: until then every screen reads as it always has, with no
+"Pay now" anywhere.
+
+Once it is on:
+
+- **At checkout**, "Pay now" comes first, beside the door and the transfer.
+  The order waits as **Paying online** and keeps its hold (the venue's
+  "Minutes a checkout holds tickets", 10 by default): its places stay off
+  sale, and the clock lets them go at the hold's end, unless a payment is
+  landing then. The pay page offers only ways that settle at once (cards,
+  wallets), never a bank debit that takes days. When the money lands,
+  Adminium moves the order to **Paid** and the buyer gets their tickets by
+  email; Adminium sends the receipt. Back from the pay page with nothing
+  paid, the hold runs on: the buyer tries again or chooses another way.
+- **A waitlist offer** is paid the same way, until the offer ends.
+- **The box office** sees online payments as "Online · Stripe" or
+  "Online · PayPal", and copies an order's pay link ("Copy pay link") for an
+  order that still owes money.
+- **Refunds.** A refund of an online payment goes back through the payment
+  service, as a refund row of the app's own. Only the **Box office manager**
+  role may send one (the install asks whether to give it that right). When
+  a manager cancels a show, or an order paid online, the money goes back by
+  itself while **Settings → How people can pay → Refund cancellations
+  automatically** is on (it is, by default). When it is off, or when someone
+  without the right cancels, the order shows **Refund owed** and a manager
+  refunds it. Refunds of door and transfer money stay as they were: the box
+  office records them.
+
 ## Installing it
 
 Install Event Ticketing from Adminium's app catalog and pick the database it
 should use. Adminium creates the app's tables, the dashboard pages, the
-`box-office` and `door` roles, the audience's browser keys and the emails. Tick
+`box-office`, `box-office-manager` and `door` roles, the audience's browser keys and the emails. Tick
 sample data at the install step to start with Waveform's Tuesday, or add it
 later from the app's settings.
 

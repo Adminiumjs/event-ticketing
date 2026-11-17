@@ -142,8 +142,15 @@ export function BoxLayersView({ v }: { v: any }) {
               {" "}
               {(v.dr.pays ?? []).map((r: any, i_r: number) => (
                 <Fragment key={r.k ?? i_r}>
-                  <span style={st("font-family:var(--mono); font-size:12.5px; font-weight:700;")}>
-                    {r.v}
+                  <span style={st("display:flex; align-items:center; flex-wrap:wrap; gap:6px;")}>
+                    <span style={st("font-family:var(--mono); font-size:12.5px; font-weight:700;")}>
+                      {r.v}
+                    </span>
+                    {r.chipOn ? (
+                      <span style={st(r.chipStyle)}>
+                        {r.chip}
+                      </span>
+                    ) : null}
                   </span>
                 </Fragment>
               ))}
@@ -163,8 +170,15 @@ export function BoxLayersView({ v }: { v: any }) {
                   </span>
                   {(v.dr.refs ?? []).map((r: any, i_r: number) => (
                     <Fragment key={r.k ?? i_r}>
-                      <span style={st("font-family:var(--mono); font-size:12.5px; font-weight:700;")}>
-                        {r.v}
+                      <span style={st("display:flex; align-items:center; flex-wrap:wrap; gap:6px;")}>
+                        <span style={st("font-family:var(--mono); font-size:12.5px; font-weight:700;")}>
+                          {r.v}
+                        </span>
+                        {r.chipOn ? (
+                          <span style={st(r.chipStyle)}>
+                            {r.chip}
+                          </span>
+                        ) : null}
                       </span>
                     </Fragment>
                   ))}

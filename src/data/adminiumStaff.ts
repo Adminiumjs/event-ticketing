@@ -14,7 +14,7 @@
  * that Adminium refuses reaches the screens with its code and what it said.
  */
 import { broadcastKind } from "./messageKinds.ts";
-import type { BoxOfficePort, DoorPort, EventChildren, StaffPerson } from "./ports.ts";
+import type { BoxOfficePort, DoorPort, EventChildren, StaffPayments, StaffPerson } from "./ports.ts";
 import { cancelShowOrders, offerPlan, recipientKey } from "./boxSteps.ts";
 import { SessionPortError, type CallOptions, type SessionTransport } from "./sessionSource.ts";
 import type { StaffConfig } from "../staffConnection.ts";
@@ -34,13 +34,13 @@ const MOST_ROWS = 20_000;
 export const DOOR_DEADLINE_MS = 6_000;
 const HURRY: CallOptions = { deadlineMs: DOOR_DEADLINE_MS };
 /** The columns the data API answers as decimal strings, read as numbers here. */
-const MONEY = new Set(["price", "subtotal", "discount", "adjusted", "total", "collected", "paid_in", "refunded", "balance", "due", "code_value", "value", "live_price", "live_discount", "amount", "received", "owed_door", "owed_transfer", "owed_overdue"]);
+const MONEY = new Set(["price", "subtotal", "discount", "adjusted", "total", "collected", "paid_in", "online_in", "back_elsewhere", "refunded_elsewhere", "counted", "refunded", "balance", "due", "code_value", "value", "live_price", "live_discount", "amount", "received", "owed_door", "owed_transfer", "owed_overdue"]);
 
 /**
  * The app's yes/no columns (every `bool` in the manifest): MySQL and SQLite answer them as 0/1, read
  * here as false/true so no screen meets a number where it asks a yes.
  */
-export const BOOLS = new Set(["accounts_on", "active", "admits_day1", "admits_day2", "admits_day3", "codes_on", "door_on", "eve_email", "lapsed", "link_stopped", "opt_in", "pay_door", "pay_transfer", "questions_on", "required", "selling", "send_on", "sets_published", "timetable_on", "tonight_email_on", "transfer_on", "voided", "waitlist_on"]);
+export const BOOLS = new Set(["accounts_on", "active", "auto_refund", "admits_day1", "admits_day2", "admits_day3", "codes_on", "door_on", "eve_email", "lapsed", "link_stopped", "opt_in", "pay_door", "pay_transfer", "questions_on", "required", "selling", "send_on", "sets_published", "timetable_on", "tonight_email_on", "transfer_on", "voided", "waitlist_on"]);
 
 /** A time with no zone, as a database that keeps none answers it: `2026-07-29 01:59:17.183`. */
 const WALL = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(\.\d+)?)?$/;
@@ -488,6 +488,38 @@ export class AdminiumStaff implements BoxOfficePort, DoorPort {
 
   recordRefund(orderId: Id, amount: number, method: "bank_transfer" | "card" | "cash", kind: "cancelled_tickets" | "goodwill", key?: string): Promise<Row> {
     return answer(() => this.keyed("refunds", { order_id: orderId, amount: amount.toFixed(2), method, kind }, key));
+  }
+
+  // ── payments online ───────────────────────────────────────────────────────
+
+  async payments(): Promise<StaffPayments | null> {
+    return this.cfg.payments ?? null;
+  }
+
+  /** The order as Adminium's payments name it: a row of the app's own payable table. */
+  private async payable(orderId: Id): Promise<Record<string, unknown>> {
+    return { kind: "profile", connectionId: this.cfg.connectionId ?? (await this.t.connection()), tableName: this.real("orders"), rowKey: String(orderId) };
+  }
+
+  /**
+   * An order's pay link, as Adminium's payment panel makes it: the one its buyer already holds while it works
+   * (`/payments/links/current`), else a new one (`/payments/links`). Each asks to change the order.
+   */
+  payLink(orderId: Id): Promise<{ url: string; expiresAt: number }> {
+    return answer(async () => {
+      const payable = await this.payable(orderId);
+      const current = await this.mutate<{ data?: { url?: string; expiresAt?: number } | null }>("/api/v1/payments/links/current", "POST", payable);
+      if (typeof current.data?.url === "string" && typeof current.data.expiresAt === "number") return { url: current.data.url, expiresAt: current.data.expiresAt };
+      const made = await this.mutate<{ data?: { link?: { url?: string; expiresAt?: number } } }>("/api/v1/payments/links", "POST", payable);
+      const link = made.data?.link;
+      if (typeof link?.url !== "string" || typeof link.expiresAt !== "number") throw new ApiError(500, "PAY_LINK_EMPTY");
+      return { url: link.url, expiresAt: link.expiresAt };
+    });
+  }
+
+  /** A refund row naming the payment taken online: Adminium sends the money back and stamps where it stands. */
+  refundOnline(orderId: Id, paymentId: Id, amount: number, kind: "cancelled_tickets" | "goodwill", note: string | null, key?: string): Promise<Row> {
+    return answer(() => this.keyed("refunds", { order_id: orderId, payment_id: paymentId, amount: amount.toFixed(2), method: "online", kind, note }, key));
   }
 
   /**

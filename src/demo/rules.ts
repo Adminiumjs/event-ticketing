@@ -48,11 +48,16 @@ export const MANIFEST_RULES = {
             }
           }
         },
-        "on": {
-          "columns": [
-            "status"
-          ]
-        }
+        "on": [
+          "create",
+          {
+            "column": "status",
+            "values": [
+              "held",
+              "confirming"
+            ]
+          }
+        ]
       },
       "offer_until": {
         "set": {
@@ -568,6 +573,7 @@ export const MANIFEST_RULES = {
     "orders": {
       "status": [
         "held",
+        "paying",
         "confirming",
         "offered",
         "door",
@@ -611,7 +617,8 @@ export const MANIFEST_RULES = {
       "paid_method": [
         "bank_transfer",
         "card",
-        "cash"
+        "cash",
+        "online"
       ]
     },
     "tickets": {
@@ -625,6 +632,7 @@ export const MANIFEST_RULES = {
       ],
       "order_status": [
         "held",
+        "paying",
         "confirming",
         "offered",
         "door",
@@ -700,7 +708,8 @@ export const MANIFEST_RULES = {
       "method": [
         "bank_transfer",
         "card",
-        "cash"
+        "cash",
+        "online"
       ]
     },
     "refunds": {
@@ -711,7 +720,14 @@ export const MANIFEST_RULES = {
       "method": [
         "bank_transfer",
         "card",
-        "cash"
+        "cash",
+        "online"
+      ],
+      "refund_state": [
+        "asked",
+        "pending",
+        "done",
+        "not-sent"
       ]
     },
     "guest_list": {
@@ -754,6 +770,7 @@ export const MANIFEST_RULES = {
       "kind": [
         "tickets",
         "tickets-paid",
+        "tickets-online",
         "transfer-confirm",
         "transfer-confirm-offer",
         "transfer-waiting",
@@ -770,6 +787,7 @@ export const MANIFEST_RULES = {
         "moved",
         "cancelled-paid",
         "cancelled-unpaid",
+        "cancelled-online",
         "moved-holder",
         "cancelled-holder",
         "tonight",
@@ -777,6 +795,7 @@ export const MANIFEST_RULES = {
         "tonight-holder",
         "tomorrow-holder",
         "refund-recorded",
+        "refund-sent",
         "tickets-cancelled",
         "refund-declined",
         "broadcast",
@@ -838,6 +857,9 @@ export const MANIFEST_RULES = {
     "payments": [
       [
         "client_key"
+      ],
+      [
+        "payment_ref"
       ]
     ],
     "refunds": [
@@ -873,6 +895,7 @@ export const MANIFEST_RULES = {
         "column": "status",
         "values": [
           "held",
+          "paying",
           "confirming",
           "offered",
           "door",
@@ -930,6 +953,7 @@ export const MANIFEST_RULES = {
           "column": "status",
           "values": [
             "held",
+            "paying",
             "confirming",
             "offered",
             "door",
@@ -1105,8 +1129,99 @@ export const MANIFEST_RULES = {
               ]
             }
           },
+          {
+            "to": "paying",
+            "requires": {
+              "where": [
+                {
+                  "column": "total",
+                  "gt": 0
+                }
+              ]
+            }
+          },
           "offered",
           "let_go",
+          "expired",
+          {
+            "to": "cancelled",
+            "requires": {
+              "where": [
+                {
+                  "column": "cancel_cause",
+                  "isNull": false
+                }
+              ]
+            }
+          }
+        ],
+        "paying": [
+          {
+            "to": "paid",
+            "requires": {
+              "where": [
+                {
+                  "column": "balance",
+                  "lte": 0
+                }
+              ]
+            }
+          },
+          {
+            "to": "door",
+            "requires": {
+              "setting": [
+                {
+                  "table": "settings",
+                  "column": "door_on",
+                  "eq": true
+                }
+              ],
+              "where": [
+                {
+                  "column": "no_door",
+                  "lte": 0
+                }
+              ],
+              "noPaymentInFlight": true
+            }
+          },
+          {
+            "to": "confirming",
+            "requires": {
+              "setting": [
+                {
+                  "table": "settings",
+                  "column": "transfer_on",
+                  "eq": true
+                }
+              ],
+              "time": {
+                "before": {
+                  "column": "doors_at",
+                  "minus": {
+                    "days": {
+                      "table": "settings",
+                      "column": "transfer_cutoff_days"
+                    }
+                  }
+                }
+              },
+              "where": [
+                {
+                  "column": "no_transfer",
+                  "lte": 0
+                }
+              ],
+              "noPaymentInFlight": true
+            }
+          },
+          {
+            "to": "let_go",
+            "requires": {
+              "noPaymentInFlight": true
+            }
+          },
           "expired",
           {
             "to": "cancelled",
@@ -1220,6 +1335,17 @@ export const MANIFEST_RULES = {
                 {
                   "column": "total",
                   "lte": 0
+                }
+              ]
+            }
+          },
+          {
+            "to": "paying",
+            "requires": {
+              "where": [
+                {
+                  "column": "total",
+                  "gt": 0
                 }
               ]
             }
@@ -1384,6 +1510,19 @@ export const MANIFEST_RULES = {
           }
         },
         {
+          "from": "paying",
+          "to": "expired",
+          "at": {
+            "column": "offer_until",
+            "or": [
+              {
+                "column": "held_until"
+              }
+            ]
+          },
+          "waitsForPayment": true
+        },
+        {
           "from": "confirming",
           "to": "expired",
           "at": {
@@ -1479,6 +1618,15 @@ export const MANIFEST_RULES = {
         {
           "on": {
             "to": "no_charge"
+          },
+          "via": "waitlist_id",
+          "set": {
+            "status": "claimed"
+          }
+        },
+        {
+          "on": {
+            "to": "paying"
           },
           "via": "waitlist_id",
           "set": {
@@ -1815,6 +1963,7 @@ export const MANIFEST_RULES = {
         "ticket_count",
         "collected",
         "paid_in",
+        "online_in",
         "refunded",
         "balance",
         "held_until",
@@ -1838,6 +1987,7 @@ export const MANIFEST_RULES = {
       ],
       "writableValues": {
         "status": [
+          "paying",
           "confirming",
           "door",
           "no_charge",
@@ -1847,6 +1997,7 @@ export const MANIFEST_RULES = {
       "writableWhen": {
         "status": [
           "held",
+          "paying",
           "confirming",
           "offered",
           "door",
@@ -1962,6 +2113,7 @@ export const MANIFEST_RULES = {
               "column": "order_status",
               "in": [
                 "held",
+                "paying",
                 "confirming",
                 "offered",
                 "awaiting_transfer",
@@ -2022,6 +2174,7 @@ export const MANIFEST_RULES = {
         ],
         "order_status": [
           "held",
+          "paying",
           "confirming",
           "offered",
           "door",
@@ -2047,6 +2200,7 @@ export const MANIFEST_RULES = {
               "column": "order_status",
               "in": [
                 "held",
+                "paying",
                 "confirming",
                 "offered",
                 "awaiting_transfer",
@@ -2143,6 +2297,7 @@ export const MANIFEST_RULES = {
               "column": "order_status",
               "in": [
                 "held",
+                "paying",
                 "confirming",
                 "offered",
                 "awaiting_transfer",
@@ -2237,6 +2392,7 @@ export const MANIFEST_RULES = {
               "column": "order_status",
               "in": [
                 "held",
+                "paying",
                 "confirming",
                 "offered",
                 "awaiting_transfer",
@@ -2669,6 +2825,7 @@ export const MANIFEST_RULES = {
         "ticket_count",
         "collected",
         "paid_in",
+        "online_in",
         "refunded",
         "balance",
         "held_until",
@@ -2942,6 +3099,7 @@ export const MANIFEST_RULES = {
         "ticket_count",
         "collected",
         "paid_in",
+        "online_in",
         "refunded",
         "balance",
         "held_until",
@@ -2965,6 +3123,7 @@ export const MANIFEST_RULES = {
       ],
       "writableValues": {
         "status": [
+          "paying",
           "confirming",
           "door",
           "no_charge",
@@ -2974,6 +3133,7 @@ export const MANIFEST_RULES = {
       "writableWhen": {
         "status": [
           "held",
+          "paying",
           "confirming",
           "offered",
           "door",
@@ -3090,6 +3250,7 @@ export const MANIFEST_RULES = {
               "column": "order_status",
               "in": [
                 "held",
+                "paying",
                 "confirming",
                 "offered",
                 "awaiting_transfer",
@@ -3151,6 +3312,7 @@ export const MANIFEST_RULES = {
         ],
         "order_status": [
           "held",
+          "paying",
           "confirming",
           "offered",
           "door",
@@ -3176,6 +3338,7 @@ export const MANIFEST_RULES = {
               "column": "order_status",
               "in": [
                 "held",
+                "paying",
                 "confirming",
                 "offered",
                 "awaiting_transfer",
@@ -3273,6 +3436,7 @@ export const MANIFEST_RULES = {
               "column": "order_status",
               "in": [
                 "held",
+                "paying",
                 "confirming",
                 "offered",
                 "awaiting_transfer",
@@ -3368,6 +3532,7 @@ export const MANIFEST_RULES = {
               "column": "order_status",
               "in": [
                 "held",
+                "paying",
                 "confirming",
                 "offered",
                 "awaiting_transfer",
@@ -3656,7 +3821,141 @@ export const MANIFEST_RULES = {
           "delete"
         ]
       },
-      "limits": null
+      "limits": null,
+      "refund": false
+    },
+    {
+      "key": "box-office-manager",
+      "grants": {
+        "settings": [
+          "read",
+          "create",
+          "update",
+          "delete"
+        ],
+        "rooms": [
+          "read",
+          "create",
+          "update",
+          "delete"
+        ],
+        "events": [
+          "read",
+          "create",
+          "update",
+          "delete"
+        ],
+        "event_days": [
+          "read",
+          "create",
+          "update",
+          "delete"
+        ],
+        "acts": [
+          "read",
+          "create",
+          "update",
+          "delete"
+        ],
+        "ticket_types": [
+          "read",
+          "create",
+          "update",
+          "delete"
+        ],
+        "codes": [
+          "read",
+          "create",
+          "update",
+          "delete"
+        ],
+        "customers": [
+          "read",
+          "create",
+          "update",
+          "delete",
+          "read_pii"
+        ],
+        "questions": [
+          "read",
+          "create",
+          "update",
+          "delete"
+        ],
+        "orders": [
+          "read",
+          "create",
+          "update",
+          "read_pii"
+        ],
+        "tickets": [
+          "read",
+          "create",
+          "update",
+          "read_pii"
+        ],
+        "check_ins": [
+          "read",
+          "create",
+          "update"
+        ],
+        "door_collections": [
+          "read",
+          "create",
+          "update"
+        ],
+        "payments": [
+          "read",
+          "create",
+          "update"
+        ],
+        "refunds": [
+          "read",
+          "create",
+          "update"
+        ],
+        "guest_list": [
+          "read",
+          "create",
+          "update",
+          "delete",
+          "read_pii"
+        ],
+        "waitlist": [
+          "read",
+          "create",
+          "update",
+          "delete",
+          "read_pii"
+        ],
+        "reminders": [
+          "read",
+          "create",
+          "update",
+          "delete",
+          "read_pii"
+        ],
+        "broadcasts": [
+          "read",
+          "create",
+          "update",
+          "delete"
+        ],
+        "messages": [
+          "read",
+          "create",
+          "update",
+          "read_pii"
+        ],
+        "devices": [
+          "read",
+          "create",
+          "update",
+          "delete"
+        ]
+      },
+      "limits": null,
+      "refund": true
     },
     {
       "key": "door",
@@ -3727,7 +4026,8 @@ export const MANIFEST_RULES = {
             "arrived"
           ]
         }
-      }
+      },
+      "refund": false
     }
   ],
   "producers": [
@@ -3814,6 +4114,19 @@ export const MANIFEST_RULES = {
       }
     },
     {
+      "kind": "tickets-online",
+      "link": "order_id",
+      "onChange": {
+        "table": "orders",
+        "column": "status",
+        "to": "paid",
+        "where": {
+          "column": "paid_email",
+          "eq": 3
+        }
+      }
+    },
+    {
       "kind": "waitlist-offer",
       "link": "order_id",
       "onChange": {
@@ -3847,6 +4160,20 @@ export const MANIFEST_RULES = {
         "where": {
           "column": "cancel_email",
           "eq": 2
+        }
+      }
+    },
+    {
+      "kind": "cancelled-online",
+      "link": "order_id",
+      "hold": true,
+      "onChange": {
+        "table": "orders",
+        "column": "cancel_cause",
+        "to": "show",
+        "where": {
+          "column": "cancel_email",
+          "eq": 3
         }
       }
     },
@@ -4127,9 +4454,18 @@ export const MANIFEST_RULES = {
       "onCreate": {
         "table": "refunds",
         "where": {
-          "column": "voided",
-          "eq": false
+          "column": "refund_email",
+          "eq": 1
         }
+      }
+    },
+    {
+      "kind": "refund-sent",
+      "link": "refund_id",
+      "onChange": {
+        "table": "refunds",
+        "column": "refund_state",
+        "to": "done"
       }
     },
     {
@@ -4180,6 +4516,7 @@ export const MANIFEST_RULES = {
   "kinds": {
     "tickets": "events-tickets",
     "tickets-paid": "events-tickets-paid",
+    "tickets-online": "events-tickets-online",
     "transfer-confirm": "events-transfer-confirm",
     "transfer-confirm-offer": "events-transfer-confirm-offer",
     "transfer-waiting": "events-transfer-waiting",
@@ -4197,15 +4534,59 @@ export const MANIFEST_RULES = {
     "moved-holder": "events-moved-holder",
     "cancelled-paid": "events-cancelled-paid",
     "cancelled-unpaid": "events-cancelled-unpaid",
+    "cancelled-online": "events-cancelled-online",
     "cancelled-holder": "events-cancelled-holder",
     "tonight": "events-tonight",
     "tomorrow": "events-tomorrow",
     "tonight-holder": "events-tonight-holder",
     "tomorrow-holder": "events-tomorrow-holder",
     "refund-recorded": "events-refund-recorded",
+    "refund-sent": "events-refund-sent",
     "tickets-cancelled": "events-tickets-cancelled",
     "refund-declined": "events-refund-declined",
     "broadcast": "events-broadcast",
     "broadcast-holder": "events-broadcast-holder"
+  },
+  "payments": {
+    "table": "orders",
+    "refunds": {
+      "model": "rows",
+      "table": "refunds",
+      "payment": "payment_id",
+      "amount": "amount",
+      "when": [
+        {
+          "column": "method",
+          "eq": "online"
+        }
+      ],
+      "providerRef": "provider_ref",
+      "state": "refund_state",
+      "openIn": "/",
+      "auto": {
+        "values": {
+          "method": "online",
+          "kind": "cancelled_tickets"
+        }
+      }
+    },
+    "refundOn": {
+      "moves": [
+        {
+          "from": [
+            "paid"
+          ],
+          "to": "cancelled",
+          "by": [
+            "system",
+            "refund-right"
+          ]
+        }
+      ],
+      "switch": {
+        "table": "settings",
+        "column": "auto_refund"
+      }
+    }
   }
 } as const;

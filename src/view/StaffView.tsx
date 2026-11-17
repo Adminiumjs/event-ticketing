@@ -2836,7 +2836,7 @@ export function StaffView({ v }: { v: any }) {
                                         {r.actOn ? (
                                           <>
                                             <button className="wv-gi" onClick={r.mark} style={st(`${v.s.btnS}min-height:30px; font-size:12px;`)}>
-                                              {tr("Record a refund")}
+                                              {r.markLabel}
                                             </button>
                                           </>
                                         ) : null}
@@ -2978,6 +2978,28 @@ export function StaffView({ v }: { v: any }) {
                           </button>
                         </Fragment>
                       ))}
+                      {" "}
+                      {v.st.payOn ? (
+                        <>
+                          <span style={st(v.s.lbl)}>
+                            {tr("Payments online")}
+                          </span>
+                          <button role="switch" aria-checked={v.st.autoSw.on} onClick={v.st.autoSw.go} className="wv-gi" style={st("display:flex; align-items:center; gap:12px; min-height:44px; padding:0 10px; border-radius:11px; border:1px solid var(--border); background:transparent; text-align:start;")}>
+                            <span style={st(v.st.autoSw.track)}>
+                              <span style={st(v.st.autoSw.knob)}></span>
+                            </span>
+                            <span style={st("display:flex; flex-direction:column;")}>
+                              <span style={st("font-size:14px; font-weight:800;")}>
+                                {v.st.autoSw.label}
+                              </span>
+                              <span style={st("font-size:12.5px; font-weight:500; color:var(--fg-muted);")}>
+                                {v.st.autoSw.sub}
+                              </span>
+                            </span>
+                          </button>
+                          <span id="st-pay-said" role="status" aria-live="polite" style={st("position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap;")}></span>
+                        </>
+                      ) : null}
                       {" "}
                       {v.st.xferOn ? (
                         <>

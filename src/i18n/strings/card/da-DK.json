@@ -66,5 +66,6 @@
   "demo.toast.too-many": "Denne adresse har bedt om for mange links i dag",
   "demo.toast.check-fails": "Den næste menneskekontrol fejler",
   "demo.toast.signed-out": "Logget ud på en anden enhed",
-  "demo.toast.link": "Åbnede linket i Mias mail"
+  "demo.toast.link": "Åbnede linket i Mias mail",
+  "demo.toast.paid-online": "Demo: Der flyttes ingen penge. {number} er betalt online."
 }

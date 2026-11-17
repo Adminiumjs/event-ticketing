@@ -114,7 +114,7 @@ describe("nobody in the audience reads what is not theirs", () => {
       expect(e["withhold"]).toEqual({
         columns: ["code"],
         unlessHolder: "holder_customer_id",
-        when: { where: [{ column: "order_status", in: ["held", "confirming", "offered", "awaiting_transfer", "overdue", "released"] }] },
+        when: { where: [{ column: "order_status", in: ["held", "paying", "confirming", "offered", "awaiting_transfer", "overdue", "released"] }] },
       });
     }
   });
@@ -172,13 +172,13 @@ describe("Adminium decides the money", () => {
   });
 
   it("never lets a buyer write a price, a total, a number, a code or a status the order does not allow", () => {
-    const decided = ["price", "discount", "due", "total", "subtotal", "balance", "paid_in", "collected", "refunded", "number", "code", "held_until", "pay_by", "offer_until"];
+    const decided = ["price", "discount", "due", "total", "subtotal", "balance", "paid_in", "online_in", "collected", "refunded", "number", "code", "held_until", "pay_by", "offer_until", "paid_method"];
     const writes = manifest.publicAccess.flatMap((e) => ((e["writable"] as string[] | undefined) ?? []).filter((c) => decided.includes(c)).map((c) => `${e.table}.${c}`));
     expect(writes).toEqual([]);
   });
 
   it("lets the clock and a waitlist offer move orders, and nothing else by effect", () => {
-    expect((states("orders").effects ?? []).map((e) => e["via"])).toEqual(["waitlist_id", "waitlist_id", "waitlist_id", "waitlist_id"]);
+    expect((states("orders").effects ?? []).map((e) => e["via"])).toEqual(["waitlist_id", "waitlist_id", "waitlist_id", "waitlist_id", "waitlist_id"]);
     for (const t of manifest.requiredSchema.tables) if (t.ref !== "orders") expect((t.states as Json | undefined)?.["effects"], t.ref).toBeUndefined();
   });
 });
@@ -229,7 +229,7 @@ describe("the door takes a ticket's money, not payments of another kind", () => 
 describe("a cancellation email follows who cancelled, never the status alone", () => {
   it("sends the show's cancellation only for the show's cause, held for the box office", () => {
     const shows = manifest.outbox.producers.filter((p) => String(p["kind"]).startsWith("cancelled-"));
-    expect(shows.length).toBe(3);
+    expect(shows.length).toBe(4);
     for (const p of shows) {
       expect(p["hold"]).toBe(true);
       expect(((p["onChange"] as Json)["to"])).toBe("show");

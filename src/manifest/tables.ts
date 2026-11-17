@@ -167,6 +167,7 @@ function language(ref: string): Column {
 
 export const ORDER_STATUSES = {
   held: "In checkout",
+  paying: "Paying online",
   confirming: "Confirming by email",
   offered: "Offered",
   door: "Pay at the door",
@@ -185,6 +186,7 @@ export type OrderStatus = keyof typeof ORDER_STATUSES;
 /** An order that still holds its places and its money: every other one's total reads 0. */
 export const LIVE_ORDER: OrderStatus[] = [
   "held",
+  "paying",
   "confirming",
   "offered",
   "door",
@@ -194,12 +196,21 @@ export const LIVE_ORDER: OrderStatus[] = [
   "paid",
   "not_collected",
 ];
-/** The orders a ticket counts against its type, its show and its room while in. */
-export const COUNTING_ORDER: OrderStatus[] = ["held", "confirming", "offered", "door", "awaiting_transfer", "overdue", "no_charge", "paid"];
+/**
+ * The orders a ticket counts against its type, its show and its room while in. An order paying online counts by
+ * its state, never by the clock: its places are not sold again while the money is landing, and only its own timed
+ * move lets them go.
+ */
+export const COUNTING_ORDER: OrderStatus[] = ["held", "paying", "confirming", "offered", "door", "awaiting_transfer", "overdue", "no_charge", "paid"];
 /** The orders whose tickets the clock may still take back: a checkout, a claim being confirmed, a waitlist offer. */
 export const HOLDING_ORDER: OrderStatus[] = ["held", "confirming", "offered"];
 /** Unpaid by transfer: the codes of these orders' tickets never leave Adminium. */
 export const UNPAID_TRANSFER: OrderStatus[] = ["held", "confirming", "awaiting_transfer", "overdue", "released"];
+/**
+ * The orders a buyer pays online: a checkout or a waitlist offer paying now, and an order that still owes money
+ * the box office sends a pay link for (to pay at the door, or waiting for a transfer).
+ */
+export const PAYABLE_ORDER: OrderStatus[] = ["paying", "door", "awaiting_transfer", "overdue", "released", "not_collected"];
 
 export const TICKET_STATUSES = {
   valid: "Valid",
@@ -249,6 +260,7 @@ export const CODE_KINDS = ["standard", "early", "balcony", "pass", "day", "place
 export const EMAIL_KINDS: Record<string, string> = {
   tickets: "Your tickets",
   "tickets-paid": "Your tickets (paid at the box office)",
+  "tickets-online": "Your tickets (paid online)",
   "transfer-confirm": "Confirm your order",
   "transfer-confirm-offer": "Confirm your waitlist tickets",
   "transfer-waiting": "Waiting for your transfer",
@@ -265,6 +277,7 @@ export const EMAIL_KINDS: Record<string, string> = {
   moved: "Your show has moved",
   "cancelled-paid": "Your show is cancelled (paid)",
   "cancelled-unpaid": "Your show is cancelled (nothing paid)",
+  "cancelled-online": "Your show is cancelled (paid online)",
   "moved-holder": "Your show has moved (a friend's ticket)",
   "cancelled-holder": "Your show is cancelled (a friend's ticket)",
   tonight: "See you tonight",
@@ -272,6 +285,7 @@ export const EMAIL_KINDS: Record<string, string> = {
   "tonight-holder": "See you tonight (a friend's ticket)",
   "tomorrow-holder": "See you tomorrow (a friend's ticket)",
   "refund-recorded": "Refund recorded",
+  "refund-sent": "Refund sent",
   "tickets-cancelled": "Tickets cancelled",
   "refund-declined": "Refund request declined",
   broadcast: "A message about your show",
@@ -288,6 +302,8 @@ export const EMAIL_KINDS: Record<string, string> = {
  */
 const ORDER_TIMED = [
   { from: "held", to: "expired", at: { column: "held_until" } },
+  // Paying online keeps the checkout's own hold (or the offer's end): it waits while a payment is landing.
+  { from: "paying", to: "expired", at: { column: "offer_until", or: [{ column: "held_until" }] }, waitsForPayment: true },
   { from: "confirming", to: "expired", at: { column: "offer_until", or: [{ column: "held_until" }] } },
   { from: "offered", to: "expired", at: { column: "offer_until" } },
   { from: "awaiting_transfer", to: "overdue", at: { column: "pay_by" } },
@@ -317,6 +333,11 @@ const AWAITING_BY_STAFF = {
   requires: { ...TRANSFER_OPEN, where: [{ column: "email", isNull: false }, { column: "no_transfer", lte: 0 }] },
 };
 const CANCELLED = { to: "cancelled", requires: { where: [{ column: "cancel_cause", isNull: false }] } };
+/** No payment for the order on its way: a move off paying online waits for it. */
+const NOT_LANDING = { noPaymentInFlight: true };
+const inFlightFree = (move: { to: string; requires: Record<string, unknown> }) => ({ ...move, requires: { ...move.requires, ...NOT_LANDING } });
+/** Paying online: only an order with something to pay. */
+const PAYING = { to: "paying", requires: { where: [{ column: "total", gt: 0 }] } };
 /**
  * At no charge: only an order with nothing to pay (a free show's places, comps). Its tickets count as paid at
  * the door, so a priced order may never be moved here — by its buyer or by anyone.
@@ -329,10 +350,13 @@ const ORDER_STATES = {
   // "Paid by card at 14:30 by Priya": a second screen's tap is refused, naming the first.
   strict: true,
   moves: {
-    held: [DOOR, CONFIRMING, NO_CHARGE, AWAITING_BY_STAFF, PAID, "offered", "let_go", "expired", CANCELLED],
+    held: [DOOR, CONFIRMING, NO_CHARGE, AWAITING_BY_STAFF, PAID, PAYING, "offered", "let_go", "expired", CANCELLED],
+    // Paid when the money lands; or another way to pay chosen while the hold runs — never while a payment for it
+    // is landing (the buyer is told to wait, rather than leaving the order to pay twice).
+    paying: [PAID, inFlightFree(DOOR), inFlightFree(CONFIRMING), { to: "let_go", requires: NOT_LANDING }, "expired", CANCELLED],
     // The only way on to waiting is the confirm link in the email: no key the page holds lists it.
     confirming: ["awaiting_transfer", DOOR, NO_CHARGE, "let_go", "expired", CANCELLED],
-    offered: [DOOR, CONFIRMING, NO_CHARGE, "expired", CANCELLED],
+    offered: [DOOR, CONFIRMING, NO_CHARGE, PAYING, "expired", CANCELLED],
     door: [PAID, { to: "not_collected", requires: { where: [{ column: "balance", gt: 0 }] } }, CANCELLED],
     awaiting_transfer: [PAID, "overdue", CANCELLED],
     overdue: [PAID, "released", CANCELLED],
@@ -355,6 +379,7 @@ const ORDER_STATES = {
     { on: { to: "door" }, via: "waitlist_id", set: { status: "claimed" } },
     { on: { to: "confirming" }, via: "waitlist_id", set: { status: "claimed" } },
     { on: { to: "no_charge" }, via: "waitlist_id", set: { status: "claimed" } },
+    { on: { to: "paying" }, via: "waitlist_id", set: { status: "claimed" } },
     { on: { to: "expired" }, via: "waitlist_id", set: { status: "missed" } },
   ],
 };
@@ -487,7 +512,8 @@ const ORDER_TOTAL = {
   if: [
     { or: LIVE_ORDER.slice(0, 8).map((s) => eq("status", s)) },
     { sub: [{ sub: [{ coalesce: ["subtotal", 0] }, { coalesce: ["discount", 0] }] }, { coalesce: ["adjusted", 0] }] },
-    { if: [eq("status", "not_collected"), { sub: [{ sub: [{ coalesce: ["subtotal", 0] }, { coalesce: ["discount", 0] }] }, { coalesce: ["adjusted", 0] }] }, 0] },
+    // A condition names eight values at most: the rest of the live states.
+    { if: [{ or: LIVE_ORDER.slice(8).map((s) => eq("status", s)) }, { sub: [{ sub: [{ coalesce: ["subtotal", 0] }, { coalesce: ["discount", 0] }] }, { coalesce: ["adjusted", 0] }] }, 0] },
   ],
 };
 
@@ -509,6 +535,8 @@ export const TABLES: Table[] = [
       clock("day_starts_at", "The venue day starts at", "06:00"),
       bool("door_on", "Pay at the door", true),
       bool("transfer_on", "Bank transfer", true),
+      // With the payments taken online: a show cancelled gives the money back by itself, unless this is off.
+      bool("auto_refund", "Refund cancellations automatically", true),
       text("bank_account_name", 80, "Account name", { ...opt, rules: { personal: false } }),
       text("bank_name", 80, "Bank", { ...opt, rules: { personal: false } }),
       text("bank_account_number", 34, "Account number", { ...opt, rules: { personal: false } }),
@@ -831,13 +859,18 @@ export const TABLES: Table[] = [
       worked("ticket_count", "Tickets", { rollup: { from: "tickets", via: "order_id", sum: "live_one" } }),
       money("collected", "Taken at the door", { rollup: { from: "tickets", via: "order_id", sum: "collected" } }),
       money("paid_in", "Paid", { rollup: { from: "payments", via: "order_id", sum: "amount", where: { column: "voided", eq: false } } }),
-      money("refunded", "Refunded", { rollup: { from: "refunds", via: "order_id", sum: "amount", where: { column: "voided", eq: false } } }),
+      // What came in online, through Adminium's pay page (never voided: it goes back by a refund).
+      money("online_in", "Paid online", { rollup: { from: "payments", via: "order_id", sum: "amount", where: { column: "method", eq: "online" } } }),
+      // A refund row counts until the money could not be sent back online (`counted`).
+      money("refunded", "Refunded", { rollup: { from: "refunds", via: "order_id", sum: "counted", where: { column: "voided", eq: false } } }),
+      // Money given back with no refund row: a refund made at the payment service, a dispute the buyer won.
+      money("back_elsewhere", "Given back at the payment service", { rollup: { from: "payments", via: "order_id", sum: "refunded_elsewhere" } }),
       // Above 0 something is owed; below 0 money is to go back.
       money("balance", "Owed", {
         formula: {
           add: [
             { sub: [{ sub: [{ coalesce: ["total", 0] }, { coalesce: ["collected", 0] }] }, { coalesce: ["paid_in", 0] }] },
-            { coalesce: ["refunded", 0] },
+            { add: [{ coalesce: ["refunded", 0] }, { coalesce: ["back_elsewhere", 0] }] },
           ],
         },
       }),
@@ -850,7 +883,8 @@ export const TABLES: Table[] = [
       at("held_until", "Held until", {
         ...opt,
         // Written at the checkout and again when the buyer chooses a transfer: they get ten fresh minutes to confirm.
-        rules: stamp({ addMinutes: { minutes: setting("hold_minutes") } }, { columns: ["status"] }),
+        // Paying online keeps the hold it has: the minutes run on while the buyer is on the pay page.
+        rules: stamp({ addMinutes: { minutes: setting("hold_minutes") } }, [onCreate, onStatus("held", "confirming")]),
       }),
       at("offer_until", "Offer runs until", { ...opt, rules: stamp({ addMinutes: { hours: setting("offer_hours"), notAfter: DOORS } }, onStatus("offered")) }),
       at("pay_by", "Pay by", {
@@ -881,20 +915,28 @@ export const TABLES: Table[] = [
       at("cancelled_at", "Cancelled", { ...opt, rules: stamp("now", onStatus("cancelled")) }),
       choice("cancel_cause", "Why it was cancelled", CANCEL_CAUSES, opt),
       text("cancel_reason", 240, "Note on the cancel", opt),
-      // Which cancellation email goes: 1 paid something, 2 paid nothing, 0 none (not the show's cancel).
+      // Which cancellation email goes: 1 paid something, 2 paid nothing, 3 paid online (it goes back to the card or
+      // the PayPal account it came from), 0 none (not the show's cancel).
       worked("cancel_email", "Cancellation email", {
         formula: {
           if: [
             eq("cancel_cause", "show"),
-            { if: [{ gt: [{ add: [{ coalesce: ["paid_in", 0] }, { coalesce: ["collected", 0] }] }, 0] }, 1, 2] },
+            {
+              if: [
+                { gt: [{ coalesce: ["online_in", 0] }, 0] },
+                3,
+                { if: [{ gt: [{ add: [{ coalesce: ["paid_in", 0] }, { coalesce: ["collected", 0] }] }, 0] }, 1, 2] },
+              ],
+            },
             0,
           ],
         },
       }),
-      choice("paid_method", "Paid by", { bank_transfer: "Bank transfer", card: "Card", cash: "Cash" }, opt),
+      // How it was paid: the box office and the door say so; a payment taken online writes "Online" with its move to paid.
+      choice("paid_method", "Paid by", { bank_transfer: "Bank transfer", card: "Card", cash: "Cash", online: "Online" }, opt),
       // The email a move to paid sends, by what the buyer has not had yet: 1 the tickets (paid by card or cash),
-      // 2 the tickets with "payment received" (paid by transfer), 0 none — their tickets went out when they chose
-      // the door, or it was sold at the door itself.
+      // 2 the tickets with "payment received" (paid by transfer), 3 the tickets paid online, 0 none — their tickets
+      // went out when they chose the door, or it was sold at the door itself.
       worked("paid_email", "Email when paid", {
         formula: {
           if: [
@@ -903,7 +945,13 @@ export const TABLES: Table[] = [
               if: [
                 eq("channel", "door"),
                 0,
-                { if: [eq("paid_method", "bank_transfer"), 2, { if: [{ or: [eq("paid_method", "card"), eq("paid_method", "cash")] }, 1, 0] }] },
+                {
+                  if: [
+                    { gt: [{ coalesce: ["online_in", 0] }, 0] },
+                    3,
+                    { if: [eq("paid_method", "bank_transfer"), 2, { if: [{ or: [eq("paid_method", "card"), eq("paid_method", "cash")] }, 1, 0] }] },
+                  ],
+                },
               ],
             },
             0,
@@ -1104,7 +1152,7 @@ export const TABLES: Table[] = [
       id,
       fk("order_id", "orders", "Order", { index: true }),
       price("amount", "Amount", { rules: { validation: { min: 0.01 } } }),
-      choice("method", "How", { bank_transfer: "Bank transfer", card: "Card", cash: "Cash" }, { default: "card" }),
+      choice("method", "How", { bank_transfer: "Bank transfer", card: "Card", cash: "Cash", online: "Online" }, { default: "card" }),
       fk("device_id", "devices", "Door", opt),
       text("note", 240, "Note", opt),
       at("recorded_at", "Recorded", { ...opt, rules: stamp("now", onCreate) }),
@@ -1114,6 +1162,12 @@ export const TABLES: Table[] = [
       text("voided_by", 80, "Voided by", { ...opt, rules: stamp("user-name", voidedNow) }),
       // The box office's press: the same press sent again finds this payment instead of recording a second.
       text("client_key", 64, "Retry key", { ...opt, unique: true }),
+      // A payment taken online, written by Adminium alone: its reference (once), the service it came through
+      // ("payments-stripe"), its currency, and any money given back at the service itself.
+      text("payment_ref", 64, "Payment reference", { ...opt, unique: true }),
+      text("provider", 64, "Taken through", opt),
+      text("currency", 3, "Currency", opt),
+      price("refunded_elsewhere", "Given back at the payment service", opt),
     ],
   },
   {
@@ -1128,8 +1182,15 @@ export const TABLES: Table[] = [
       price("amount", "Amount", { rules: { validation: { min: 0.01 } } }),
       // Money back for tickets cancelled, or money back while the tickets still work.
       choice("kind", "What it is for", { cancelled_tickets: "Cancelled tickets", goodwill: "Money back, tickets stay" }, { default: "cancelled_tickets" }),
-      { ref: "counts_off", type: "int", default: 0, label: l("Taken off the total"), rules: yes({ and: [eq("kind", "goodwill"), eq("voided", false)] }) },
-      choice("method", "How", { bank_transfer: "Bank transfer", card: "Card", cash: "Cash" }, { default: "bank_transfer" }),
+      // Money back with the tickets kept: off the order's total — unless it could not be sent back online.
+      {
+        ref: "counts_off",
+        type: "int",
+        default: 0,
+        label: l("Taken off the total"),
+        rules: { formula: { if: [{ and: [eq("kind", "goodwill"), eq("voided", false)] }, { if: [eq("refund_state", "not-sent"), 0, 1] }, 0] } },
+      },
+      choice("method", "How", { bank_transfer: "Bank transfer", card: "Card", cash: "Cash", online: "Online" }, { default: "bank_transfer" }),
       text("note", 240, "Note", opt),
       at("recorded_at", "Recorded", { ...opt, rules: stamp("now", onCreate) }),
       text("recorded_by", 80, "Recorded by", { ...opt, rules: stamp("user-name", onCreate) }),
@@ -1137,6 +1198,19 @@ export const TABLES: Table[] = [
       at("voided_at", "Voided on", { ...opt, rules: stamp("now", voidedNow) }),
       text("voided_by", 80, "Voided by", { ...opt, rules: stamp("user-name", voidedNow) }),
       text("client_key", 64, "Retry key", { ...opt, unique: true }),
+      // A refund sent back online names the payment it gives back; Adminium sends the money and writes where it
+      // stands (asked, pending, done, not sent) and the service's reference.
+      fk("payment_id", "payments", "Payment refunded", opt),
+      text("provider_ref", 64, "Refund reference", opt),
+      choice("refund_state", "Refund sent", { asked: "Asked", pending: "On its way", done: "Sent", "not-sent": "Not sent" }, {
+        ...opt,
+        tones: { asked: "info", pending: "info", done: "pos", "not-sent": "danger" },
+      }),
+      // What the refund takes off the order: all of it, unless the money could not be sent back online.
+      money("counted", "Counted", { formula: { if: [eq("refund_state", "not-sent"), 0, { coalesce: ["amount", 0] }] } }),
+      // Which email the refund sends when it is made: 1 recorded by the box office; 0 none (voided, or sent back
+      // online: that one says "Refund sent" once the money is on its way back).
+      worked("refund_email", "Refund email", { formula: { if: [eq("voided", true), 0, { if: [eq("method", "online"), 0, 1] }] } }),
     ],
   },
   {
