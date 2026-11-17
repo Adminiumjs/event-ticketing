@@ -72,7 +72,7 @@ const NEW_VALUES: Record<string, Record<string, string[]>> = {
   tickets: { order_status: ["paying"] },
   payments: { method: ["online"] },
   refunds: { method: ["online"] },
-  messages: { kind: ["tickets-online"] },
+  messages: { kind: ["cancelled-online", "refund-sent", "tickets-online"] },
 };
 /**
  * The added columns Adminium works out (a rollup, a formula) or fills with their default on the rows that were
@@ -84,12 +84,13 @@ const WORKED_OUT: Record<string, (row: Record<string, string | null>, column: st
   back_elsewhere: (row, c) => row[c] === null || Number(row[c]) === 0,
   counted: (row, c) => row[c] === null || Number(row[c]) === Number(row["amount"]),
   auto_refund: (row, c) => row[c] === null || yes(row[c]),
+  refund_email: (row, c) => row[c] === null || Number(row[c]) === (yes(row["voided"]) ? 0 : 1),
 };
 const NEW_COLUMNS: Record<string, string[]> = {
   customers: ["language"],
   orders: ["back_elsewhere", "online_in"],
   payments: ["currency", "payment_ref", "provider", "refunded_elsewhere"],
-  refunds: ["counted", "payment_id", "provider_ref", "refund_state"],
+  refunds: ["counted", "payment_id", "provider_ref", "refund_email", "refund_state"],
   settings: ["auto_refund"],
 };
 
