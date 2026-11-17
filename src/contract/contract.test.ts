@@ -1860,7 +1860,7 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
           expect(await mails({ column: "order_id", eq: made.data.id }, PAID_MAILS)).toEqual(["tickets-online made"]);
         }, 240_000);
 
-        it("tells a refund sent back online once, when it is done; a refund the box office records keeps its own email", async (ctx) => {
+        it("tells a refund the box office records once, and none sent back online until Adminium has it done", async (ctx) => {
           needsWrites(() => ctx.skip());
           const manager = await staffPort(MANAGER);
           // A sample order paid by bank transfer, its payment recorded by the box office.
@@ -1874,12 +1874,10 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
           const online = await manager.refundOnline(paid.id, payment.id, 1, "goodwill", null, key("r-online"));
           await until(async () => (await manager.list("refunds", { where: [{ column: "id", eq: online.id }] })).rows.find((r) => r["refund_state"] === "not-sent"), "the refund stamped not sent", 120_000);
           expect(await mails({ column: "refund_id", eq: online.id }, REFUND_MAILS)).toEqual([]);
-          // Done (written here as Adminium stamps it once the service has the money on its way): "Refund sent", once;
-          // a later change to the refund sends nothing more.
-          const box = await staffPort(ADMIN);
-          await box.update("refunds", online.id, { refund_state: "done" });
-          await box.update("refunds", online.id, { note: "Back to the card" });
-          expect(await mails({ column: "refund_id", eq: online.id }, REFUND_MAILS)).toEqual(["refund-sent made"]);
+          // Where it stands is Adminium's alone to write: nobody else can mark it done (and so send "Refund sent").
+          const forged = await refusal(() => staffPort(ADMIN).then((box) => box.update("refunds", online.id, { refund_state: "done" })));
+          expect(forged?.status).toBe(403);
+          expect(await mails({ column: "refund_id", eq: online.id }, REFUND_MAILS)).toEqual([]);
         }, 240_000);
       });
 
