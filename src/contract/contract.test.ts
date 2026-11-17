@@ -1821,14 +1821,20 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
           expect([Number(after["refunded"]), Number(after["total"])]).toEqual([Number(paid["refunded"] ?? 0), Number(paid["total"])]);
         }, 240_000);
 
-        /** Every email the outbox holds for a row, once the outbox is done with each: its kind and how it went. */
-        const mails = async (where: { column: string; eq: unknown }) => {
+        /**
+         * The emails of these kinds the outbox holds for a row, once it is done with each (sent, or skipped for an
+         * address it does not write to — never failed): one entry per email made. Reminders due later stay queued
+         * and are not asked about.
+         */
+        const mails = async (where: { column: string; eq: unknown }, kinds: readonly string[]) => {
           const box = await staffPort(ADMIN);
           return until(async () => {
-            const list = (await box.list("messages", { where: [where] })).rows;
-            return list.every((m) => m["status"] !== "queued") ? list.map((m) => `${String(m["kind"])} ${String(m["status"])}`).sort() : undefined;
+            const list = (await box.list("messages", { where: [where] })).rows.filter((m) => kinds.includes(String(m["kind"])));
+            return list.every((m) => m["status"] !== "queued") ? list.map((m) => `${String(m["kind"])} ${m["status"] === "failed" ? "failed" : "made"}`).sort() : undefined;
           }, `the emails of ${where.column} ${String(where.eq)}`, 150_000);
         };
+        const PAID_MAILS = ["tickets", "tickets-paid", "tickets-online", "payment-received"];
+        const REFUND_MAILS = ["refund-recorded", "refund-sent"];
 
         it("sends the tickets paid online once: the move to paid queues one, and a later change to the order none", async (ctx) => {
           needsWrites(() => ctx.skip());
@@ -1851,7 +1857,7 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
           expect([paid["status"], Number(paid["paid_email"])]).toEqual(["paid", 3]);
           // A later change to the paid order (a note) queues nothing more.
           await box.update("orders", made.data.id, { note: "Seen at the box office" });
-          expect(await mails({ column: "order_id", eq: made.data.id })).toEqual(["tickets-online sent"]);
+          expect(await mails({ column: "order_id", eq: made.data.id }, PAID_MAILS)).toEqual(["tickets-online made"]);
         }, 240_000);
 
         it("tells a refund sent back online once, when it is done; a refund the box office records keeps its own email", async (ctx) => {
@@ -1862,17 +1868,17 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
           const payment = (await manager.list("payments", { where: [{ column: "order_id", eq: paid.id }], limit: 1 })).rows[0]!;
           // Recorded by hand: "Refund recorded", once, at the moment it is made.
           const byHand = await manager.recordRefund(paid.id, 1, "cash", "goodwill", key("r-hand"));
-          expect(await mails({ column: "refund_id", eq: byHand.id })).toEqual(["refund-recorded sent"]);
+          expect(await mails({ column: "refund_id", eq: byHand.id }, REFUND_MAILS)).toEqual(["refund-recorded made"]);
           // Sent back online: nothing when it is made, and none while it is not sent (the payment was not taken online).
           const online = await manager.refundOnline(paid.id, payment.id, 1, "goodwill", null, key("r-online"));
           await until(async () => (await manager.list("refunds", { where: [{ column: "id", eq: online.id }] })).rows.find((r) => r["refund_state"] === "not-sent"), "the refund stamped not sent", 120_000);
-          expect(await mails({ column: "refund_id", eq: online.id })).toEqual([]);
+          expect(await mails({ column: "refund_id", eq: online.id }, REFUND_MAILS)).toEqual([]);
           // Done (written here as Adminium stamps it once the service has the money on its way): "Refund sent", once;
           // a later change to the refund sends nothing more.
           const box = await staffPort(ADMIN);
           await box.update("refunds", online.id, { refund_state: "done" });
           await box.update("refunds", online.id, { note: "Back to the card" });
-          expect(await mails({ column: "refund_id", eq: online.id })).toEqual(["refund-sent sent"]);
+          expect(await mails({ column: "refund_id", eq: online.id }, REFUND_MAILS)).toEqual(["refund-sent made"]);
         }, 240_000);
       });
 
