@@ -45,7 +45,7 @@ function levels(text: string, base: 0 | 1): number[] {
   return r.map((x) => (base === 0 ? (x === "R" ? 1 : x === "EN" ? 2 : 0) : x === "L" || x === "EN" ? 2 : 1));
 }
 
-/** The isolate laid out left to right on the screen (L2), inside a right-to-left paragraph. */
+/** The isolate laid out left to right on the screen (UAX #9 rule L2), inside a right-to-left paragraph. */
 function onScreen(s: string): string {
   const open = s[0]!;
   const inner = s.slice(1, -1);
