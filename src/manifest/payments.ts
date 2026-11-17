@@ -50,7 +50,8 @@ export const PAYMENTS = {
         currency: "currency",
         refundedElsewhere: "refunded_elsewhere",
       },
-      status: { column: "status", paid: "paid", from: PAYABLE_ORDER },
+      // A payment taken online says so: the order reads "Paid · Online", whatever way it was to be paid before.
+      status: { column: "status", paid: "paid", from: PAYABLE_ORDER, set: { paid_method: "online" } },
       customerEmail: "email",
       payableWhen: [{ column: "status", in: PAYABLE_ORDER }],
       returnTo: RETURN_TO,

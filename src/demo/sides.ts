@@ -372,7 +372,8 @@ export class DemoAudience implements AudiencePort {
     const engine = this.engine;
     return engine.transaction(() => {
       engine.create("payments", { order_id: order.id, amount: owed, method: "online", payment_ref: `demo_${randomCode(16)}`, provider: "demo", currency: engine.world.currency }, PAY_PAGE);
-      engine.update("orders", order.id, { status: "paid" }, PAY_PAGE);
+      // A payment taken online writes "Online" with its move to paid.
+      engine.update("orders", order.id, { status: "paid", paid_method: "online" }, PAY_PAGE);
       return shown(engine.world.get("orders", order.id)!, orderId === undefined ? READ.linkOrder : READ.myOrders);
     });
   }

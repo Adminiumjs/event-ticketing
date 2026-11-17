@@ -46,9 +46,6 @@ export type EmailWords = Record<Kind, Words> & {
   bankReference: string;
   /** Said only when the email carries the receipt (Invoices & Receipts draws it). */
   receiptAttached: string;
-  /** "Refund recorded", for a refund sent back online (it names the payment it gives back): its heading and its words. */
-  refundSentHeading: string;
-  refundSentPara: string;
 };
 
 const KEEP = "Order {{order.number}}. The button opens your order — keep this email.";
@@ -65,8 +62,6 @@ export const EMAIL_EN: EmailWords = {
   bankRouting: "Sort code or routing number",
   bankReference: "Reference",
   receiptAttached: "Your receipt is attached.",
-  refundSentHeading: "Refund sent",
-  refundSentPara: "We've sent {{refund.amount}} back to the card or PayPal account you paid with, for order {{order.number}}. It can take a few days to show.",
   tickets: {
     name: "Your tickets",
     subject: "Your tickets for {{order.event.name}} · {{order.number}}",
@@ -286,6 +281,18 @@ export const EMAIL_EN: EmailWords = {
     button: "See my order",
     foot: HAVE,
   },
+  "cancelled-online": {
+    name: "Your show is cancelled (paid online)",
+    subject: "{{order.event.name}} on {{order.event.doors_at.date}} is cancelled",
+    preheader: "Your money goes back to you",
+    heading: "{{order.event.name}} is cancelled",
+    paras: [
+      "We're sorry — {{order.event.name}} on {{order.event.doors_at.date}} is cancelled.",
+      "You paid {{order.online_in}} online. It goes back to the card or PayPal account you paid with.",
+    ],
+    button: "See my order",
+    foot: HAVE,
+  },
   "cancelled-holder": {
     name: "Your show is cancelled (a friend's ticket)",
     subject: "{{ticket.event.name}} on {{ticket.event.doors_at.date}} is cancelled",
@@ -336,6 +343,15 @@ export const EMAIL_EN: EmailWords = {
     preheader: "{{refund.amount}} back to you",
     heading: "Refund recorded",
     paras: ["We've recorded {{refund.amount}} back to you for order {{order.number}}. It reaches you {{practice.refund_payback_text}}."],
+    button: "See my order",
+    foot: "Order {{order.number}} · {{order.event.name}}.",
+  },
+  "refund-sent": {
+    name: "Refund sent",
+    subject: "Your refund for {{order.event.name}} · {{order.number}}",
+    preheader: "{{refund.amount}} back to you",
+    heading: "Refund sent",
+    paras: ["We've sent {{refund.amount}} back to the card or PayPal account you paid with, for order {{order.number}}. It can take a few days to show."],
     button: "See my order",
     foot: "Order {{order.number}} · {{order.event.name}}.",
   },
@@ -417,22 +433,10 @@ const BUTTON_URL: Partial<Record<Kind, string>> = {
   "on-sale-presale": "{{booking_url}}",
 };
 
-/** A refund sent back online names the payment it gives back; one the box office recorded names none. */
-const ONLINE_REFUND = "refund.payment_id";
-
 function layout(kind: Kind, all: EmailWords) {
   const w = all[kind];
-  const blocks: Block[] = [];
-  if (kind === "refund-recorded") {
-    // Recorded by the box office, or sent back online by Adminium: the same email, its words picked by the refund.
-    blocks.push({ block: "email.heading", id: "heading", data: { text: w.heading, onlyWithout: ONLINE_REFUND } });
-    blocks.push({ block: "email.text", id: "body", data: { paras: w.paras, onlyWithout: ONLINE_REFUND } });
-    blocks.push({ block: "email.heading", id: "heading-online", data: { text: all.refundSentHeading, onlyWith: ONLINE_REFUND } });
-    blocks.push({ block: "email.text", id: "body-online", data: { paras: [all.refundSentPara], onlyWith: ONLINE_REFUND } });
-  } else {
-    blocks.push({ block: "email.heading", id: "heading", data: { text: w.heading } });
-    blocks.push({ block: "email.text", id: "body", data: { paras: w.paras } });
-  }
+  const blocks: Block[] = [{ block: "email.heading", id: "heading", data: { text: w.heading } }];
+  blocks.push({ block: "email.text", id: "body", data: { paras: w.paras } });
   if (WITH_TICKETS.has(kind)) blocks.push(TICKET_ROWS);
   if (WITH_RECEIPT.has(kind)) blocks.push({ block: "email.text", id: "receipt", data: { paras: [all.receiptAttached], withAttachment: true } });
   if (WITH_BANK.has(kind)) {

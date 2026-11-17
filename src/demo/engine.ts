@@ -627,9 +627,12 @@ export class Engine {
       .where(table, (r) => r.id !== row.id && r[rules.payment] === row[rules.payment] && r[rules.state] !== "not-sent" && r["voided"] !== true)
       .reduce((sum, r) => sum + Number(r[rules.amount] ?? 0), 0);
     const ok = payment !== undefined && payment["method"] === "online" && Number(row[rules.amount] ?? 0) <= taken - back + 0.005;
+    const before = { ...this.world.get(table, row.id)! };
     Object.assign(this.world.get(table, row.id)!, ok ? { [rules.state]: "done", [rules.providerRef]: `re_demo_${randomCode(12)}` } : { [rules.state]: "not-sent" });
     this.world.touched(table, row.id);
     this.settleAll();
+    // The stamp is announced, as Adminium announces it: "Refund sent" goes once the refund is done.
+    this.produce(table, before, this.world.get(table, row.id)!);
   }
 
   /**

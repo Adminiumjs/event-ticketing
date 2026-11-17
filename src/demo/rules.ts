@@ -175,19 +175,6 @@ export const MANIFEST_RULES = {
             "cancelled"
           ]
         }
-      },
-      "paid_method": {
-        "set": {
-          "byOrigin": {
-            "public": "online"
-          }
-        },
-        "on": {
-          "column": "status",
-          "values": [
-            "paying"
-          ]
-        }
       }
     },
     "tickets": {
@@ -800,6 +787,7 @@ export const MANIFEST_RULES = {
         "moved",
         "cancelled-paid",
         "cancelled-unpaid",
+        "cancelled-online",
         "moved-holder",
         "cancelled-holder",
         "tonight",
@@ -807,6 +795,7 @@ export const MANIFEST_RULES = {
         "tonight-holder",
         "tomorrow-holder",
         "refund-recorded",
+        "refund-sent",
         "tickets-cancelled",
         "refund-declined",
         "broadcast",
@@ -1193,7 +1182,8 @@ export const MANIFEST_RULES = {
                   "column": "no_door",
                   "lte": 0
                 }
-              ]
+              ],
+              "noPaymentInFlight": true
             }
           },
           {
@@ -1222,10 +1212,16 @@ export const MANIFEST_RULES = {
                   "column": "no_transfer",
                   "lte": 0
                 }
-              ]
+              ],
+              "noPaymentInFlight": true
             }
           },
-          "let_go",
+          {
+            "to": "let_go",
+            "requires": {
+              "noPaymentInFlight": true
+            }
+          },
           "expired",
           {
             "to": "cancelled",
@@ -4168,6 +4164,20 @@ export const MANIFEST_RULES = {
       }
     },
     {
+      "kind": "cancelled-online",
+      "link": "order_id",
+      "hold": true,
+      "onChange": {
+        "table": "orders",
+        "column": "cancel_cause",
+        "to": "show",
+        "where": {
+          "column": "cancel_email",
+          "eq": 3
+        }
+      }
+    },
+    {
       "kind": "cancelled-holder",
       "link": "ticket_id",
       "recipient": {
@@ -4444,9 +4454,18 @@ export const MANIFEST_RULES = {
       "onCreate": {
         "table": "refunds",
         "where": {
-          "column": "voided",
-          "eq": false
+          "column": "refund_email",
+          "eq": 1
         }
+      }
+    },
+    {
+      "kind": "refund-sent",
+      "link": "refund_id",
+      "onChange": {
+        "table": "refunds",
+        "column": "refund_state",
+        "to": "done"
       }
     },
     {
@@ -4515,12 +4534,14 @@ export const MANIFEST_RULES = {
     "moved-holder": "events-moved-holder",
     "cancelled-paid": "events-cancelled-paid",
     "cancelled-unpaid": "events-cancelled-unpaid",
+    "cancelled-online": "events-cancelled-online",
     "cancelled-holder": "events-cancelled-holder",
     "tonight": "events-tonight",
     "tomorrow": "events-tomorrow",
     "tonight-holder": "events-tonight-holder",
     "tomorrow-holder": "events-tomorrow-holder",
     "refund-recorded": "events-refund-recorded",
+    "refund-sent": "events-refund-sent",
     "tickets-cancelled": "events-tickets-cancelled",
     "refund-declined": "events-refund-declined",
     "broadcast": "events-broadcast",

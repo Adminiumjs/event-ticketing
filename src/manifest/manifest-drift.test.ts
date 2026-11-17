@@ -229,7 +229,7 @@ describe("the door takes a ticket's money, not payments of another kind", () => 
 describe("a cancellation email follows who cancelled, never the status alone", () => {
   it("sends the show's cancellation only for the show's cause, held for the box office", () => {
     const shows = manifest.outbox.producers.filter((p) => String(p["kind"]).startsWith("cancelled-"));
-    expect(shows.length).toBe(3);
+    expect(shows.length).toBe(4);
     for (const p of shows) {
       expect(p["hold"]).toBe(true);
       expect(((p["onChange"] as Json)["to"])).toBe("show");

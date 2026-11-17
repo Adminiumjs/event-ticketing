@@ -1487,5 +1487,6 @@
  "Refund approved. {amount} goes back to the card or PayPal account you paid with.": "Erstattung genehmigt. {amount} geht zurück auf die Karte oder das PayPal-Konto, mit dem du bezahlt hast.",
  "Paid online": "Online bezahlt",
  "Your bank is confirming the payment": "Deine Bank bestätigt die Zahlung",
- "Some ways to pay take a few days. Please don't pay again. We'll email you when it has gone through.": "Manche Zahlungsarten dauern ein paar Tage. Bitte zahl nicht noch einmal. Wir schicken dir eine E-Mail, sobald sie durch ist."
+ "Some ways to pay take a few days. Please don't pay again. We'll email you when it has gone through.": "Manche Zahlungsarten dauern ein paar Tage. Bitte zahl nicht noch einmal. Wir schicken dir eine E-Mail, sobald sie durch ist.",
+ "Refund sent": "Erstattung gesendet"
 }

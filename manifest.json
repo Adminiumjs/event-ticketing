@@ -18,7 +18,7 @@
     "hospitality"
   ],
   "compatibility": {
-    "minAdminiumVersion": "0.3.61",
+    "minAdminiumVersion": "0.3.62",
     "engines": [
       "sqlite",
       "postgres",
@@ -4113,7 +4113,8 @@
                       "column": "no_door",
                       "lte": 0
                     }
-                  ]
+                  ],
+                  "noPaymentInFlight": true
                 }
               },
               {
@@ -4142,10 +4143,16 @@
                       "column": "no_transfer",
                       "lte": 0
                     }
-                  ]
+                  ],
+                  "noPaymentInFlight": true
                 }
               },
-              "let_go",
+              {
+                "to": "let_go",
+                "requires": {
+                  "noPaymentInFlight": true
+                }
+              },
               "expired",
               {
                 "to": "cancelled",
@@ -6398,26 +6405,42 @@
                       {
                         "gt": [
                           {
-                            "add": [
-                              {
-                                "coalesce": [
-                                  "paid_in",
-                                  0
-                                ]
-                              },
-                              {
-                                "coalesce": [
-                                  "collected",
-                                  0
-                                ]
-                              }
+                            "coalesce": [
+                              "online_in",
+                              0
                             ]
                           },
                           0
                         ]
                       },
-                      1,
-                      2
+                      3,
+                      {
+                        "if": [
+                          {
+                            "gt": [
+                              {
+                                "add": [
+                                  {
+                                    "coalesce": [
+                                      "paid_in",
+                                      0
+                                    ]
+                                  },
+                                  {
+                                    "coalesce": [
+                                      "collected",
+                                      0
+                                    ]
+                                  }
+                                ]
+                              },
+                              0
+                            ]
+                          },
+                          1,
+                          2
+                        ]
+                      }
                     ]
                   },
                   0
@@ -6446,19 +6469,6 @@
             },
             "nullable": true,
             "rules": {
-              "stamp": {
-                "set": {
-                  "byOrigin": {
-                    "public": "online"
-                  }
-                },
-                "on": {
-                  "column": "status",
-                  "values": [
-                    "paying"
-                  ]
-                }
-              },
               "enumLabels": {
                 "labels": {
                   "bank_transfer": {
@@ -10993,6 +11003,46 @@
                 ]
               }
             }
+          },
+          {
+            "ref": "refund_email",
+            "type": "int",
+            "nullable": true,
+            "label": {
+              "en-US": "Refund email",
+              "de-DE": "E-Mail zur Erstattung",
+              "fr-FR": "E-mail de remboursement",
+              "da-DK": "Mail om refusion",
+              "cs-CZ": "E-mail o vrácení peněz",
+              "ar-EG": "رسالة الاسترداد",
+              "zh-CN": "退款邮件",
+              "zh-TW": "退款信件"
+            },
+            "rules": {
+              "formula": {
+                "if": [
+                  {
+                    "eq": [
+                      "voided",
+                      true
+                    ]
+                  },
+                  0,
+                  {
+                    "if": [
+                      {
+                        "eq": [
+                          "method",
+                          "online"
+                        ]
+                      },
+                      0,
+                      1
+                    ]
+                  }
+                ]
+              }
+            }
           }
         ]
       },
@@ -12293,6 +12343,7 @@
               "moved",
               "cancelled-paid",
               "cancelled-unpaid",
+              "cancelled-online",
               "moved-holder",
               "cancelled-holder",
               "tonight",
@@ -12300,6 +12351,7 @@
               "tonight-holder",
               "tomorrow-holder",
               "refund-recorded",
+              "refund-sent",
               "tickets-cancelled",
               "refund-declined",
               "broadcast",
@@ -12508,6 +12560,16 @@
                     "zh-CN": "你的演出已取消（未付款）",
                     "zh-TW": "你的演出已取消（未付款）"
                   },
+                  "cancelled-online": {
+                    "en-US": "Your show is cancelled (paid online)",
+                    "de-DE": "Deine Show fällt aus (online bezahlt)",
+                    "fr-FR": "Votre spectacle est annulé (payé en ligne)",
+                    "da-DK": "Dit arrangement er aflyst (betalt online)",
+                    "cs-CZ": "Vaše akce je zrušena (zaplaceno online)",
+                    "ar-EG": "تم إلغاء حفلك (مدفوع عبر الإنترنت)",
+                    "zh-CN": "你的演出已取消（已在线支付）",
+                    "zh-TW": "你的演出已取消（已線上付款）"
+                  },
                   "moved-holder": {
                     "en-US": "Your show has moved (a friend's ticket)",
                     "de-DE": "Deine Show wurde verlegt (Ticket von Freunden)",
@@ -12577,6 +12639,16 @@
                     "ar-EG": "سُجّل الاسترداد",
                     "zh-CN": "退款已记录",
                     "zh-TW": "退款已登記"
+                  },
+                  "refund-sent": {
+                    "en-US": "Refund sent",
+                    "de-DE": "Erstattung gesendet",
+                    "fr-FR": "Remboursement envoyé",
+                    "da-DK": "Refusion sendt",
+                    "cs-CZ": "Peníze odeslány zpět",
+                    "ar-EG": "تم إرسال المبلغ المسترد",
+                    "zh-CN": "退款已发出",
+                    "zh-TW": "退款已送出"
                   },
                   "tickets-cancelled": {
                     "en-US": "Tickets cancelled",
@@ -18498,12 +18570,14 @@
       "moved-holder": "events-moved-holder",
       "cancelled-paid": "events-cancelled-paid",
       "cancelled-unpaid": "events-cancelled-unpaid",
+      "cancelled-online": "events-cancelled-online",
       "cancelled-holder": "events-cancelled-holder",
       "tonight": "events-tonight",
       "tomorrow": "events-tomorrow",
       "tonight-holder": "events-tonight-holder",
       "tomorrow-holder": "events-tomorrow-holder",
       "refund-recorded": "events-refund-recorded",
+      "refund-sent": "events-refund-sent",
       "tickets-cancelled": "events-tickets-cancelled",
       "refund-declined": "events-refund-declined",
       "broadcast": "events-broadcast",
@@ -18530,12 +18604,14 @@
       "moved-holder": "service",
       "cancelled-paid": "service",
       "cancelled-unpaid": "service",
+      "cancelled-online": "service",
       "cancelled-holder": "service",
       "tonight": "service",
       "tomorrow": "service",
       "tonight-holder": "service",
       "tomorrow-holder": "service",
       "refund-recorded": "service",
+      "refund-sent": "service",
       "tickets-cancelled": "service",
       "refund-declined": "service",
       "broadcast": "service",
@@ -18671,6 +18747,20 @@
           "where": {
             "column": "cancel_email",
             "eq": 2
+          }
+        }
+      },
+      {
+        "kind": "cancelled-online",
+        "link": "order_id",
+        "hold": true,
+        "onChange": {
+          "table": "orders",
+          "column": "cancel_cause",
+          "to": "show",
+          "where": {
+            "column": "cancel_email",
+            "eq": 3
           }
         }
       },
@@ -18951,9 +19041,18 @@
         "onCreate": {
           "table": "refunds",
           "where": {
-            "column": "voided",
-            "eq": false
+            "column": "refund_email",
+            "eq": 1
           }
+        }
+      },
+      {
+        "kind": "refund-sent",
+        "link": "refund_id",
+        "onChange": {
+          "table": "refunds",
+          "column": "refund_state",
+          "to": "done"
         }
       },
       {
@@ -26047,6 +26146,287 @@
       }
     },
     {
+      "key": "events-cancelled-online",
+      "name": {
+        "en-US": "Your show is cancelled (paid online)",
+        "de-DE": "Deine Show fällt aus (online bezahlt)",
+        "fr-FR": "Votre spectacle est annulé (payé en ligne)",
+        "da-DK": "Dit arrangement er aflyst (betalt online)",
+        "cs-CZ": "Vaše akce je zrušena (zaplaceno online)",
+        "ar-EG": "تم إلغاء حفلك (مدفوع عبر الإنترنت)",
+        "zh-CN": "你的演出已取消（已在线支付）",
+        "zh-TW": "你的演出已取消（已線上付款）"
+      },
+      "vars": [
+        "manage_url",
+        "order.event.doors_at.date",
+        "order.event.name",
+        "order.link_token",
+        "order.number",
+        "order.online_in",
+        "practice.address",
+        "practice.contact_email"
+      ],
+      "locales": {
+        "en-US": {
+          "subject": "{{order.event.name}} on {{order.event.doors_at.date}} is cancelled",
+          "preheader": "Your money goes back to you",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "{{order.event.name}} is cancelled"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "We're sorry — {{order.event.name}} on {{order.event.doors_at.date}} is cancelled.",
+                  "You paid {{order.online_in}} online. It goes back to the card or PayPal account you paid with."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "See my order",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "You have tickets for this show · order {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "de-DE": {
+          "subject": "{{order.event.name}} am {{order.event.doors_at.date}} fällt aus",
+          "preheader": "Du bekommst dein Geld zurück",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "{{order.event.name}} fällt aus"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Es tut uns leid – {{order.event.name}} am {{order.event.doors_at.date}} fällt aus.",
+                  "Du hast {{order.online_in}} online bezahlt. Das Geld geht zurück auf die Karte oder das PayPal-Konto, mit dem du bezahlt hast."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Meine Bestellung ansehen",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Du hast Tickets für diese Show · Bestellung {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "fr-FR": {
+          "subject": "{{order.event.name}} du {{order.event.doors_at.date}} est annulé",
+          "preheader": "Vous serez remboursé",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "{{order.event.name}} est annulé"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Nous sommes désolés : {{order.event.name}} du {{order.event.doors_at.date}} est annulé.",
+                  "Vous avez payé {{order.online_in}} en ligne. La somme revient sur la carte ou le compte PayPal utilisé pour payer."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Voir ma commande",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Vous avez des billets pour ce spectacle · commande {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "da-DK": {
+          "subject": "{{order.event.name}} {{order.event.doors_at.date}} er aflyst",
+          "preheader": "Du får dine penge tilbage",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "{{order.event.name}} er aflyst"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Vi beklager – {{order.event.name}} {{order.event.doors_at.date}} er aflyst.",
+                  "Du betalte {{order.online_in}} online. Pengene går tilbage til det kort eller den PayPal-konto, du betalte med."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Se min ordre",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Du har billetter til dette arrangement · ordre {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "cs-CZ": {
+          "subject": "Akce {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena",
+          "preheader": "Peníze dostanete zpět",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Akce {{order.event.name}} je zrušena"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Je nám líto – akce {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena.",
+                  "Zaplatili jste {{order.online_in}} online. Peníze se vrátí na kartu nebo účet PayPal, kterým jste platili."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Zobrazit objednávku",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Máte vstupenky na tuto akci · objednávka {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "ar-EG": {
+          "subject": "أُلغي {{order.event.name}} المقرر في {{order.event.doors_at.date}}",
+          "preheader": "ستسترد أموالك",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "أُلغي {{order.event.name}}"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "نأسف لإبلاغك بإلغاء {{order.event.name}} المقرر في {{order.event.doors_at.date}}.",
+                  "دفعت {{order.online_in}} عبر الإنترنت. سيعود المبلغ إلى البطاقة أو حساب PayPal الذي دفعت به."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "عرض طلبي",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "لديك تذاكر لهذا الحفل · الطلب {{order.number}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "zh-CN": {
+          "subject": "{{order.event.doors_at.date}} 的 {{order.event.name}} 已取消",
+          "preheader": "你的钱会退还给你",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "{{order.event.name}} 已取消"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "非常抱歉，{{order.event.doors_at.date}} 的 {{order.event.name}} 已取消。",
+                  "你在线支付了 {{order.online_in}}。这笔钱会退回到你付款时使用的银行卡或 PayPal 账户。"
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "查看我的订单",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "你有这场演出的门票 · 订单 {{order.number}}。 {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "zh-TW": {
+          "subject": "{{order.event.doors_at.date}} 的 {{order.event.name}} 已取消",
+          "preheader": "你的款項將退還給你",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "{{order.event.name}} 已取消"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "很抱歉，{{order.event.doors_at.date}} 的 {{order.event.name}} 已取消。",
+                  "你已線上付款 {{order.online_in}}。這筆款項會退回到你付款時使用的信用卡或 PayPal 帳戶。"
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "查看我的訂單",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "你持有這場演出的票 · 訂單 {{order.number}}。 {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        }
+      }
+    },
+    {
       "key": "events-cancelled-holder",
       "name": {
         "en-US": "Your show is cancelled (a friend's ticket)",
@@ -27814,8 +28194,7 @@
               "block": "email.heading",
               "id": "heading",
               "data": {
-                "text": "Refund recorded",
-                "onlyWithout": "refund.payment_id"
+                "text": "Refund recorded"
               }
             },
             {
@@ -27824,26 +28203,7 @@
               "data": {
                 "paras": [
                   "We've recorded {{refund.amount}} back to you for order {{order.number}}. It reaches you {{practice.refund_payback_text}}."
-                ],
-                "onlyWithout": "refund.payment_id"
-              }
-            },
-            {
-              "block": "email.heading",
-              "id": "heading-online",
-              "data": {
-                "text": "Refund sent",
-                "onlyWith": "refund.payment_id"
-              }
-            },
-            {
-              "block": "email.text",
-              "id": "body-online",
-              "data": {
-                "paras": [
-                  "We've sent {{refund.amount}} back to the card or PayPal account you paid with, for order {{order.number}}. It can take a few days to show."
-                ],
-                "onlyWith": "refund.payment_id"
+                ]
               }
             },
             {
@@ -27865,8 +28225,7 @@
               "block": "email.heading",
               "id": "heading",
               "data": {
-                "text": "Erstattung erfasst",
-                "onlyWithout": "refund.payment_id"
+                "text": "Erstattung erfasst"
               }
             },
             {
@@ -27875,26 +28234,7 @@
               "data": {
                 "paras": [
                   "Wir haben für Bestellung {{order.number}} eine Erstattung von {{refund.amount}} an dich erfasst. Das Geld kommt {{practice.refund_payback_text}} bei dir an."
-                ],
-                "onlyWithout": "refund.payment_id"
-              }
-            },
-            {
-              "block": "email.heading",
-              "id": "heading-online",
-              "data": {
-                "text": "Erstattung gesendet",
-                "onlyWith": "refund.payment_id"
-              }
-            },
-            {
-              "block": "email.text",
-              "id": "body-online",
-              "data": {
-                "paras": [
-                  "Wir haben {{refund.amount}} für Bestellung {{order.number}} zurück auf die Karte oder das PayPal-Konto geschickt, mit dem du bezahlt hast. Es kann ein paar Tage dauern, bis du es siehst."
-                ],
-                "onlyWith": "refund.payment_id"
+                ]
               }
             },
             {
@@ -27916,8 +28256,7 @@
               "block": "email.heading",
               "id": "heading",
               "data": {
-                "text": "Remboursement enregistré",
-                "onlyWithout": "refund.payment_id"
+                "text": "Remboursement enregistré"
               }
             },
             {
@@ -27926,26 +28265,7 @@
               "data": {
                 "paras": [
                   "Nous avons enregistré un remboursement de {{refund.amount}} pour la commande {{order.number}}. Vous le recevrez {{practice.refund_payback_text}}."
-                ],
-                "onlyWithout": "refund.payment_id"
-              }
-            },
-            {
-              "block": "email.heading",
-              "id": "heading-online",
-              "data": {
-                "text": "Remboursement envoyé",
-                "onlyWith": "refund.payment_id"
-              }
-            },
-            {
-              "block": "email.text",
-              "id": "body-online",
-              "data": {
-                "paras": [
-                  "Nous avons renvoyé {{refund.amount}} sur la carte ou le compte PayPal utilisé pour la commande {{order.number}}. Cela peut prendre quelques jours avant d'apparaître."
-                ],
-                "onlyWith": "refund.payment_id"
+                ]
               }
             },
             {
@@ -27967,8 +28287,7 @@
               "block": "email.heading",
               "id": "heading",
               "data": {
-                "text": "Refusion registreret",
-                "onlyWithout": "refund.payment_id"
+                "text": "Refusion registreret"
               }
             },
             {
@@ -27977,26 +28296,7 @@
               "data": {
                 "paras": [
                   "Vi har registreret en refusion på {{refund.amount}} til dig for ordre {{order.number}}. Pengene er hos dig {{practice.refund_payback_text}}."
-                ],
-                "onlyWithout": "refund.payment_id"
-              }
-            },
-            {
-              "block": "email.heading",
-              "id": "heading-online",
-              "data": {
-                "text": "Refusion sendt",
-                "onlyWith": "refund.payment_id"
-              }
-            },
-            {
-              "block": "email.text",
-              "id": "body-online",
-              "data": {
-                "paras": [
-                  "Vi har sendt {{refund.amount}} tilbage til det kort eller den PayPal-konto, du betalte ordre {{order.number}} med. Der kan gå et par dage, før du kan se det."
-                ],
-                "onlyWith": "refund.payment_id"
+                ]
               }
             },
             {
@@ -28018,8 +28318,7 @@
               "block": "email.heading",
               "id": "heading",
               "data": {
-                "text": "Vrácení peněz zaznamenáno",
-                "onlyWithout": "refund.payment_id"
+                "text": "Vrácení peněz zaznamenáno"
               }
             },
             {
@@ -28028,26 +28327,7 @@
               "data": {
                 "paras": [
                   "Za objednávku {{order.number}} jsme zaznamenali vrácení {{refund.amount}}. Peníze k vám dorazí {{practice.refund_payback_text}}."
-                ],
-                "onlyWithout": "refund.payment_id"
-              }
-            },
-            {
-              "block": "email.heading",
-              "id": "heading-online",
-              "data": {
-                "text": "Peníze odeslány zpět",
-                "onlyWith": "refund.payment_id"
-              }
-            },
-            {
-              "block": "email.text",
-              "id": "body-online",
-              "data": {
-                "paras": [
-                  "Poslali jsme {{refund.amount}} za objednávku {{order.number}} zpět na kartu nebo účet PayPal, kterým jste platili. Může trvat několik dní, než se objeví."
-                ],
-                "onlyWith": "refund.payment_id"
+                ]
               }
             },
             {
@@ -28069,8 +28349,7 @@
               "block": "email.heading",
               "id": "heading",
               "data": {
-                "text": "سُجّل الاسترداد",
-                "onlyWithout": "refund.payment_id"
+                "text": "سُجّل الاسترداد"
               }
             },
             {
@@ -28079,26 +28358,7 @@
               "data": {
                 "paras": [
                   "سجّلنا رد {{refund.amount}} إليك عن الطلب {{order.number}}. سيصلك المبلغ {{practice.refund_payback_text}}."
-                ],
-                "onlyWithout": "refund.payment_id"
-              }
-            },
-            {
-              "block": "email.heading",
-              "id": "heading-online",
-              "data": {
-                "text": "تم إرسال المبلغ المسترد",
-                "onlyWith": "refund.payment_id"
-              }
-            },
-            {
-              "block": "email.text",
-              "id": "body-online",
-              "data": {
-                "paras": [
-                  "أرسلنا {{refund.amount}} عن الطلب {{order.number}} إلى البطاقة أو حساب PayPal الذي دفعت به. قد يستغرق ظهوره بضعة أيام."
-                ],
-                "onlyWith": "refund.payment_id"
+                ]
               }
             },
             {
@@ -28120,8 +28380,7 @@
               "block": "email.heading",
               "id": "heading",
               "data": {
-                "text": "退款已记录",
-                "onlyWithout": "refund.payment_id"
+                "text": "退款已记录"
               }
             },
             {
@@ -28130,26 +28389,7 @@
               "data": {
                 "paras": [
                   "我们已为订单 {{order.number}} 记录了 {{refund.amount}} 的退款，{{practice.refund_payback_text}}到账。"
-                ],
-                "onlyWithout": "refund.payment_id"
-              }
-            },
-            {
-              "block": "email.heading",
-              "id": "heading-online",
-              "data": {
-                "text": "退款已发出",
-                "onlyWith": "refund.payment_id"
-              }
-            },
-            {
-              "block": "email.text",
-              "id": "body-online",
-              "data": {
-                "paras": [
-                  "我们已将订单 {{order.number}} 的 {{refund.amount}} 退回到你付款时使用的银行卡或 PayPal 账户。到账可能需要几天时间。"
-                ],
-                "onlyWith": "refund.payment_id"
+                ]
               }
             },
             {
@@ -28171,8 +28411,7 @@
               "block": "email.heading",
               "id": "heading",
               "data": {
-                "text": "退款已登記",
-                "onlyWithout": "refund.payment_id"
+                "text": "退款已登記"
               }
             },
             {
@@ -28181,26 +28420,279 @@
               "data": {
                 "paras": [
                   "我們已登記訂單 {{order.number}} 退還你 {{refund.amount}}。款項會在 {{practice.refund_payback_text}} 退到你手上。"
-                ],
-                "onlyWithout": "refund.payment_id"
+                ]
               }
             },
             {
-              "block": "email.heading",
-              "id": "heading-online",
+              "block": "email.button",
+              "id": "open",
               "data": {
-                "text": "退款已送出",
-                "onlyWith": "refund.payment_id"
+                "label": "查看我的訂單",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "訂單 {{order.number}} · {{order.event.name}}。 {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        }
+      }
+    },
+    {
+      "key": "events-refund-sent",
+      "name": {
+        "en-US": "Refund sent",
+        "de-DE": "Erstattung gesendet",
+        "fr-FR": "Remboursement envoyé",
+        "da-DK": "Refusion sendt",
+        "cs-CZ": "Peníze odeslány zpět",
+        "ar-EG": "تم إرسال المبلغ المسترد",
+        "zh-CN": "退款已发出",
+        "zh-TW": "退款已送出"
+      },
+      "vars": [
+        "manage_url",
+        "order.event.name",
+        "order.link_token",
+        "order.number",
+        "practice.address",
+        "practice.contact_email",
+        "refund.amount"
+      ],
+      "locales": {
+        "en-US": {
+          "subject": "Your refund for {{order.event.name}} · {{order.number}}",
+          "preheader": "{{refund.amount}} back to you",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Refund sent"
               }
             },
             {
               "block": "email.text",
-              "id": "body-online",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "We've sent {{refund.amount}} back to the card or PayPal account you paid with, for order {{order.number}}. It can take a few days to show."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "See my order",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Order {{order.number}} · {{order.event.name}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "de-DE": {
+          "subject": "Deine Erstattung für {{order.event.name}} · {{order.number}}",
+          "preheader": "{{refund.amount}} zurück an dich",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Erstattung gesendet"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Wir haben {{refund.amount}} für Bestellung {{order.number}} zurück auf die Karte oder das PayPal-Konto geschickt, mit dem du bezahlt hast. Es kann ein paar Tage dauern, bis du es siehst."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Meine Bestellung ansehen",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Bestellung {{order.number}} · {{order.event.name}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "fr-FR": {
+          "subject": "Votre remboursement pour {{order.event.name}} · {{order.number}}",
+          "preheader": "{{refund.amount}} vous est remboursé",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Remboursement envoyé"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Nous avons renvoyé {{refund.amount}} sur la carte ou le compte PayPal utilisé pour la commande {{order.number}}. Cela peut prendre quelques jours avant d'apparaître."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Voir ma commande",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Commande {{order.number}} · {{order.event.name}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "da-DK": {
+          "subject": "Din refusion for {{order.event.name}} · {{order.number}}",
+          "preheader": "{{refund.amount}} tilbage til dig",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Refusion sendt"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Vi har sendt {{refund.amount}} tilbage til det kort eller den PayPal-konto, du betalte ordre {{order.number}} med. Der kan gå et par dage, før du kan se det."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Se min ordre",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Ordre {{order.number}} · {{order.event.name}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "cs-CZ": {
+          "subject": "Vrácení peněz za {{order.event.name}} · {{order.number}}",
+          "preheader": "{{refund.amount}} zpět pro vás",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "Peníze odeslány zpět"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "Poslali jsme {{refund.amount}} za objednávku {{order.number}} zpět na kartu nebo účet PayPal, kterým jste platili. Může trvat několik dní, než se objeví."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "Zobrazit objednávku",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "Objednávka {{order.number}} · {{order.event.name}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "ar-EG": {
+          "subject": "استرداد مبلغك لحضور {{order.event.name}} · {{order.number}}",
+          "preheader": "{{refund.amount}} يعود إليك",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "تم إرسال المبلغ المسترد"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "أرسلنا {{refund.amount}} عن الطلب {{order.number}} إلى البطاقة أو حساب PayPal الذي دفعت به. قد يستغرق ظهوره بضعة أيام."
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "عرض طلبي",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "الطلب {{order.number}} · {{order.event.name}}. {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "zh-CN": {
+          "subject": "你的 {{order.event.name}} 退款 · {{order.number}}",
+          "preheader": "{{refund.amount}} 已退给你",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "退款已发出"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
+              "data": {
+                "paras": [
+                  "我们已将订单 {{order.number}} 的 {{refund.amount}} 退回到你付款时使用的银行卡或 PayPal 账户。到账可能需要几天时间。"
+                ]
+              }
+            },
+            {
+              "block": "email.button",
+              "id": "open",
+              "data": {
+                "label": "查看我的订单",
+                "url": "{{manage_url}}#{{order.link_token}}"
+              }
+            }
+          ],
+          "footer": "订单 {{order.number}} · {{order.event.name}}。 {{appName}} · {{practice.address}} · {{practice.contact_email}}"
+        },
+        "zh-TW": {
+          "subject": "你的 {{order.event.name}} 退款 · {{order.number}}",
+          "preheader": "{{refund.amount}} 已退還給你",
+          "blocks": [
+            {
+              "block": "email.heading",
+              "id": "heading",
+              "data": {
+                "text": "退款已送出"
+              }
+            },
+            {
+              "block": "email.text",
+              "id": "body",
               "data": {
                 "paras": [
                   "我們已將訂單 {{order.number}} 的 {{refund.amount}} 退回到你付款時使用的信用卡或 PayPal 帳戶。可能需要幾天才會顯示。"
-                ],
-                "onlyWith": "refund.payment_id"
+                ]
               }
             },
             {
@@ -29354,7 +29846,10 @@
             "overdue",
             "released",
             "not_collected"
-          ]
+          ],
+          "set": {
+            "paid_method": "online"
+          }
         },
         "customerEmail": "email",
         "payableWhen": [

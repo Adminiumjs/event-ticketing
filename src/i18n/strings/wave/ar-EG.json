@@ -1487,5 +1487,6 @@
  "Refund approved. {amount} goes back to the card or PayPal account you paid with.": "تمت الموافقة على الاسترداد. يعود {amount} إلى البطاقة أو حساب PayPal الذي دفعت به.",
  "Paid online": "مدفوع عبر الإنترنت",
  "Your bank is confirming the payment": "يؤكد بنكك الدفع",
- "Some ways to pay take a few days. Please don't pay again. We'll email you when it has gone through.": "بعض طرق الدفع تستغرق بضعة أيام. من فضلك لا تدفع مرة أخرى. سنرسل إليك بريدا إلكترونيا عندما يكتمل الدفع."
+ "Some ways to pay take a few days. Please don't pay again. We'll email you when it has gone through.": "بعض طرق الدفع تستغرق بضعة أيام. من فضلك لا تدفع مرة أخرى. سنرسل إليك بريدا إلكترونيا عندما يكتمل الدفع.",
+ "Refund sent": "تم إرسال المبلغ المسترد"
 }

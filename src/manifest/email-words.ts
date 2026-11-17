@@ -256,6 +256,18 @@ export const EMAIL_DE: EmailWords = {
     "button": "Meine Bestellung ansehen",
     "foot": "Du hast Tickets für diese Show · Bestellung {{order.number}}."
   },
+  "cancelled-online": {
+    "name": "Deine Show fällt aus (online bezahlt)",
+    "subject": "{{order.event.name}} am {{order.event.doors_at.date}} fällt aus",
+    "preheader": "Du bekommst dein Geld zurück",
+    "heading": "{{order.event.name}} fällt aus",
+    "paras": [
+      "Es tut uns leid – {{order.event.name}} am {{order.event.doors_at.date}} fällt aus.",
+      "Du hast {{order.online_in}} online bezahlt. Das Geld geht zurück auf die Karte oder das PayPal-Konto, mit dem du bezahlt hast."
+    ],
+    "button": "Meine Bestellung ansehen",
+    "foot": "Du hast Tickets für diese Show · Bestellung {{order.number}}."
+  },
   "cancelled-holder": {
     "name": "Deine Show fällt aus (Ticket von Freunden)",
     "subject": "{{ticket.event.name}} am {{ticket.event.doors_at.date}} fällt aus",
@@ -324,8 +336,17 @@ export const EMAIL_DE: EmailWords = {
     "button": "Meine Bestellung ansehen",
     "foot": "Bestellung {{order.number}} · {{order.event.name}}."
   },
-  "refundSentHeading": "Erstattung gesendet",
-  "refundSentPara": "Wir haben {{refund.amount}} für Bestellung {{order.number}} zurück auf die Karte oder das PayPal-Konto geschickt, mit dem du bezahlt hast. Es kann ein paar Tage dauern, bis du es siehst.",
+  "refund-sent": {
+    "name": "Erstattung gesendet",
+    "subject": "Deine Erstattung für {{order.event.name}} · {{order.number}}",
+    "preheader": "{{refund.amount}} zurück an dich",
+    "heading": "Erstattung gesendet",
+    "paras": [
+      "Wir haben {{refund.amount}} für Bestellung {{order.number}} zurück auf die Karte oder das PayPal-Konto geschickt, mit dem du bezahlt hast. Es kann ein paar Tage dauern, bis du es siehst."
+    ],
+    "button": "Meine Bestellung ansehen",
+    "foot": "Bestellung {{order.number}} · {{order.event.name}}."
+  },
   "tickets-cancelled": {
     "name": "Tickets storniert",
     "subject": "Tickets deiner Bestellung für {{order.event.name}} sind storniert · {{order.number}}",
@@ -619,6 +640,18 @@ export const EMAIL_FR: EmailWords = {
     "button": "Voir ma commande",
     "foot": "Vous avez des billets pour ce spectacle · commande {{order.number}}."
   },
+  "cancelled-online": {
+    "name": "Votre spectacle est annulé (payé en ligne)",
+    "subject": "{{order.event.name}} du {{order.event.doors_at.date}} est annulé",
+    "preheader": "Vous serez remboursé",
+    "heading": "{{order.event.name}} est annulé",
+    "paras": [
+      "Nous sommes désolés : {{order.event.name}} du {{order.event.doors_at.date}} est annulé.",
+      "Vous avez payé {{order.online_in}} en ligne. La somme revient sur la carte ou le compte PayPal utilisé pour payer."
+    ],
+    "button": "Voir ma commande",
+    "foot": "Vous avez des billets pour ce spectacle · commande {{order.number}}."
+  },
   "cancelled-holder": {
     "name": "Votre spectacle est annulé (billet d'un proche)",
     "subject": "{{ticket.event.name}} du {{ticket.event.doors_at.date}} est annulé",
@@ -687,8 +720,17 @@ export const EMAIL_FR: EmailWords = {
     "button": "Voir ma commande",
     "foot": "Commande {{order.number}} · {{order.event.name}}."
   },
-  "refundSentHeading": "Remboursement envoyé",
-  "refundSentPara": "Nous avons renvoyé {{refund.amount}} sur la carte ou le compte PayPal utilisé pour la commande {{order.number}}. Cela peut prendre quelques jours avant d'apparaître.",
+  "refund-sent": {
+    "name": "Remboursement envoyé",
+    "subject": "Votre remboursement pour {{order.event.name}} · {{order.number}}",
+    "preheader": "{{refund.amount}} vous est remboursé",
+    "heading": "Remboursement envoyé",
+    "paras": [
+      "Nous avons renvoyé {{refund.amount}} sur la carte ou le compte PayPal utilisé pour la commande {{order.number}}. Cela peut prendre quelques jours avant d'apparaître."
+    ],
+    "button": "Voir ma commande",
+    "foot": "Commande {{order.number}} · {{order.event.name}}."
+  },
   "tickets-cancelled": {
     "name": "Billets annulés",
     "subject": "Des billets de votre commande pour {{order.event.name}} sont annulés · {{order.number}}",
@@ -982,6 +1024,18 @@ export const EMAIL_DA: EmailWords = {
     "button": "Se min ordre",
     "foot": "Du har billetter til dette arrangement · ordre {{order.number}}."
   },
+  "cancelled-online": {
+    "name": "Dit arrangement er aflyst (betalt online)",
+    "subject": "{{order.event.name}} {{order.event.doors_at.date}} er aflyst",
+    "preheader": "Du får dine penge tilbage",
+    "heading": "{{order.event.name}} er aflyst",
+    "paras": [
+      "Vi beklager – {{order.event.name}} {{order.event.doors_at.date}} er aflyst.",
+      "Du betalte {{order.online_in}} online. Pengene går tilbage til det kort eller den PayPal-konto, du betalte med."
+    ],
+    "button": "Se min ordre",
+    "foot": "Du har billetter til dette arrangement · ordre {{order.number}}."
+  },
   "cancelled-holder": {
     "name": "Dit arrangement er aflyst (en vens billet)",
     "subject": "{{ticket.event.name}} {{ticket.event.doors_at.date}} er aflyst",
@@ -1050,8 +1104,17 @@ export const EMAIL_DA: EmailWords = {
     "button": "Se min ordre",
     "foot": "Ordre {{order.number}} · {{order.event.name}}."
   },
-  "refundSentHeading": "Refusion sendt",
-  "refundSentPara": "Vi har sendt {{refund.amount}} tilbage til det kort eller den PayPal-konto, du betalte ordre {{order.number}} med. Der kan gå et par dage, før du kan se det.",
+  "refund-sent": {
+    "name": "Refusion sendt",
+    "subject": "Din refusion for {{order.event.name}} · {{order.number}}",
+    "preheader": "{{refund.amount}} tilbage til dig",
+    "heading": "Refusion sendt",
+    "paras": [
+      "Vi har sendt {{refund.amount}} tilbage til det kort eller den PayPal-konto, du betalte ordre {{order.number}} med. Der kan gå et par dage, før du kan se det."
+    ],
+    "button": "Se min ordre",
+    "foot": "Ordre {{order.number}} · {{order.event.name}}."
+  },
   "tickets-cancelled": {
     "name": "Billetter annulleret",
     "subject": "Billetter på din ordre til {{order.event.name}} er annulleret · {{order.number}}",
@@ -1345,6 +1408,18 @@ export const EMAIL_CS: EmailWords = {
     "button": "Zobrazit objednávku",
     "foot": "Máte vstupenky na tuto akci · objednávka {{order.number}}."
   },
+  "cancelled-online": {
+    "name": "Vaše akce je zrušena (zaplaceno online)",
+    "subject": "Akce {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena",
+    "preheader": "Peníze dostanete zpět",
+    "heading": "Akce {{order.event.name}} je zrušena",
+    "paras": [
+      "Je nám líto – akce {{order.event.name}} dne {{order.event.doors_at.date}} je zrušena.",
+      "Zaplatili jste {{order.online_in}} online. Peníze se vrátí na kartu nebo účet PayPal, kterým jste platili."
+    ],
+    "button": "Zobrazit objednávku",
+    "foot": "Máte vstupenky na tuto akci · objednávka {{order.number}}."
+  },
   "cancelled-holder": {
     "name": "Vaše akce je zrušená (vstupenka od kamaráda)",
     "subject": "Akce {{ticket.event.name}} dne {{ticket.event.doors_at.date}} je zrušena",
@@ -1413,8 +1488,17 @@ export const EMAIL_CS: EmailWords = {
     "button": "Zobrazit objednávku",
     "foot": "Objednávka {{order.number}} · {{order.event.name}}."
   },
-  "refundSentHeading": "Peníze odeslány zpět",
-  "refundSentPara": "Poslali jsme {{refund.amount}} za objednávku {{order.number}} zpět na kartu nebo účet PayPal, kterým jste platili. Může trvat několik dní, než se objeví.",
+  "refund-sent": {
+    "name": "Peníze odeslány zpět",
+    "subject": "Vrácení peněz za {{order.event.name}} · {{order.number}}",
+    "preheader": "{{refund.amount}} zpět pro vás",
+    "heading": "Peníze odeslány zpět",
+    "paras": [
+      "Poslali jsme {{refund.amount}} za objednávku {{order.number}} zpět na kartu nebo účet PayPal, kterým jste platili. Může trvat několik dní, než se objeví."
+    ],
+    "button": "Zobrazit objednávku",
+    "foot": "Objednávka {{order.number}} · {{order.event.name}}."
+  },
   "tickets-cancelled": {
     "name": "Vstupenky zrušeny",
     "subject": "Vstupenky ve vaší objednávce na {{order.event.name}} jsou zrušené · {{order.number}}",
@@ -1708,6 +1792,18 @@ export const EMAIL_AR: EmailWords = {
     "button": "عرض طلبي",
     "foot": "لديك تذاكر لهذا الحفل · الطلب {{order.number}}."
   },
+  "cancelled-online": {
+    "name": "تم إلغاء حفلك (مدفوع عبر الإنترنت)",
+    "subject": "أُلغي {{order.event.name}} المقرر في {{order.event.doors_at.date}}",
+    "preheader": "ستسترد أموالك",
+    "heading": "أُلغي {{order.event.name}}",
+    "paras": [
+      "نأسف لإبلاغك بإلغاء {{order.event.name}} المقرر في {{order.event.doors_at.date}}.",
+      "دفعت {{order.online_in}} عبر الإنترنت. سيعود المبلغ إلى البطاقة أو حساب PayPal الذي دفعت به."
+    ],
+    "button": "عرض طلبي",
+    "foot": "لديك تذاكر لهذا الحفل · الطلب {{order.number}}."
+  },
   "cancelled-holder": {
     "name": "أُلغي حفلك (تذكرة من صديق)",
     "subject": "أُلغي {{ticket.event.name}} المقرر في {{ticket.event.doors_at.date}}",
@@ -1776,8 +1872,17 @@ export const EMAIL_AR: EmailWords = {
     "button": "عرض طلبي",
     "foot": "الطلب {{order.number}} · {{order.event.name}}."
   },
-  "refundSentHeading": "تم إرسال المبلغ المسترد",
-  "refundSentPara": "أرسلنا {{refund.amount}} عن الطلب {{order.number}} إلى البطاقة أو حساب PayPal الذي دفعت به. قد يستغرق ظهوره بضعة أيام.",
+  "refund-sent": {
+    "name": "تم إرسال المبلغ المسترد",
+    "subject": "استرداد مبلغك لحضور {{order.event.name}} · {{order.number}}",
+    "preheader": "{{refund.amount}} يعود إليك",
+    "heading": "تم إرسال المبلغ المسترد",
+    "paras": [
+      "أرسلنا {{refund.amount}} عن الطلب {{order.number}} إلى البطاقة أو حساب PayPal الذي دفعت به. قد يستغرق ظهوره بضعة أيام."
+    ],
+    "button": "عرض طلبي",
+    "foot": "الطلب {{order.number}} · {{order.event.name}}."
+  },
   "tickets-cancelled": {
     "name": "أُلغيت التذاكر",
     "subject": "أُلغيت تذاكر من طلبك لحضور {{order.event.name}} · {{order.number}}",
@@ -2071,6 +2176,18 @@ export const EMAIL_ZH_CN: EmailWords = {
     "button": "查看我的订单",
     "foot": "你有这场演出的门票 · 订单 {{order.number}}。"
   },
+  "cancelled-online": {
+    "name": "你的演出已取消（已在线支付）",
+    "subject": "{{order.event.doors_at.date}} 的 {{order.event.name}} 已取消",
+    "preheader": "你的钱会退还给你",
+    "heading": "{{order.event.name}} 已取消",
+    "paras": [
+      "非常抱歉，{{order.event.doors_at.date}} 的 {{order.event.name}} 已取消。",
+      "你在线支付了 {{order.online_in}}。这笔钱会退回到你付款时使用的银行卡或 PayPal 账户。"
+    ],
+    "button": "查看我的订单",
+    "foot": "你有这场演出的门票 · 订单 {{order.number}}。"
+  },
   "cancelled-holder": {
     "name": "你的演出已取消（朋友送的票）",
     "subject": "{{ticket.event.doors_at.date}} 的 {{ticket.event.name}} 已取消",
@@ -2139,8 +2256,17 @@ export const EMAIL_ZH_CN: EmailWords = {
     "button": "查看我的订单",
     "foot": "订单 {{order.number}} · {{order.event.name}}。"
   },
-  "refundSentHeading": "退款已发出",
-  "refundSentPara": "我们已将订单 {{order.number}} 的 {{refund.amount}} 退回到你付款时使用的银行卡或 PayPal 账户。到账可能需要几天时间。",
+  "refund-sent": {
+    "name": "退款已发出",
+    "subject": "你的 {{order.event.name}} 退款 · {{order.number}}",
+    "preheader": "{{refund.amount}} 已退给你",
+    "heading": "退款已发出",
+    "paras": [
+      "我们已将订单 {{order.number}} 的 {{refund.amount}} 退回到你付款时使用的银行卡或 PayPal 账户。到账可能需要几天时间。"
+    ],
+    "button": "查看我的订单",
+    "foot": "订单 {{order.number}} · {{order.event.name}}。"
+  },
   "tickets-cancelled": {
     "name": "门票已取消",
     "subject": "你的 {{order.event.name}} 订单中的门票已取消 · {{order.number}}",
@@ -2434,6 +2560,18 @@ export const EMAIL_ZH_TW: EmailWords = {
     "button": "查看我的訂單",
     "foot": "你持有這場演出的票 · 訂單 {{order.number}}。"
   },
+  "cancelled-online": {
+    "name": "你的演出已取消（已線上付款）",
+    "subject": "{{order.event.doors_at.date}} 的 {{order.event.name}} 已取消",
+    "preheader": "你的款項將退還給你",
+    "heading": "{{order.event.name}} 已取消",
+    "paras": [
+      "很抱歉，{{order.event.doors_at.date}} 的 {{order.event.name}} 已取消。",
+      "你已線上付款 {{order.online_in}}。這筆款項會退回到你付款時使用的信用卡或 PayPal 帳戶。"
+    ],
+    "button": "查看我的訂單",
+    "foot": "你持有這場演出的票 · 訂單 {{order.number}}。"
+  },
   "cancelled-holder": {
     "name": "你的演出已取消（朋友送的票）",
     "subject": "{{ticket.event.doors_at.date}} 的 {{ticket.event.name}} 已取消",
@@ -2502,8 +2640,17 @@ export const EMAIL_ZH_TW: EmailWords = {
     "button": "查看我的訂單",
     "foot": "訂單 {{order.number}} · {{order.event.name}}。"
   },
-  "refundSentHeading": "退款已送出",
-  "refundSentPara": "我們已將訂單 {{order.number}} 的 {{refund.amount}} 退回到你付款時使用的信用卡或 PayPal 帳戶。可能需要幾天才會顯示。",
+  "refund-sent": {
+    "name": "退款已送出",
+    "subject": "你的 {{order.event.name}} 退款 · {{order.number}}",
+    "preheader": "{{refund.amount}} 已退還給你",
+    "heading": "退款已送出",
+    "paras": [
+      "我們已將訂單 {{order.number}} 的 {{refund.amount}} 退回到你付款時使用的信用卡或 PayPal 帳戶。可能需要幾天才會顯示。"
+    ],
+    "button": "查看我的訂單",
+    "foot": "訂單 {{order.number}} · {{order.event.name}}。"
+  },
   "tickets-cancelled": {
     "name": "票券已取消",
     "subject": "你的 {{order.event.name}} 訂單中有票券已取消 · {{order.number}}",

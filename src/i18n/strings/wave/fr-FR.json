@@ -1487,5 +1487,6 @@
  "Refund approved. {amount} goes back to the card or PayPal account you paid with.": "Remboursement accepté. {amount} revient sur la carte ou le compte PayPal utilisé pour payer.",
  "Paid online": "Payé en ligne",
  "Your bank is confirming the payment": "Votre banque confirme le paiement",
- "Some ways to pay take a few days. Please don't pay again. We'll email you when it has gone through.": "Certains moyens de paiement prennent quelques jours. Ne payez pas une deuxième fois. Nous vous enverrons un e-mail dès qu'il sera passé."
+ "Some ways to pay take a few days. Please don't pay again. We'll email you when it has gone through.": "Certains moyens de paiement prennent quelques jours. Ne payez pas une deuxième fois. Nous vous enverrons un e-mail dès qu'il sera passé.",
+ "Refund sent": "Remboursement envoyé"
 }

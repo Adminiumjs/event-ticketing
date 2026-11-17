@@ -277,6 +277,7 @@ export const EMAIL_KINDS: Record<string, string> = {
   moved: "Your show has moved",
   "cancelled-paid": "Your show is cancelled (paid)",
   "cancelled-unpaid": "Your show is cancelled (nothing paid)",
+  "cancelled-online": "Your show is cancelled (paid online)",
   "moved-holder": "Your show has moved (a friend's ticket)",
   "cancelled-holder": "Your show is cancelled (a friend's ticket)",
   tonight: "See you tonight",
@@ -284,6 +285,7 @@ export const EMAIL_KINDS: Record<string, string> = {
   "tonight-holder": "See you tonight (a friend's ticket)",
   "tomorrow-holder": "See you tomorrow (a friend's ticket)",
   "refund-recorded": "Refund recorded",
+  "refund-sent": "Refund sent",
   "tickets-cancelled": "Tickets cancelled",
   "refund-declined": "Refund request declined",
   broadcast: "A message about your show",
@@ -331,6 +333,9 @@ const AWAITING_BY_STAFF = {
   requires: { ...TRANSFER_OPEN, where: [{ column: "email", isNull: false }, { column: "no_transfer", lte: 0 }] },
 };
 const CANCELLED = { to: "cancelled", requires: { where: [{ column: "cancel_cause", isNull: false }] } };
+/** No payment for the order on its way: a move off paying online waits for it. */
+const NOT_LANDING = { noPaymentInFlight: true };
+const inFlightFree = (move: { to: string; requires: Record<string, unknown> }) => ({ ...move, requires: { ...move.requires, ...NOT_LANDING } });
 /** Paying online: only an order with something to pay. */
 const PAYING = { to: "paying", requires: { where: [{ column: "total", gt: 0 }] } };
 /**
@@ -346,8 +351,9 @@ const ORDER_STATES = {
   strict: true,
   moves: {
     held: [DOOR, CONFIRMING, NO_CHARGE, AWAITING_BY_STAFF, PAID, PAYING, "offered", "let_go", "expired", CANCELLED],
-    // Paid when the money lands; or another way to pay chosen while the hold runs.
-    paying: [PAID, DOOR, CONFIRMING, "let_go", "expired", CANCELLED],
+    // Paid when the money lands; or another way to pay chosen while the hold runs — never while a payment for it
+    // is landing (the buyer is told to wait, rather than leaving the order to pay twice).
+    paying: [PAID, inFlightFree(DOOR), inFlightFree(CONFIRMING), { to: "let_go", requires: NOT_LANDING }, "expired", CANCELLED],
     // The only way on to waiting is the confirm link in the email: no key the page holds lists it.
     confirming: ["awaiting_transfer", DOOR, NO_CHARGE, "let_go", "expired", CANCELLED],
     offered: [DOOR, CONFIRMING, NO_CHARGE, PAYING, "expired", CANCELLED],
@@ -909,21 +915,25 @@ export const TABLES: Table[] = [
       at("cancelled_at", "Cancelled", { ...opt, rules: stamp("now", onStatus("cancelled")) }),
       choice("cancel_cause", "Why it was cancelled", CANCEL_CAUSES, opt),
       text("cancel_reason", 240, "Note on the cancel", opt),
-      // Which cancellation email goes: 1 paid something, 2 paid nothing, 0 none (not the show's cancel).
+      // Which cancellation email goes: 1 paid something, 2 paid nothing, 3 paid online (it goes back to the card or
+      // the PayPal account it came from), 0 none (not the show's cancel).
       worked("cancel_email", "Cancellation email", {
         formula: {
           if: [
             eq("cancel_cause", "show"),
-            { if: [{ gt: [{ add: [{ coalesce: ["paid_in", 0] }, { coalesce: ["collected", 0] }] }, 0] }, 1, 2] },
+            {
+              if: [
+                { gt: [{ coalesce: ["online_in", 0] }, 0] },
+                3,
+                { if: [{ gt: [{ add: [{ coalesce: ["paid_in", 0] }, { coalesce: ["collected", 0] }] }, 0] }, 1, 2] },
+              ],
+            },
             0,
           ],
         },
       }),
-      // How it was paid: the box office and the door say so; "Online" is written when the buyer goes to pay online.
-      choice("paid_method", "Paid by", { bank_transfer: "Bank transfer", card: "Card", cash: "Cash", online: "Online" }, {
-        ...opt,
-        rules: { stamp: { set: { byOrigin: { public: "online" } }, on: onStatus("paying") } },
-      }),
+      // How it was paid: the box office and the door say so; a payment taken online writes "Online" with its move to paid.
+      choice("paid_method", "Paid by", { bank_transfer: "Bank transfer", card: "Card", cash: "Cash", online: "Online" }, opt),
       // The email a move to paid sends, by what the buyer has not had yet: 1 the tickets (paid by card or cash),
       // 2 the tickets with "payment received" (paid by transfer), 3 the tickets paid online, 0 none — their tickets
       // went out when they chose the door, or it was sold at the door itself.
@@ -1198,6 +1208,9 @@ export const TABLES: Table[] = [
       }),
       // What the refund takes off the order: all of it, unless the money could not be sent back online.
       money("counted", "Counted", { formula: { if: [eq("refund_state", "not-sent"), 0, { coalesce: ["amount", 0] }] } }),
+      // Which email the refund sends when it is made: 1 recorded by the box office; 0 none (voided, or sent back
+      // online: that one says "Refund sent" once the money is on its way back).
+      worked("refund_email", "Refund email", { formula: { if: [eq("voided", true), 0, { if: [eq("method", "online"), 0, 1] }] } }),
     ],
   },
   {

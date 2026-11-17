@@ -1780,9 +1780,9 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
           const total = Number((await aud.quote(body)).data["total"]);
           const made = await aud.buy({ ...body, expect: { total } }, key("pay"));
           const before = await aud.order();
-          // Paying online: the order waits as paying, with the hold it had, and "Online" for how it is paid.
+          // Paying online: the order waits as paying, with the hold it had; how it was paid is written only when it is.
           const paying = await aud.choose("paying");
-          expect([paying["status"], paying["held_until"], paying["paid_method"]]).toEqual(["paying", before.order["held_until"], "online"]);
+          expect([paying["status"], paying["held_until"], paying["paid_method"]]).toEqual(["paying", before.order["held_until"], null]);
           const box = await staffPort(ADMIN);
           const read = (await box.list("orders", { where: [{ column: "id", eq: made.data.id }] })).rows[0]!;
           expect([read["status"], Number(read["total"]), Number(read["balance"])]).toEqual(["paying", total, total]);
@@ -1819,6 +1819,60 @@ describe.skipIf(why !== null)(`the contract with a built Adminium${why === null 
           expect([stamped["method"], Number(stamped["counted"])]).toEqual(["online", 0]);
           const after = (await manager.list("orders", { where: [{ column: "id", eq: paid.id }] })).rows[0]!;
           expect([Number(after["refunded"]), Number(after["total"])]).toEqual([Number(paid["refunded"] ?? 0), Number(paid["total"])]);
+        }, 240_000);
+
+        /** Every email the outbox holds for a row, once the outbox is done with each: its kind and how it went. */
+        const mails = async (where: { column: string; eq: unknown }) => {
+          const box = await staffPort(ADMIN);
+          return until(async () => {
+            const list = (await box.list("messages", { where: [where] })).rows;
+            return list.every((m) => m["status"] !== "queued") ? list.map((m) => `${String(m["kind"])} ${String(m["status"])}`).sort() : undefined;
+          }, `the emails of ${where.column} ${String(where.eq)}`, 150_000);
+        };
+
+        it("sends the tickets paid online once: the move to paid queues one, and a later change to the order none", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const aud = await audience();
+          const venue = await aud.venue();
+          const cinder = venue.events.find((e) => e["name"] === "Cinder")!;
+          const std = venue.types.find((t) => t["event_id"] === cinder.id && t["name"] === "Standard")!;
+          const email = `paid.once.${engine}@waveform.dev`;
+          const body = { values: { event_id: cinder.id, room_id: cinder["room_id"], buyer_name: "Ana Ruiz", email, language: "en-US" }, tickets: [{ ticket_type_id: std.id }] };
+          const total = Number((await aud.quote(body)).data["total"]);
+          const made = await aud.buy({ ...body, expect: { total } }, key("paid-once"));
+          const held = await aud.order();
+          await aud.nameTicket(held.tickets[0]!.id, "Ana Ruiz");
+          expect((await aud.choose("paying"))["status"]).toBe("paying");
+          // The money as the pay page lands it, written here by the box office's hand (no payment service runs in
+          // the contract): one payment taken online, then the order's move to paid, as Adminium makes it.
+          const box = await staffPort(ADMIN);
+          await box.create("payments", { order_id: made.data.id, amount: total.toFixed(2), method: "online" });
+          const paid = await box.move(made.data.id, "paid", { paid_method: "online" }, "paying");
+          expect([paid["status"], Number(paid["paid_email"])]).toEqual(["paid", 3]);
+          // A later change to the paid order (a note) queues nothing more.
+          await box.update("orders", made.data.id, { note: "Seen at the box office" });
+          expect(await mails({ column: "order_id", eq: made.data.id })).toEqual(["tickets-online sent"]);
+        }, 240_000);
+
+        it("tells a refund sent back online once, when it is done; a refund the box office records keeps its own email", async (ctx) => {
+          needsWrites(() => ctx.skip());
+          const manager = await staffPort(MANAGER);
+          const paid = (await manager.list("orders", { where: [{ column: "status", eq: "paid" }, { column: "paid_method", eq: "cash" }], limit: 1 })).rows[0]!;
+          touched.add(paid.id);
+          const payment = (await manager.list("payments", { where: [{ column: "order_id", eq: paid.id }], limit: 1 })).rows[0]!;
+          // Recorded by hand: "Refund recorded", once, at the moment it is made.
+          const byHand = await manager.recordRefund(paid.id, 1, "cash", "goodwill", key("r-hand"));
+          expect(await mails({ column: "refund_id", eq: byHand.id })).toEqual(["refund-recorded sent"]);
+          // Sent back online: nothing when it is made, and none while it is not sent (the payment was not taken online).
+          const online = await manager.refundOnline(paid.id, payment.id, 1, "goodwill", null, key("r-online"));
+          await until(async () => (await manager.list("refunds", { where: [{ column: "id", eq: online.id }] })).rows.find((r) => r["refund_state"] === "not-sent"), "the refund stamped not sent", 120_000);
+          expect(await mails({ column: "refund_id", eq: online.id })).toEqual([]);
+          // Done (written here as Adminium stamps it once the service has the money on its way): "Refund sent", once;
+          // a later change to the refund sends nothing more.
+          const box = await staffPort(ADMIN);
+          await box.update("refunds", online.id, { refund_state: "done" });
+          await box.update("refunds", online.id, { note: "Back to the card" });
+          expect(await mails({ column: "refund_id", eq: online.id })).toEqual(["refund-sent sent"]);
         }, 240_000);
       });
 

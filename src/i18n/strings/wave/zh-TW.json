@@ -1487,5 +1487,6 @@
  "Refund approved. {amount} goes back to the card or PayPal account you paid with.": "退款已核准。{amount} 會退回到你付款時使用的信用卡或 PayPal 帳戶。",
  "Paid online": "已線上付款",
  "Your bank is confirming the payment": "你的銀行正在確認這筆付款",
- "Some ways to pay take a few days. Please don't pay again. We'll email you when it has gone through.": "有些付款方式需要幾天時間。請不要重複付款。付款完成後我們會寄信通知你。"
+ "Some ways to pay take a few days. Please don't pay again. We'll email you when it has gone through.": "有些付款方式需要幾天時間。請不要重複付款。付款完成後我們會寄信通知你。",
+ "Refund sent": "退款已送出"
 }

@@ -94,7 +94,7 @@ describe("Pay now on the demo", () => {
     expect([order["status"], order["paid_method"], order["online_in"], order["balance"]]).toEqual(["paid", "online", 48, 0]);
     const pay = o.demo.world.where("payments", (p) => p["order_id"] === orderId);
     expect(pay.map((p) => [p["method"], p["amount"]])).toEqual([["online", 48]]);
-    expect(o.demo.world.where("messages", (m) => m["order_id"] === orderId).map((m) => m["kind"])).toContain("tickets-online");
+    expect(o.demo.world.where("messages", (m) => m["order_id"] === orderId && String(m["kind"]).startsWith("tickets")).map((m) => m["kind"])).toEqual(["tickets-online"]);
     const gw = (await o.v())["gw"] as V;
     expect([o.app.state.scr, gw["heading"], gw["sub"], gw["paidHow"]]).toEqual(["going", "You're going!", "Your tickets are in your email.", "Paid online"]);
   }, 30_000);
@@ -254,6 +254,10 @@ describe("a show cancelled after its buyer paid online", () => {
     await o.demo.boxOffice.update("orders", orderId, { status: "cancelled", cancel_cause: "show" });
     const refunds = o.demo.world.where("refunds", (r) => r["order_id"] === orderId);
     expect(refunds.map((r) => [r["method"], r["amount"], r["refund_state"]])).toEqual([["online", 48, "done"]]);
+    // "Refund sent" once, when it is done; never "Refund recorded" for money sent back online. The order's own
+    // cancellation email is the one for an order paid online.
+    expect(o.demo.world.where("messages", (m) => m["refund_id"] === refunds[0]!.id).map((m) => m["kind"])).toEqual(["refund-sent"]);
+    expect(o.demo.world.where("messages", (m) => m["order_id"] === orderId && String(m["kind"]).startsWith("cancelled-")).map((m) => m["kind"])).toEqual(["cancelled-online"]);
     o.app.refresh("aud:");
     await o.app.arrive("o", `#${String(o.demo.world.get("orders", orderId)!["link_token"])}`);
     const gw = (await o.v())["gw"] as V;
